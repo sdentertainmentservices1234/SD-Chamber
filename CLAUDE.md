@@ -352,6 +352,22 @@ AUTHORITATIVE — NO cross-type fallback (picking Miscellaneous can't return a
 Registrar matter). Only an empty type searches all lists. The form message
 distinguishes "no list fetched for this date" from "not in the <type> list".
 
+## Calendar & brand visuals (Jul 2026 — calmed down)
+
+- Calendar cells are NEUTRAL. The only strong colour is a small workload DOT in
+  a pill beside the count: `.ld.lg`<5 green, `.ld.ly`5–10 amber, `.ld.lr`>10 red
+  (load = max(register next-dates, day-sheet entries)). Non-working days get one
+  faint mute + a thin left accent: `.day-hol` purple, `.day-vac` amber,
+  `.day-off` weekend (no accent) + a muted `.cal-tag`. One-line dot legend.
+  (Owner found the earlier full-cell tints overwhelming — keep it restrained.)
+- **Refresh button** (topbar, `#btnRefresh`/`hardRefresh`): clears caches +
+  updates SW + reloads with cache-buster — for installed PWAs holding an old
+  shell. sw.js CACHE bumped when the shell changes (currently v3).
+- Brand: circular seal emblem `.brand-mark` (navy field, double gold rule, gold
+  Fraunces SD) on the login + pending cards; `.sb-logo` is the ring-emblem
+  variant in the sidebar. Login = radial navy gradient, gold "CHAMBERS OF",
+  Fraunces name + short gold rule. Stay within navy #101418 / gold #cbb682.
+
 ## Out-of-app notification
 
 `waLink(uid, brief)` → WhatsApp deep link with prefilled nudge message;

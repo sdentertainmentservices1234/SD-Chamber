@@ -71,14 +71,14 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 /* ---------------- shell: sidebar + content ---------------- */
 #app{display:flex;min-height:100vh}
 .sidebar{width:var(--sb-w);background:var(--sidebar);color:var(--sidebar-ink);flex-shrink:0;display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;z-index:20}
-.sb-brand{padding:22px 20px 18px;border-bottom:1px solid rgba(255,255,255,.07)}
-.sb-brand .k{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--sidebar-ink-2)}
-.sb-brand .n{font-family:var(--serif);font-size:19px;font-weight:450;color:#f3f2ee;line-height:1.2;margin-top:3px}
+.sb-brand{padding:24px 20px 18px;border-bottom:1px solid rgba(203,182,130,.16)}
+.sb-brand .k{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#a58a4e}
+.sb-brand .n{font-family:var(--serif);font-size:20px;font-weight:450;color:#f3f2ee;line-height:1.2;margin-top:4px}
 .sb-brand .c{font-size:11.5px;color:var(--sidebar-ink-2);margin-top:4px;letter-spacing:.03em}
-/* SD monogram logo — gold Fraunces, echoing the app icon */
-.sb-logo{font-family:var(--serif);font-size:29px;font-weight:450;letter-spacing:3px;color:#cbb682;line-height:1;display:inline-block;position:relative;padding-bottom:9px;margin-bottom:12px}
-.sb-logo::after{content:"";position:absolute;left:2px;bottom:0;width:32px;height:1px;background:#cbb682;opacity:.75}
-.brand-mark{width:58px;height:58px;border-radius:15px;background:#101418;color:#cbb682;font-family:var(--serif);font-size:26px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 4px 16px rgba(16,20,24,.2)}
+/* SD monogram — gold Fraunces inside a hairline gold ring (echoes the seal) */
+.sb-logo{font-family:var(--serif);font-size:23px;font-weight:450;letter-spacing:1px;color:#cbb682;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(203,182,130,.55),0 0 0 3px var(--sidebar),0 0 0 4px rgba(203,182,130,.28);margin-bottom:14px}
+/* circular seal emblem — navy field, double gold rule, gold SD monogram */
+.brand-mark{width:70px;height:70px;border-radius:50%;background:radial-gradient(115% 115% at 50% 28%,#1c232c 0%,#0d1014 78%);color:#cbb682;font-family:var(--serif);font-size:28px;font-weight:450;letter-spacing:1.5px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;position:relative;box-shadow:0 0 0 1px rgba(203,182,130,.65),0 0 0 5px var(--bg),0 0 0 6px rgba(203,182,130,.4),0 12px 28px rgba(13,16,20,.3)}
 .sb-nav{padding:14px 12px;flex:1;display:flex;flex-direction:column;gap:2px}
 .sb-nav button{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;padding:10px 12px;border-radius:var(--r);font-size:14px;font-weight:450;color:var(--sidebar-ink);text-align:left;transition:background .12s}
 .sb-nav button .ic{font-size:18px;width:20px;text-align:center;color:var(--sidebar-ink-2);transition:color .12s}
@@ -211,30 +211,31 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .cal-cell:hover{border-color:var(--accent)}
 .cal-cell.blank{background:none;border:none;cursor:default;min-height:0}
 .cal-cell.wknd{background:var(--surface-2)}
-.cal-cell.hol{background:#f0edf5}                     /* holiday — soft purple */
-.cal-cell.partial{background:#fdf4e8}                 /* vacation — cream */
-.cal-cell.senoff{background:#eef2f7}                  /* Senior away — slate-blue */
-.cal-cell.load-g{background:#e9f2ec}                  /* <5 matters — green */
-.cal-cell.load-y{background:#f9f0d4}                  /* 5–10 — yellow */
-.cal-cell.load-r{background:#f9e2dc}                  /* >10 — red */
+/* Calm calendar: neutral cells; one thin left accent for non-working days;
+   workload lives in a single small dot beside the count. */
+.cal-cell.day-off{background:var(--surface-2)}
+.cal-cell.day-hol{background:var(--surface-2);box-shadow:inset 3px 0 0 #8b7fb0}
+.cal-cell.day-vac{background:var(--surface-2);box-shadow:inset 3px 0 0 #d9a35a}
 .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.cal-cell.day-hol.today{box-shadow:inset 3px 0 0 #8b7fb0,0 0 0 1px var(--accent)}
+.cal-cell.day-vac.today{box-shadow:inset 3px 0 0 #d9a35a,0 0 0 1px var(--accent)}
+.cal-load{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1px 8px 1px 6px}
+.ld{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.ld.lg{background:#4e7a5e}.ld.ly{background:#c99a2e}.ld.lr{background:#b4472e}
+.cal-tag{font-size:10px;line-height:1.25;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-tag.t-hol{color:#6a5a86}.cal-tag.t-vac{color:#a3612a}.cal-tag.t-off{color:var(--ink-3)}
+.lg-grp{display:inline-flex;align-items:center;gap:4px}.lg-sep{opacity:.5}
+.lg-key{padding-left:2px}.lg-key.t-hol{color:#6a5a86}.lg-key.t-vac{color:#a3612a}.lg-key.t-off{color:var(--ink-3)}
 .cal-top{display:flex;justify-content:space-between;align-items:center}
 .cal-num{font-family:"Fraunces",serif;font-size:15px;color:var(--ink)}
 .cal-cell.today .cal-num{color:var(--accent-ink);font-weight:600}
 .cal-sen{color:var(--warn);font-size:14px}
-.cal-hol{font-size:10.5px;color:#6a5a86;line-height:1.3}
-.cal-hol.nonsit{color:var(--ink-3)}
-.cal-hol.partsit{color:#a3612a}
-.leg-sw{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.14);vertical-align:-1px}
-.leg-sw.lg{background:#e9f2ec}.leg-sw.ly{background:#f9f0d4}.leg-sw.lr{background:#f9e2dc}
-.leg-sw.lh{background:#f0edf5}.leg-sw.lp{background:#fdf4e8}.leg-sw.ls{background:#eef2f7}.leg-sw.lw{background:var(--surface-2)}
 .cal-chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:auto}
 .cal-chip{font-size:10.5px;padding:2px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
 .cal-chip.mine{background:var(--s-ready-bg);color:var(--s-ready)}
 .cal-chip.conf{background:var(--s-conf-bg);color:var(--s-conf)}
 @media(max-width:860px){
   .cal-cell{min-height:66px;padding:5px 6px;border-radius:8px}
-  .cal-hol{display:none}
   .cal-cell .cal-chip{font-size:9px;padding:1px 5px}
   .cal-month{font-size:17px;min-width:130px}
 }
@@ -400,11 +401,12 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .toast .ic{color:#cbb682;font-size:16px}
 
 /* ---------------- auth ---------------- */
-.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--sidebar)}
-.auth-card{background:var(--bg);border-radius:var(--r-lg);padding:34px 30px;max-width:392px;width:100%;box-shadow:0 30px 70px rgba(0,0,0,.35)}
-.auth-card .k{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#a58a4e;text-align:center}
-.auth-card h1{font-family:var(--serif);font-size:25px;font-weight:450;text-align:center;color:var(--ink);margin:6px 0 3px;letter-spacing:-.01em}
-.auth-card .court{text-align:center;font-size:12px;color:var(--ink-3);margin-bottom:24px;letter-spacing:.02em}
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(120% 95% at 50% 0%,#1c232c 0%,#12161c 52%,#0a0d11 100%)}
+.auth-card{background:var(--bg);border-radius:var(--r-lg);padding:40px 34px 34px;max-width:396px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.45);border:1px solid rgba(203,182,130,.14)}
+.auth-card .k{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:#a58a4e;text-align:center}
+.auth-card h1{font-family:var(--serif);font-size:27px;font-weight:450;text-align:center;color:var(--ink);margin:7px 0 0;letter-spacing:-.01em}
+.auth-card .court{text-align:center;font-size:12px;color:var(--ink-3);margin-bottom:26px;letter-spacing:.02em}
+.auth-card .court::before{content:"";display:block;width:40px;height:1px;background:#cbb682;opacity:.55;margin:13px auto 11px}
 .auth-card .btn{width:100%;justify-content:center;padding:11px}
 .err{color:var(--danger);font-size:12.5px;margin-top:10px;min-height:16px}
 .auth-note{font-size:12px;color:var(--ink-3);text-align:center;margin-top:16px;line-height:1.5}
@@ -1239,19 +1241,20 @@ function renderCal(){
     const wknd=dow===0||dow===6;
     const n=(byDate[iso]||[]).length, mine=(mineBy[iso]||[]).length;
     const conf=(dsAll[iso]?.conferences||[]).length;
-    const part=(!isHol(iso)&&!wknd)?isPartial(iso):null;
-    // workload = matters listed that day (register next-dates or day-sheet entries)
+    const hol=isHol(iso), part=(!hol&&!wknd)?isPartial(iso):null;
+    // workload = matters listed that day; the ONLY strong colour, carried by a
+    // small dot beside the count (green <5, amber 5–10, red >10).
     const load=Math.max(n,(dsAll[iso]?.entries||[]).length);
-    // one colour per day, staff-readable at a glance:
-    // holiday > vacation > Senior away > workload (green <5, yellow 5-10, red >10) > weekend
-    const state=isHol(iso)?'hol':part?'partial':seniorOff(iso)?'senoff':load?(load<5?'load-g':load<=10?'load-y':'load-r'):wknd?'wknd':'';
-    cells.push(`<button class="cal-cell ${state} ${iso===today?'today':''}" data-cald="${iso}">
+    const loadCls=load?(load<5?'lg':load<=10?'ly':'lr'):'';
+    // one calm neutral mute for any non-working day; a thin left accent marks WHICH kind.
+    const kind=hol?'day-hol':part?'day-vac':wknd?'day-off':'';
+    cells.push(`<button class="cal-cell ${kind} ${iso===today?'today':''}" data-cald="${iso}">
       <div class="cal-top"><span class="cal-num">${d}</span>${seniorOff(iso)?`<span class="cal-sen ti ti-user-off" title="Senior not available${seniorAvail[iso]?' — '+esc(seniorAvail[iso]):''}"></span>`:''}</div>
-      ${isHol(iso)?`<div class="cal-hol">${esc(holidays[iso])}</div>`:wknd?'<div class="cal-hol nonsit">Non-sitting</div>':part?'<div class="cal-hol partsit" title="'+esc(part)+'">Partial court</div>':''}
+      ${hol?`<div class="cal-tag t-hol" title="${esc(holidays[iso])}">${esc(holidays[iso])}</div>`:part?`<div class="cal-tag t-vac" title="${esc(part)}">Vacation</div>`:wknd?`<div class="cal-tag t-off">Non-sitting</div>`:''}
       <div class="cal-chips">
-        ${n?`<span class="cal-chip all">${n} matter${n>1?'s':''}</span>`:''}
+        ${load?`<span class="cal-load"><span class="ld ${loadCls}"></span>${load}</span>`:''}
         ${me.role==="junior"&&mine?`<span class="cal-chip mine">${mine} mine</span>`:''}
-        ${conf?`<span class="cal-chip conf">${conf} conf</span>`:''}
+        ${conf?`<span class="cal-chip conf">${conf}</span>`:''}
       </div>
     </button>`);
   }
@@ -1263,7 +1266,7 @@ function renderCal(){
         <button class="tbtn icon-only" id="calNext" aria-label="Next month"><span class="ic ti ti-chevron-right"></span></button>
         <button class="tbtn" id="calToday">Today</button>
       </div>
-      <div class="cal-legend muted"><span class="leg-sw lg"></span>&lt;5 matters<span class="leg-sw ly"></span>5–10<span class="leg-sw lr"></span>&gt;10<span class="leg-sw lh"></span>holiday<span class="leg-sw lp"></span>vacation<span class="leg-sw ls"></span>Senior away<span class="leg-sw lw"></span>non-sitting${me.role==="junior"?'<span class="cal-chip mine">yours</span>':''}<span class="cal-chip conf">conf</span></div>
+      <div class="cal-legend muted"><span class="lg-grp">Matters <span class="ld lg"></span>&lt;5 <span class="ld ly"></span>5–10 <span class="ld lr"></span>&gt;10</span><span class="lg-sep">·</span><span class="lg-key t-hol">holiday</span><span class="lg-key t-vac">vacation</span><span class="lg-key t-off">non-sitting</span><span class="ti ti-user-off" style="color:var(--accent-ink)"></span>Senior away</div>
     </div>
     <div class="cal-dow">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(x=>`<div>${x}</div>`).join("")}</div>
     <div class="cal-grid">${cells.join("")}</div>`;
