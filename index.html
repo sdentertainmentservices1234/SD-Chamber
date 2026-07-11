@@ -2099,16 +2099,53 @@ function briefForm(b=null){
         <div><label>Next date</label><input type="date" id="b_next" value="${esc(b?.nextDate||'')}"></div></div>
       <label>Weight <span class="muted" style="font-weight:400">(optional — how heavy this matter is in a colleague's load; leave blank for normal)</span></label>
       <select id="b_weight"><option value="">Normal (1)</option>${[2,3,4,5].map(w=>`<option value="${w}" ${Number(b?.weight)===w?'selected':''}>${w}× — ${["","","heavier","much heavier","major","exceptional"][w]}</option>`).join("")}</select>
-      <label>Assign colleagues</label>
-      <div>${j.length? j.map(u=>`<label class="chk-row"><input type="checkbox" data-as="${u.id}" ${(b?.assignedTo||[]).includes(u.id)?'checked':''}><span class="mini-ava">${esc(initials(u.name))}</span>${esc(u.name)}</label>`).join("") : '<span class="muted" style="font-size:13px">No colleagues approved yet.</span>'}</div>
-      <label class="chk-row" style="margin-top:6px"><input type="checkbox" id="b_directed" ${b?.directed?'checked':''}><span class="ti ti-pin" style="color:var(--accent-ink)"></span>On Senior's direction <span class="muted" style="font-weight:400">(pins the colleague; objections held for Staff; roster turn not consumed)</span></label>
+      <label>Assignment</label>
+      ${j.length?`<div class="seg" id="asgnMode" style="margin-bottom:10px">
+        <button type="button" data-mode="manual" class="active"><span class="ti ti-user-check"></span> Choose colleague</button>
+        <button type="button" data-mode="auto"><span class="ti ti-wand"></span> Auto-assign</button>
+      </div>`:''}
+      <div id="asgnManual">
+        <div>${j.length? j.map(u=>`<label class="chk-row"><input type="checkbox" data-as="${u.id}" ${(b?.assignedTo||[]).includes(u.id)?'checked':''}><span class="mini-ava">${esc(initials(u.name))}</span>${esc(u.name)} <span class="muted" style="font-size:11.5px;margin-left:auto">${activeCount(u.id)} active</span></label>`).join("") : '<span class="muted" style="font-size:13px">No colleagues approved yet.</span>'}</div>
+        <label class="chk-row" style="margin-top:6px"><input type="checkbox" id="b_directed" ${b?.directed?'checked':''}><span class="ti ti-pin" style="color:var(--accent-ink)"></span>On Senior's direction <span class="muted" style="font-weight:400">(pins the colleague; objections held for Staff; roster turn not consumed)</span></label>
+      </div>
+      ${j.length?`<div id="asgnAuto" style="display:none">
+        <div style="background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);padding:12px 14px">
+          <div style="font-size:13px;color:var(--ink-2)"><span class="ti ti-wand" style="color:var(--accent-ink)"></span> On save, the roster picks the next colleague by turn and lightest active workload:</div>
+          <div id="autoPickName" style="margin-top:8px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px"></div>
+          <div class="muted" style="font-size:11.5px;margin-top:6px">The roster turn advances. You can still change it later from the matter.</div>
+        </div>
+      </div>`:''}
       <label class="chk-row" style="margin-top:8px"><input type="checkbox" id="b_prio" ${b?.priority?'checked':''}><span class="ti ti-flag-3" style="color:var(--urgent)"></span>Mark as urgent</label>
       <p class="muted" style="font-size:12px;margin-top:12px"><span class="ti ti-info-circle"></span> Only the case title is required. If the diary and case numbers aren't available yet, save anyway — the brief is marked <b>Details awaited</b> until a number is added.</p>
       <div class="row" style="margin-top:14px"><button class="btn" id="b_save">Save brief</button>${b?`<button class="btn danger" id="b_disp"><span class="ic ti ti-archive"></span>Mark disposed</button>`:''}</div>
     </div>`);
+  // assignment mode: "manual" (tick colleagues) or "auto" (roster + load engine)
+  let asgnMode="manual";
+  const renderAutoPick=()=>{
+    const p=pickNext({declinedBy:[]});
+    const el=$("autoPickName"); if(!el)return;
+    el.innerHTML = p.uid
+      ? `<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))}${p.forced?' <span class="muted" style="font-weight:400;font-size:12px">(all others on leave/declined)</span>':''}`
+      : '<span class="muted" style="font-weight:400">No colleague available in the roster</span>';
+  };
+  if($("asgnMode")) $("asgnMode").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
+    asgnMode=btn.dataset.mode;
+    $("asgnMode").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===btn));
+    $("asgnManual").style.display = asgnMode==="manual"?"":"none";
+    $("asgnAuto").style.display   = asgnMode==="auto"?"":"none";
+    if(asgnMode==="auto") renderAutoPick();
+  });
   $("b_save").onclick=async()=>{
-    const assigned=[...document.querySelectorAll("[data-as]:checked")].map(c=>c.dataset.as);
-    const data={caseTitle:$("b_title").value.trim(),diaryNo:$("b_dy").value.trim(),caseNo:$("b_cn").value.trim(),matterType:$("b_type").value,appearingFor:$("b_for").value.trim(),aor:$("b_aor").value.trim(),conferenceAt:$("b_conf").value||null,nextDate:$("b_next").value||null,weight:Number($("b_weight").value)||null,assignedTo:assigned,priority:$("b_prio").checked,directed:$("b_directed").checked&&assigned.length>0,updatedAt:db.now()};
+    let assigned=[...document.querySelectorAll("[data-as]:checked")].map(c=>c.dataset.as);
+    let autoPick=null;
+    if(asgnMode==="auto"){
+      autoPick=pickNext({declinedBy:[]});
+      if(!autoPick.uid){toast("No colleagues in the roster to assign to","ti-alert-triangle");return;}
+      assigned=[autoPick.uid];
+    }
+    const directed = asgnMode==="manual" && $("b_directed") && $("b_directed").checked && assigned.length>0;
+    const asgHistMode = autoPick ? (autoPick.forced?"forced":"auto") : (directed?"directed":"manual");
+    const data={caseTitle:$("b_title").value.trim(),diaryNo:$("b_dy").value.trim(),caseNo:$("b_cn").value.trim(),matterType:$("b_type").value,appearingFor:$("b_for").value.trim(),aor:$("b_aor").value.trim(),conferenceAt:$("b_conf").value||null,nextDate:$("b_next").value||null,weight:Number($("b_weight").value)||null,assignedTo:assigned,priority:$("b_prio").checked,directed,updatedAt:db.now()};
     if(!data.caseTitle){toast("A case title is needed","ti-alert-triangle");return;}
     data.detailsAwaited = !data.diaryNo && !data.caseNo;
     // acknowledgment: keep acks only from juniors still assigned; new assignees must acknowledge
@@ -2119,15 +2156,20 @@ function briefForm(b=null){
     if(b){ if(assigned.length&&b.status==="received")data.status="assigned";
       if(!assigned.length&&["assigned"].includes(b.status))data.status="received";
       const hist=[...(b.assignHistory||[])];
-      newAssignees.forEach(u=>hist.push({uid:u,at:Date.now(),by:me.uid,mode:data.directed?"directed":"manual"}));
+      newAssignees.forEach(u=>hist.push({uid:u,at:Date.now(),by:me.uid,mode:asgHistMode}));
       if(newAssignees.length) data.assignHistory=hist;
       if(b.heldForClerk && newAssignees.length) data.heldForClerk=false;
       await db.update("briefs/"+b.id,data); }
     else { data.status=assigned.length?"assigned":"received"; data.createdBy=me.uid; data.createdAt=db.now();
       data.everAssigned=assigned.slice(); data.declinedBy=[];
-      data.assignHistory=assigned.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:data.directed?"directed":"manual"}));
+      data.assignHistory=assigned.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:asgHistMode}));
       await db.add("briefs",data); }
-    closeSheet(); toast(data.detailsAwaited?"Brief saved — details awaited":"Brief saved");
+    // an auto-assignment consumes a roster turn, just like the standalone auto-assign
+    if(autoPick && !autoPick.forced) await advancePointer();
+    closeSheet();
+    toast(autoPick?`Brief saved — auto-assigned to ${nameOf(autoPick.uid)}`
+      :(data.detailsAwaited?"Brief saved — details awaited":"Brief saved"),
+      autoPick?"ti-user-check":"ti-check");
   };
   if(b)$("b_disp").onclick=async()=>{ await db.update("briefs/"+b.id,{status:"disposed",updatedAt:db.now()}); closeSheet(); toast("Brief marked disposed"); };
 }
