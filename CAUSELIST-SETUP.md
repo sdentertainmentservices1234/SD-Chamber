@@ -18,8 +18,8 @@ for that date; a "Use this bench" chip lets them accept or override it.
 
 | File | What it is |
 |------|------------|
-| `fetch_causelist.py` | Downloads the 6 SC list types for the next ~8 weekdays and extracts per-court benches. |
-| `.github/workflows/causelist.yml` | Runs the fetcher 6×/day on weekdays and commits `court-updates.json`. |
+| `fetch_causelist.py` | Checks the 6 SC list types for the next ~8 weekdays (cheap 1KB probes; downloads a PDF only when the court re-published it) and extracts per-court benches + per-item case lines. |
+| `.github/workflows/causelist.yml` | Runs the fetcher hourly, 08:00–23:00 IST Mon–Sat; commits `court-updates.json` only when something changed. |
 | `court-updates.json` | **Generated** by the Action — the per-court benches the app reads. (A seed for 13-07-2026 is committed; the Action overwrites it.) |
 
 ## One-time GitHub setup (≈2 min, admin only)
@@ -37,8 +37,12 @@ for that date; a "Use this bench" chip lets them accept or override it.
 - List-type PDF codes (verified against real PDFs): Miscellaneous `M_J`,
   Regular `F_J`, Chamber `M_C`, Single Judge `M_S`, Registrar `M_R`,
   Curative & Review `M_CC` (each `_1` main, some days `_2` supplementary).
-- The Action runs 09:00 / 14:00 / 19:00 / 20:00 / 21:00 / 22:00 IST (Mon–Sat)
-  to catch the court's main and late-evening supplementary waves.
-- Every refresh commits to the repo (rebuilds Pages) — harmless, expect small
-  commits from `causelist-bot`. Court vacation days simply have no lists.
+- The Action runs **hourly, 08:00–23:00 IST (Mon–Sat)** — worst-case gap
+  between the court publishing a list and the app knowing about it is ~1 hour.
+  Each run probes with tiny 1KB requests and only downloads lists that actually
+  changed; a no-change run commits nothing, so the repo stays quiet.
+- The app also re-fetches `court-updates.json` on its own when it's brought
+  back to the foreground (or the Day sheet is opened) with data older than
+  10 minutes — Staff never need to reload.
+- Court vacation days simply have no lists.
 - To pause it: repo **Actions** tab → the workflow → **⋯ → Disable workflow**.

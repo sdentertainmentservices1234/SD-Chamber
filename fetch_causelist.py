@@ -25,6 +25,7 @@ import io
 import json
 import re
 import sys
+import time
 import datetime
 import urllib.request
 
@@ -76,6 +77,26 @@ def fetch_pdf(url):
     except Exception:
         pass
     return None
+
+
+def probe_size(url):
+    """Cheap change-detection: a 1KB ranged GET. Returns the PDF's total size,
+    or None if the list isn't published (the server answers 200/HTML for
+    missing files). Lets a frequent schedule re-download a multi-MB list ONLY
+    when the court actually re-published it."""
+    try:
+        req = urllib.request.Request(url, headers={**HEADERS, "Range": "bytes=0-1023"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            ct = resp.headers.get("Content-Type", "").lower()
+            if not ct.startswith("application/pdf"):
+                return None
+            m = re.search(r"/(\d+)\s*$", resp.headers.get("Content-Range", ""))
+            if m:
+                return int(m.group(1))
+            cl = resp.headers.get("Content-Length")   # server ignored Range
+            return int(cl) if cl else len(resp.read())
+    except Exception:
+        return None
 
 
 def pdf_to_text(data):
@@ -158,11 +179,25 @@ def upcoming_days(n):
     return days
 
 
-def build_for_date(date_str):
+def build_for_date(date_str, prev_day=None, prev_sizes=None):
+    """Returns (lists_found, lists, sizes, reused). Probes every list URL with a
+    1KB ranged GET first; if the sizes all match the previous run, the previous
+    parse is reused wholesale — no PDF is downloaded."""
+    sizes = {}
+    for human, variants in LIST_TYPES.items():
+        for suffix, variant in variants:
+            s = probe_size(DAILY_BASE.format(date=date_str, suffix=suffix))
+            if s:
+                sizes[suffix] = s
+            time.sleep(0.15)
+    if prev_day is not None and sizes == (prev_sizes or {}):
+        return prev_day.get("lists_found", []), prev_day.get("lists", {}), sizes, True
     lists_found, lists = [], {}
     for human, variants in LIST_TYPES.items():
         merged = {}
         for suffix, variant in variants:
+            if suffix not in sizes:
+                continue
             data = fetch_pdf(DAILY_BASE.format(date=date_str, suffix=suffix))
             if not data:
                 continue
@@ -174,25 +209,43 @@ def build_for_date(date_str):
                 merged[court] = info   # supplementary overrides main for same court
         if merged:
             lists[human] = merged
-    return lists_found, lists
+    return lists_found, lists, sizes, False
 
 
 def main():
     dates = [sys.argv[1]] if len(sys.argv) > 1 else upcoming_days(WINDOW_DAYS)
     print("Checking dates:", ", ".join(dates))
-    by_date = {}
+    prev = {}
+    try:
+        with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+            prev = json.load(f)
+    except Exception:
+        pass
+    prev_by, prev_src = prev.get("by_date", {}), prev.get("sources", {})
+    by_date, sources = {}, {}
     for date_str in dates:
-        lists_found, lists = build_for_date(date_str)
-        if lists_found:
+        lists_found, lists, sizes, reused = build_for_date(
+            date_str, prev_by.get(date_str), prev_src.get(date_str))
+        if sizes:
+            sources[date_str] = sizes
+        if lists_found or lists:
             by_date[date_str] = {"lists_found": lists_found, "lists": lists}
             ncourts = sum(len(v) for v in lists.values())
-            print("  {}: {} list(s), {} court bench(es)".format(date_str, len(lists), ncourts))
+            print("  {}: {} list(s), {} courts{}".format(
+                date_str, len(lists), ncourts, "  [unchanged — reused]" if reused else "  [FETCHED]"))
+    # Nothing new anywhere -> leave the file untouched so the workflow commits
+    # nothing and Pages doesn't rebuild. (generated_at = time of last CHANGE.)
+    if prev and json.dumps(by_date, sort_keys=True) == json.dumps(prev_by, sort_keys=True) \
+            and json.dumps(sources, sort_keys=True) == json.dumps(prev_src, sort_keys=True):
+        print("No change since last run — output left untouched.")
+        return
     result = {
         "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
         "window": dates,
         "by_date": by_date,
-        "note": "Per-court bench (coram) from the SC published lists. Drafting aid "
-                "only — the court's published list is authoritative.",
+        "sources": sources,
+        "note": "Per-court bench + per-item case line from the SC published lists. "
+                "Drafting aid only — the court's published list is authoritative.",
     }
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)

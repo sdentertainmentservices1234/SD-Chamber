@@ -1,18 +1,17 @@
 name: Supreme Court cause-list fetch (multi-wave)
 
 # The court publishes ADVANCE lists days ahead, MAIN lists a few days ahead, and
-# SUPPLEMENTARY lists the evening before (often 8-9 PM, sometimes later). So we run
-# several times through the day/evening, and each run checks a rolling window of
-# upcoming days. GitHub cron is UTC; IST = UTC + 5:30.
+# SUPPLEMENTARY lists the evening before (often 8-9 PM, sometimes later). Staff
+# enter court+item as soon as briefing counsel call, so the publish->fetch gap
+# should stay small through the working day: hourly, 08:00-23:00 IST, Mon-Sat.
+# Cheap by design: fetch_causelist.py probes each list with a 1KB ranged GET and
+# only downloads a PDF when the court re-published it; a no-change run commits
+# nothing. GitHub cron is UTC; IST = UTC + 5:30. (Scheduled runs can drift a few
+# minutes under GitHub load.)
 on:
   schedule:
-    - cron: "30 3  * * 1-6"   # 09:00 IST - morning
-    - cron: "30 8  * * 1-6"   # 14:00 IST - midday (Thu/Fri main lists appear)
-    - cron: "30 13 * * 1-6"   # 19:00 IST - early evening
-    - cron: "30 14 * * 1-6"   # 20:00 IST - supplementary window
-    - cron: "30 15 * * 1-6"   # 21:00 IST - late supplementary
-    - cron: "30 16 * * 1-6"   # 22:00 IST - final catch for late lists
-  workflow_dispatch:           # manual "Run workflow" button
+    - cron: "30 2-17 * * 1-6"   # hourly at :30 UTC = 08:00-23:00 IST, Mon-Sat
+  workflow_dispatch:             # manual "Run workflow" button
 
 # Never let two scheduled runs overlap and race on the commit.
 concurrency:

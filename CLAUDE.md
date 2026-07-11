@@ -270,8 +270,14 @@ Admin is a `canManage()` superset, so Adith can add matters + print like Staff.
 ## SC cause-list auto-fetch (Jul 2026 — owner's "enrich entered listings" model)
 
 Ported+reworked from the ASD app's proven pipeline. Files: `fetch_causelist.py`,
-`.github/workflows/causelist.yml` (6×/day Mon–Sat), output `court-updates.json`
-at repo root, `CAUSELIST-SETUP.md`. **Model:** the scheduled Action can't read
+`.github/workflows/causelist.yml` (hourly 08:00–23:00 IST Mon–Sat), output
+`court-updates.json` at repo root, `CAUSELIST-SETUP.md`. The fetcher is
+change-detecting: `probe_size()` does a 1KB ranged GET per list URL and reuses
+the previous parse (stored `sources:{date:{suffix:size}}` in the output) unless
+a size changed; identical results leave the file unwritten so the workflow
+commits nothing (`generated_at` = time of last CHANGE). App side: a long-open
+tab re-fetches court-updates.json on visibilitychange / Day-Calendar tab switch
+when older than 10 min (`courtUpdatesAt`/`courtUpdatesStale`). **Model:** the scheduled Action can't read
 Firestore, so it does NOT search for the chamber's matters (owner rejected the
 ASD watchlist/name-discovery approach). It downloads the 6 SC list PDFs for a
 rolling 8-weekday window and extracts, per (date → list-type → court), the

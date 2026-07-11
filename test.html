@@ -793,7 +793,10 @@ let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={};
 let approvals={};
 // SC cause-list benches, fetched by the GitHub Action into court-updates.json.
 // Staff enter court/item/type/date; the app fills the authoritative bench.
-let courtUpdates=null;
+// courtUpdatesAt lets a long-open tab silently re-fetch stale data (see
+// visibilitychange + selectTab) so a 2pm entry matches the 1pm fetch, not 9am's.
+let courtUpdates=null, courtUpdatesAt=0;
+const COURT_UPDATES_STALE=10*60e3;   // re-fetch if older than 10 minutes
 const CAUSELIST_TYPES=["Miscellaneous","Regular","Chamber","Single Judge","Registrar","Curative & Review"];
 let roster={order:[],pointer:0};
 let unsub=[], dsUnsub=null, sheetUnsubs=[];
@@ -903,6 +906,7 @@ function selectTab(t){ curTab=t;
   document.querySelectorAll("#sbNav button, #mobileNav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
   ["cal","board","today","briefs","roster","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
   $("pageTitle").textContent=TITLES[t][0]; $("pageSub").textContent=TITLES[t][1];
+  if((t==="today"||t==="cal")&&me&&courtUpdatesStale()) loadCourtUpdates();
   closeSidebar(); renderActive();
 }
 function renderActive(){ if(!me)return;
@@ -1341,10 +1345,15 @@ function jbrief(b){
    ============================================================ */
 // Read the auto-fetched SC benches (same-origin, no-store). Silent if absent.
 async function loadCourtUpdates(){
+  courtUpdatesAt=Date.now();
   try{ const r=await fetch("court-updates.json?_="+Date.now(),{cache:"no-store"}); if(r.ok) courtUpdates=await r.json(); }
   catch(e){/* not published yet — the day sheet just won't auto-fill benches */}
-  if(curTab==="today") renderToday();
+  if(curTab==="today"||curTab==="cal") renderActive();
 }
+const courtUpdatesStale=()=>Date.now()-courtUpdatesAt>COURT_UPDATES_STALE;
+// Staff keep the app open all day: re-fetch when it comes back to the
+// foreground, so an afternoon entry matches the latest hourly fetch.
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&me&&courtUpdatesStale()) loadCourtUpdates(); });
 // The published bench for a (date, list-type, court), if the fetch has it.
 function coramFor(dateISO, listType, court){
   const c = courtUpdates?.by_date?.[dateISO]?.lists?.[listType]?.[String(court||"").trim()];
