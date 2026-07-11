@@ -1,1 +1,3 @@
 firestore.rules
+__pycache__/
+*.pyc
