@@ -372,6 +372,17 @@ distinguishes "no list fetched for this date" from "not in the <type> list".
   variant in the sidebar. Login = radial navy gradient, gold "CHAMBERS OF",
   Fraunces name + short gold rule. Stay within navy #101418 / gold #cbb682.
 
+## Colleague "My work" home (Jul 2026)
+
+Juniors are phone-first users, so the Work-board tab renders `renderMyWork()`
+for `me.role==="junior"` (Staff/admin keep the distribution board). It's a
+personal home: 4 metrics (to-acknowledge / my active / coming-up ≤4d / roster
+position), a one-tap availability set (Available/In court/Half day/On leave →
+`availability/{uid}_{today}`), an "acknowledge / object" card per unacked
+assignment, their matters sorted by next date (imminent flame), and roster
+standing ("#N · next up in M turns · X active · Y lifetime"). App is responsive
+throughout: fixed sidebar ≥860px, dark bottom-nav <860px.
+
 ## Out-of-app notification
 
 `waLink(uid, brief)` → WhatsApp deep link with prefilled nudge message;
