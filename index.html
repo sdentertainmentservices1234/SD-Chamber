@@ -322,9 +322,11 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .seg button:last-child{border-right:none}
 .seg button.active{background:var(--sidebar);color:#fff}
 .brief-table{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
-.brief-row{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:15px 18px;transition:background .1s}
+.brief-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:15px 18px;transition:background .1s}
 .brief-row:last-child{border-bottom:none}
 .brief-row:hover{background:var(--surface-2)}
+.br-sn{font-family:var(--mono);font-size:12px;color:var(--ink-3);min-width:20px;text-align:right}
+.file-badge{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);padding:1px 7px;border-radius:5px;white-space:nowrap}
 .br-main{min-width:0}
 .br-title-row{display:flex;align-items:center;gap:9px}
 .br-title{font-family:var(--serif);font-size:15.5px;font-weight:450;color:var(--ink);letter-spacing:-.01em}
@@ -1135,6 +1137,38 @@ function listingsOf(uid){
 }
 // upcoming, not-yet-heard listings — the ones that add to current workload
 function activeListings(uid){ const t=todayISO(); return listingsOf(uid).filter(x=>x.date>=t&&!x.e.done); }
+// every date a brief appears on a day sheet (its listing history)
+function listingDatesOf(briefId){ const out=[]; Object.entries(dsAll).forEach(([date,d])=>{ if((d?.entries||[]).some(e=>e.briefId===briefId)) out.push(date); }); return [...new Set(out)].sort(); }
+// case / diary number pulled out of a causelist item line ("SLP(C) No. 18036/2026 …")
+function refsFromCauseLine(s){
+  s=String(s||"");
+  const dm=s.match(/Diary\s*No\.?\s*([0-9]+[-\/]20\d{2})/i);
+  if(dm) return {caseNo:"", diaryNo:dm[1].replace("-","/")};
+  const m=s.match(/^(?:Connected\s+)?([A-Za-z][A-Za-z.()\/&]*)\s*(?:No\.?\s*)?([0-9]+(?:-[0-9]+)?\/20\d{2})/);
+  if(m) return {caseNo:(m[1].replace(/\s+/g,"")+" "+m[2]).trim(), diaryNo:""};
+  return {caseNo:"", diaryNo:""};
+}
+const _normNo=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+function guessMatterType(caseNo){
+  const s=(caseNo||"").toUpperCase();
+  if(/SLP\(C/.test(s))return "SLP (Civil)"; if(/SLP\(CRL/.test(s))return "SLP (Criminal)";
+  if(/CRL\.?A/.test(s))return "Criminal Appeal"; if(/^C\.?A/.test(s))return "Civil Appeal";
+  if(/W\.?P\.?\(CRL/.test(s))return "Writ Petition"; if(/W\.?P\.?\(C/.test(s))return "Writ Petition";
+  if(/T\.?P/.test(s))return "Transfer Petition"; if(/REVIEW/.test(s))return "Review";
+  if(/CURATIVE/.test(s))return "Curative"; if(/CON(MT|TEMPT)/.test(s))return "Contempt";
+  if(/ARB/.test(s))return "Arbitration"; if(/^MA|I\.?A/.test(s))return "MA / IA";
+  return "Other court / tribunal";
+}
+// find the register brief a listing belongs to: explicit link, else same case/diary
+// number, else an exact title match — so a matter isn't duplicated in the register.
+function findBriefForListing(entry, caseNo, diaryNo){
+  if(entry.briefId && briefs[entry.briefId]) return briefs[entry.briefId];
+  const cn=_normNo(caseNo); if(cn.length>=5){ const m=Object.values(briefs).find(b=>b.caseNo&&_normNo(b.caseNo)===cn); if(m)return m; }
+  const dn=_normNo(diaryNo); if(dn.length>=5){ const m=Object.values(briefs).find(b=>b.diaryNo&&_normNo(b.diaryNo)===dn); if(m)return m; }
+  const t=(entry.caseTitle||"").trim().toLowerCase();
+  if(t.length>6){ const m=Object.values(briefs).find(b=>(b.caseTitle||"").trim().toLowerCase()===t); if(m)return m; }
+  return null;
+}
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
 function activeLoad(uid){
   const briefLoad=Object.values(briefs)
@@ -2107,6 +2141,37 @@ function dsForm(idx=null){
     if(hit){ if(!entry.caseTitle)entry.caseTitle=titleFromCauseLine(hit.caseLine);
       if(!entry.listType)entry.listType=hit.listType;
       if(!entry.bench)entry.bench=cleanCoram(hit.coram); }
+    // --- connect the listing to the briefs register: enrich an existing brief or
+    // create one from the causelist data, so every listed case lands in the register ---
+    if(entry.caseTitle || (entry.courtNo&&entry.itemNo)){
+      const refs = hit ? refsFromCauseLine(hit.caseLine) : {caseNo:"",diaryNo:""};
+      const brief = findBriefForListing(entry, refs.caseNo, refs.diaryNo);
+      if(brief){
+        entry.briefId = brief.id;
+        const patch={};
+        if(!brief.caseNo && refs.caseNo) patch.caseNo=refs.caseNo;
+        if(!brief.diaryNo && refs.diaryNo) patch.diaryNo=refs.diaryNo;
+        if(!brief.caseTitle && entry.caseTitle) patch.caseTitle=entry.caseTitle;
+        if(!brief.aor && entry.counsel) patch.aor=entry.counsel;
+        if(!brief.appearingFor && entry.appearingFor) patch.appearingFor=entry.appearingFor;
+        if(entry.juniorUids.length){ const a=[...new Set([...(brief.assignedTo||[]),...entry.juniorUids])];
+          if(a.length!==(brief.assignedTo||[]).length){ patch.assignedTo=a; patch.everAssigned=[...new Set([...(brief.everAssigned||[]),...a])]; patch.ackBy=[...new Set([...(brief.ackBy||[]),...entry.juniorUids])]; } }
+        if((patch.caseNo||brief.caseNo||patch.diaryNo||brief.diaryNo)) patch.detailsAwaited=false;
+        if(["received","assigned"].includes(brief.status)) patch.status="listed";
+        patch.nextDate=listDate;
+        patch.updatedAt=db.now();
+        await db.update("briefs/"+brief.id, patch);
+      } else {
+        const jr=entry.juniorUids||[];
+        entry.briefId = await db.add("briefs", { caseTitle:entry.caseTitle||"(from causelist)",
+          caseNo:refs.caseNo, diaryNo:refs.diaryNo, matterType:guessMatterType(refs.caseNo),
+          appearingFor:entry.appearingFor||"", aor:entry.counsel||"", chamberNo:"",
+          assignedTo:jr.slice(), everAssigned:jr.slice(), ackBy:jr.slice(), declinedBy:[],
+          assignHistory:jr.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:"listed"})),
+          status:"listed", priority:false, nextDate:listDate, detailsAwaited:!(refs.caseNo||refs.diaryNo),
+          fromListing:true, createdBy:me.uid, createdAt:db.now(), updatedAt:db.now() });
+      }
+    }
     const writeTo=(dt,entriesArr,confs)=>db.set("daysheets/"+dt,{date:dt,entries:entriesArr,conferences:confs,updatedAt:db.now(),updatedBy:me.uid},true);
     if(listDate===dsDate){
       const arr=[...(daysheet?.entries||[])]; if(idx!==null)arr[idx]=entry;else arr.push(entry);
@@ -2175,17 +2240,21 @@ function renderBriefs(){
   else if(briefFilter==="disposed")list=list.filter(b=>b.status==="disposed");
   else list=list.filter(b=>b.status!=="disposed");
   const q=briefSearch.trim().toLowerCase();
-  if(q)list=list.filter(b=>(b.caseTitle||"").toLowerCase().includes(q)||(b.diaryNo||"").includes(q)||(b.caseNo||"").toLowerCase().includes(q));
-  list.sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
+  if(q)list=list.filter(b=>(b.caseTitle||"").toLowerCase().includes(q)||(b.diaryNo||"").includes(q)||(b.caseNo||"").toLowerCase().includes(q)||(b.chamberNo||"").toLowerCase().includes(q));
+  // the register is ordered by chamber file number (numeric), unnumbered files last
+  const chNum=b=>{ const n=parseInt(String(b.chamberNo||"").replace(/[^0-9]/g,""),10); return isNaN(n)?Infinity:n; };
+  list.sort((a,b)=> chNum(a)-chNum(b) || (a.chamberNo||"~").localeCompare(b.chamberNo||"~") || (a.caseTitle||"").localeCompare(b.caseTitle||""));
   const myUnacked=Object.values(briefs).filter(needsMyAck);
   const notice=(!canManage()&&!isSenior()&&myUnacked.length)?`<div class="notice"><span class="ti ti-bell"></span><div><b>${myUnacked.length} new assignment${myUnacked.length>1?'s':''}</b> awaiting your acknowledgment — open and acknowledge.</div></div>`:"";
-  const rows = list.length? `<div class="brief-table">`+list.map(b=>{
+  const rows = list.length? `<div class="brief-table">`+list.map((b,i)=>{
     const st=STATUS[b.status];
     const mineNew=needsMyAck(b);
+    const nList=listingDatesOf(b.id).length;
     return `<button class="brief-row" data-brief="${b.id}">
+      <div class="br-sn">${i+1}</div>
       <div class="br-main">
-        <div class="br-title-row">${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:14px" title="Urgent"></span>':''}${b.directed?'<span class="ti ti-pin" style="color:var(--accent-ink);font-size:13px" title="On Senior\u2019s direction"></span>':''}<span class="br-title">${esc(labelOf(b))}</span>${mineNew?'<span class="new-chip">New — acknowledge</span>':''}${b.heldForClerk&&canManage()?'<span class="new-chip held">Held for you</span>':''}</div>
-        <div class="br-nums"><span>${esc(b.diaryNo?`Dy. ${b.diaryNo}`:'—')}</span>${b.caseNo?`<span>${esc(b.caseNo)}</span>`:''}<span class="type">${esc(b.matterType||'')}</span>${b.detailsAwaited?'<span style="color:var(--warn)">Details awaited</span>':''}</div>
+        <div class="br-title-row">${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span>`:''}${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:14px" title="Urgent"></span>':''}${b.directed?'<span class="ti ti-pin" style="color:var(--accent-ink);font-size:13px" title="On Senior\u2019s direction"></span>':''}<span class="br-title">${esc(labelOf(b))}</span>${mineNew?'<span class="new-chip">New — acknowledge</span>':''}${b.heldForClerk&&canManage()?'<span class="new-chip held">Held for you</span>':''}</div>
+        <div class="br-nums"><span>${esc(b.diaryNo?`Dy. ${b.diaryNo}`:'—')}</span>${b.caseNo?`<span>${esc(b.caseNo)}</span>`:''}<span class="type">${esc(b.matterType||'')}</span>${nList?`<span>${nList} listing${nList>1?'s':''}</span>`:''}${b.detailsAwaited?'<span style="color:var(--warn)">Details awaited</span>':''}</div>
       </div>
       <div class="br-right">
         <span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>
@@ -2206,6 +2275,8 @@ function briefForm(b=null){
   openSheet(`<div class="sheet-head"><div><h3>${b?'Edit brief':'New brief'}</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <label>Case title</label><input id="b_title" value="${esc(b?.caseTitle||'')}" placeholder="Petitioner vs Respondent">
+      <label>Chamber file no. <span class="muted" style="font-weight:400">(the register is ordered by this)</span></label>
+      <input id="b_chno" class="mono" value="${esc(b?.chamberNo||'')}" placeholder="e.g. 101">
       <div class="grid2"><div><label>Diary no.</label><input id="b_dy" class="mono" value="${esc(b?.diaryNo||'')}" placeholder="12345/2026"></div>
         <div><label>Case no.</label><input id="b_cn" class="mono" value="${esc(b?.caseNo||'')}" placeholder="SLP(C) 123/2026"></div></div>
       <div class="grid2"><div><label>Matter type</label><select id="b_type">${MATTER_TYPES.map(t=>`<option ${b?.matterType===t?'selected':''}>${t}</option>`).join("")}</select></div>
@@ -2261,7 +2332,7 @@ function briefForm(b=null){
     }
     const directed = asgnMode==="manual" && $("b_directed") && $("b_directed").checked && assigned.length>0;
     const asgHistMode = autoPick ? (autoPick.forced?"forced":"auto") : (directed?"directed":"manual");
-    const data={caseTitle:$("b_title").value.trim(),diaryNo:$("b_dy").value.trim(),caseNo:$("b_cn").value.trim(),matterType:$("b_type").value,appearingFor:$("b_for").value.trim(),aor:$("b_aor").value.trim(),conferenceAt:$("b_conf").value||null,nextDate:$("b_next").value||null,weight:Number($("b_weight").value)||null,assignedTo:assigned,priority:$("b_prio").checked,directed,updatedAt:db.now()};
+    const data={caseTitle:$("b_title").value.trim(),chamberNo:$("b_chno").value.trim(),diaryNo:$("b_dy").value.trim(),caseNo:$("b_cn").value.trim(),matterType:$("b_type").value,appearingFor:$("b_for").value.trim(),aor:$("b_aor").value.trim(),conferenceAt:$("b_conf").value||null,nextDate:$("b_next").value||null,weight:Number($("b_weight").value)||null,assignedTo:assigned,priority:$("b_prio").checked,directed,updatedAt:db.now()};
     if(!data.caseTitle){toast("A case title is needed","ti-alert-triangle");return;}
     data.detailsAwaited = !data.diaryNo && !data.caseNo;
     // acknowledgment: keep acks only from juniors still assigned; new assignees must acknowledge
@@ -2296,7 +2367,7 @@ function openBrief(id){
   const track=Object.entries(STATUS).map(([k,v])=>`<button class="status-opt ${b.status===k?'on '+v.cls:''}" ${canStatus?`data-status="${k}"`:'disabled'}>${v.label}</button>`).join("");
   openSheet(`<div class="sheet-head">
       <div><h3>${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:16px;vertical-align:baseline"></span> ':''}${esc(labelOf(b))}</h3>
-      <div class="sub">${esc([b.diaryNo?`Dy. ${b.diaryNo}`:'',b.caseNo,b.matterType].filter(Boolean).join("  ·  "))}</div></div>
+      <div class="sub">${esc([b.chamberNo?`File #${b.chamberNo}`:'',b.diaryNo?`Dy. ${b.diaryNo}`:'',b.caseNo,b.matterType].filter(Boolean).join("  ·  "))}</div></div>
       <button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <div style="font-size:13px;color:var(--ink-2)">${b.appearingFor?`For ${esc(b.appearingFor)}`:''}${b.aor?` · AoR ${esc(b.aor)}`:''}${b.nextDate?` · Next date ${fmtDateY(b.nextDate)}`:''}</div>
@@ -2306,6 +2377,8 @@ function openBrief(id){
         <a class="dlink" target="_blank" rel="noopener" href="https://www.sci.gov.in/daily-order/"><span class="ic ti ti-gavel"></span>Daily orders</a>
         <a class="dlink" target="_blank" rel="noopener" href="https://www.sci.gov.in/judgements-case-no/"><span class="ic ti ti-book"></span>Judgments</a>
       </div>
+      ${(()=>{const dates=listingDatesOf(id);return dates.length?`<label>Listed on <span class="muted" style="font-weight:400">${dates.length} date${dates.length>1?'s':''}</span></label>
+        <div class="row" style="flex-wrap:wrap;gap:6px">${dates.map(dt=>`<span class="chip st-received"><span class="ti ti-calendar-event" style="font-size:11px"></span> ${fmtDateY(dt)}</span>`).join("")}</div>`:'';})()}
       <label>Status</label><div class="status-track">${track}</div>
       <label>Assignment ${b.directed?'<span class="chip st-assigned" style="margin-left:6px;text-transform:none;letter-spacing:0"><span class="ti ti-pin" style="font-size:11px"></span>Senior\u2019s direction</span>':''}</label>
       <div class="assign-block">

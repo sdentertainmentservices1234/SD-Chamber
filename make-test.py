@@ -43,7 +43,7 @@ SEED = '''function seedDemo(db){
     // diary/case numbers are not on the paper — left blank, flagged "details awaited"
     // matterType "Other court / tribunal" (weight 2) until the clerk corrects it
     const acked = i<4; // m5–m7 left unacknowledged so the unseen-ageing + nudge flow is visible
-    db.set("briefs/"+id,{caseTitle:title,diaryNo:"",caseNo:"",matterType:"Other court / tribunal",
+    db.set("briefs/"+id,{caseTitle:title,chamberNo:String(104-i),diaryNo:"",caseNo:"",matterType:"Other court / tribunal",
       appearingFor:af,aor:counsel,assignedTo:jrs.slice(),everAssigned:jrs.slice(),
       assignHistory:jrs.map(u=>({uid:u,at:Date.now()-(7-i)*864e5,by:"u_clerk",mode:"manual"})),
       declinedBy:[],ackBy:acked?jrs.slice():[],assignedAt:Date.now()-(7-i)*864e5,
