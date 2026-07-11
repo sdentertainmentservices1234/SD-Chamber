@@ -674,17 +674,21 @@ if(DEMO){
           // The admin email is always admitted as admin, even without an invite.
           let base={name:user.email.split("@")[0],email:user.email,role:"pending",active:true,createdAt:serverTimestamp()};
           if(emailKey(user.email)===emailKey(CHAMBER.adminEmail)) base.role="admin";
+          let claimed=false;
           try{ const ap=await getDoc(doc(fs,"approvals",emailKey(user.email)));
             if(ap.exists()){ const a=ap.data();
               base={...base,name:a.name||base.name,role:a.role||base.role,phone:a.phone||"",joinedOn:a.joinedOn||null};
-              await deleteDoc(doc(fs,"approvals",emailKey(user.email))).catch(()=>{});
+              claimed=true;
             }
           }catch(e){/* approvals unreadable pre-rules-update → fall back to pending */}
+          // Create the users doc FIRST (the create rule verifies the role against
+          // the still-present approval), THEN retire the approval.
           try{ await setDoc(uref,base); }
           catch(e){ // rules may reject a non-pending self-create until updated;
             // fall back to a plain pending doc so login never hard-fails.
             try{ await setDoc(uref,{name:user.email.split("@")[0],email:user.email,role:"pending",active:true,createdAt:serverTimestamp()}); }catch(_){}
           }
+          if(claimed){ try{ await deleteDoc(doc(fs,"approvals",emailKey(user.email))); }catch(_){/* admin prunes stale invites; UI hides claimed ones anyway */} }
         }
       } cb(user); }); },
     signIn(email,pass){ return signInWithEmailAndPassword(fa,email,pass); },

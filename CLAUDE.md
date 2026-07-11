@@ -264,14 +264,14 @@ Icons: Tabler webfont via jsdelivr CDN.
 
 ## Security rules (`firestore.rules` now IN the repo — reconstructed)
 
-`firestore.rules` was reconstructed from this handover + the Jul 2026 additions
-(admin role, `approvals`, `config/holidays`, `config/senioravail`, admin-only
-weights/holidays, constrained self-create of `users/{uid}` so a stranger cannot
-self-assign privilege — role must be `pending`, or the admin email, or match a
-pre-approval keyed by their lowercased email). It has NOT been diffed against
-the live console rules (handover warns they were hand-edited and may diverge).
-Before publishing: read the live rules, reconcile, then paste. If the admin
-email in `CHAMBER.adminEmail` ever changes, change it in `firestore.rules` too.
+`firestore.rules` was MERGED (Jul 2026) from the owner's actual live console
+rules + the new features: admin role (by email AND role, get()-safe against a
+missing users doc), `approvals` (read: any signed-in; write: admin; self-delete
+of own invite), `config/holidays` (admin), `config/senioravail` (canManage),
+constrained self-create of `users/{uid}` (role must be `pending`, or the admin
+email, or match a pre-approval keyed by lowercased email). config is enumerated
+so the catch-all (admin-only) never widens holidays. Still must be PUBLISHED in
+the console by the owner. If `CHAMBER.adminEmail` changes, change it here too.
 
 ## Security rules (legacy notes; keep in lockstep with app writes)
 

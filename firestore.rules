@@ -1,107 +1,138 @@
 rules_version = '2';
-// SD-Chamber security rules.
-// RECONSTRUCTED from the CLAUDE.md handover + the Jul 2026 additions
-// (admin role, approvals collection, config/holidays, config/senioravail).
-// The owner (Adith) must paste this in the Firebase console →
-// Firestore → Rules → Publish. BEFORE pasting, diff against the live
-// version — the handover warns rules were edited directly in console and
-// may have diverged. Nothing in the app writes this file for you.
+// SD-Chamber security rules — MERGED Jul 2026 from the live console rules
+// + the admin role, email pre-approval (approvals), calendar (config/holidays,
+// config/senioravail), and optional per-brief weight.
+// Structure and existing behaviour preserved; only additive/adjusted where the
+// new features write. Publish in Firebase console → Firestore → Rules.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---- helpers ----
     function signedIn() { return request.auth != null; }
-    function myRole() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
-        : 'pending';
-    }
-    // Admin = the configured admin email OR a user record with role 'admin'.
-    // Keep the email in lockstep with CHAMBER.adminEmail in index.html.
+
+    // Admin = the configured admin email (works even before a users doc exists —
+    // Adith is never locked out) OR an active users doc with role 'admin'.
+    // Keep this address in lockstep with CHAMBER.adminEmail in index.html.
     function isAdminEmail() {
-      return signedIn() && request.auth.token.email.lower() == 'adithdeshmukh@gmail.com';
+      return signedIn() && request.auth.token.email != null
+             && request.auth.token.email.lower() == 'adithdeshmukh@gmail.com';
     }
-    function isAdmin() { return isAdminEmail() || (signedIn() && myRole() == 'admin'); }
-    function isClerkPA() { return signedIn() && (myRole() == 'clerk' || myRole() == 'pa'); }
-    function canManage() { return isAdmin() || isClerkPA(); }        // operational
-    function approved() { return signedIn() && myRole() != 'pending'; }
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function myDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function myRole() { return userExists() ? myDoc().role : 'pending'; }
+    function isAdmin() { return isAdminEmail() || (signedIn() && userExists() && myRole() == 'admin'); }
+
+    // Approved = the admin, OR an active chamber member. Short-circuits on
+    // isAdmin() so an admin with no users doc never triggers a get() on a
+    // missing document.
+    function isApproved() {
+      return isAdmin()
+        || (signedIn() && userExists()
+            && myRole() in ['senior','clerk','pa','junior','admin']
+            && myDoc().active == true);
+    }
+    // canManage = day-to-day operational input (admin + Staff/PA).
+    function canManage() {
+      return isAdmin() || (signedIn() && userExists() && myRole() in ['clerk','pa']);
+    }
     function myEmailKey() { return request.auth.token.email.lower(); }
 
-    // ---- users ----
-    // A person may create ONLY their own record. Role is constrained so a
-    // stranger cannot self-assign privilege: 'pending' unless they are the
-    // admin email, or Adith pre-approved their exact email at that role.
     match /users/{uid} {
-      allow read: if approved() || request.auth.uid == uid;
-      allow create: if request.auth.uid == uid
-        && request.resource.data.email == request.auth.token.email
-        && (
-             request.resource.data.role == 'pending'
-          || isAdminEmail()
-          || (
-               exists(/databases/$(database)/documents/approvals/$(myEmailKey()))
-               && get(/databases/$(database)/documents/approvals/$(myEmailKey())).data.role == request.resource.data.role
-             )
-           );
-      // Members edit their own name/phone/availability-ish fields; only an
-      // admin may change role / joinedOn / active / another person's record.
+      allow read: if signedIn();
+      // Self-create only. Role is constrained so a stranger cannot self-assign
+      // privilege: 'pending', unless they are the admin email, or Adith
+      // pre-approved their exact (lowercased) email at that role.
+      allow create: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.email == request.auth.token.email
+                    && (
+                         request.resource.data.role == 'pending'
+                      || isAdminEmail()
+                      || (
+                           exists(/databases/$(database)/documents/approvals/$(myEmailKey()))
+                           && get(/databases/$(database)/documents/approvals/$(myEmailKey())).data.role
+                              == request.resource.data.role
+                         )
+                       );
+      // Admin edits anyone. A member may edit only their own record and may NOT
+      // change their own role / active / joinedOn (admin-only fields).
       allow update: if isAdmin()
-        || (request.auth.uid == uid
-            && request.resource.data.role == resource.data.role
-            && request.resource.data.get('joinedOn', null) == resource.data.get('joinedOn', null)
-            && request.resource.data.get('active', true) == resource.data.get('active', true));
+                    || (request.auth.uid == uid
+                        && request.resource.data.role == resource.data.role
+                        && request.resource.data.active == resource.data.active
+                        && request.resource.data.get('joinedOn', null) == resource.data.get('joinedOn', null));
       allow delete: if isAdmin();
     }
 
-    // ---- email pre-approvals (admin invites a member before first sign-in) ----
-    // Any signed-in user may READ (needed so the just-signed-in user can find
-    // and claim their own invite; contents are only chamber names/roles/phones,
-    // and the chamber has no internal information walls). Only admin writes.
+    // Email pre-approvals. Any signed-in user may READ (the just-signed-in user
+    // must find and claim their own invite; contents are only chamber
+    // names/roles/phones, and the chamber has no internal information walls).
+    // Only admin writes; a user may delete the invite that matches their email
+    // (self-cleanup after their first sign-in claims it).
     match /approvals/{key} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin() || (signedIn() && key == myEmailKey());
     }
 
-    // ---- briefs (matters) ----
     match /briefs/{id} {
-      allow read: if approved();
+      allow read: if isApproved();
       allow create, delete: if canManage();
-      // Clerk/PA/admin: full update. Junior: ONLY the status/acknowledgment/
-      // objection fields (mirror this list to any new junior-writable field
-      // or production silently permission-fails where demo works).
+      // Staff/PA/admin: full update (this is how the optional 'weight' field is
+      // set). A colleague may change ONLY the status/acknowledgment/objection
+      // fields of a brief assigned to them.
       allow update: if canManage()
-        || (approved() && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status','updatedAt','ackBy','declinedBy','heldForClerk',
-                        'assignedTo','everAssigned','assignHistory','assignedAt']));
-      match /{sub=**} {
-        allow read: if approved();
-        allow create: if approved();
+                    || (isApproved()
+                        && request.auth.uid in resource.data.assignedTo
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['status','updatedAt','ackBy','declinedBy',
+                                     'heldForClerk','assignedTo','everAssigned',
+                                     'assignHistory','assignedAt']));
+
+      match /comments/{cid} {
+        allow read: if isApproved();
+        allow create: if isApproved() && request.resource.data.by == request.auth.uid;
+        allow update, delete: if canManage();
+      }
+      match /files/{fid} {
+        // Everything is shared within the chamber — any approved member may read
+        allow read: if isApproved();
+        allow create: if isApproved() && request.resource.data.by == request.auth.uid;
         allow update, delete: if canManage();
       }
     }
 
-    // ---- day sheets, SC index, availability ----
-    match /daysheets/{d}  { allow read: if approved(); allow write: if canManage(); }
-    match /scindex/{d}    { allow read: if approved(); allow write: if canManage(); }
-    match /availability/{a} {
-      allow read: if approved();
-      // members set their own status; clerk/PA/admin may set anyone's
-      allow write: if canManage() || (approved() && request.resource.data.uid == request.auth.uid);
+    match /daysheets/{date} {
+      allow read: if isApproved();
+      allow write: if canManage();
+    }
+
+    // Parsed SC cause-list index (if used by the Load-SC-list / import feature).
+    match /scindex/{date} {
+      allow read: if isApproved();
+      allow write: if canManage();
     }
 
     // ---- config ----
-    // roster pointer: any approved member may advance it (objection rotation).
-    // Everything else under config (weights, holidays, senior availability,
-    // roster order) is admin/clerk territory.
+    // Enumerated so holidays stay ADMIN-only (technical feeding) without a
+    // broad catch-all silently widening it. The catch-all is admin-only so it
+    // can never loosen a more specific rule below it.
     match /config/roster {
-      allow read: if approved();
+      allow read: if isApproved();
       allow write: if canManage()
-        || (approved() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pointer']));
+                   || (isApproved()
+                       && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['pointer']));
     }
-    match /config/senioravail { allow read: if approved(); allow write: if canManage(); }
-    // holidays are TECHNICAL feeding — admin only. (Matter weight is now a field
-    // on each brief, set by Staff via a normal brief update — no config doc.)
-    match /config/holidays { allow read: if approved(); allow write: if isAdmin(); }
-    match /config/{doc}    { allow read: if approved(); allow write: if isAdmin(); }
+    match /config/senioravail { allow read: if isApproved(); allow write: if canManage(); }
+    match /config/holidays    { allow read: if isApproved(); allow write: if isAdmin(); }
+    match /config/{doc}       { allow read: if isApproved(); allow write: if isAdmin(); }
+
+    match /availability/{key} {
+      allow read: if isApproved();
+      // members set their own status; Staff/PA/admin may set anyone's
+      allow write: if canManage()
+                   || (isApproved() && request.resource.data.uid == request.auth.uid);
+    }
   }
 }
