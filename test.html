@@ -877,10 +877,23 @@ const isSenior=()=>me&&me.role==="senior";
 // a date sorts last (alphabetically) until the clerk fills it in.
 const juniors=()=>Object.values(users).filter(u=>u.role==="junior"&&u.active!==false)
   .sort((a,b)=>(a.joinedOn||"9999-99-99").localeCompare(b.joinedOn||"9999-99-99")||(a.name||"").localeCompare(b.name||""));
-const nameOf=uid=>users[uid]?.name||"—";
+// resolve a colleague id to a name — handles both signed-in users and colleagues
+// added but not yet signed in (id "pending:<emailKey>", looked up in approvals).
+const nameOf=uid=>{
+  if(uid&&uid.startsWith&&uid.startsWith("pending:")){ const a=approvals[uid.slice(8)]; return a?(a.name||a.email||"—"):"—"; }
+  return users[uid]?.name||"—";
+};
 const labelOf=b=>b?.caseTitle||"(untitled matter)";
 // day-sheet entries pre-date juniorUids[]; old docs carry a single juniorUid
 const jrsOf=e=>e?.juniorUids?.length?e.juniorUids:(e?.juniorUid?[e.juniorUid]:[]);
+// Everyone in chambers for LABELLING a matter — signed-in colleagues plus those
+// added but not yet signed in — so a causelist entry can name anyone. Assignment
+// (roster/ack) still needs a real login; this list is only for the day sheet.
+function chamberColleagues(){ return rosterDisplay().map(m=>({id:m.id,name:m.name,pending:!m.real})); }
+// The time picker is 24h "HH:MM"; the paper causelist uses "10.30"/"4.00" (12h,
+// no AM/PM). Courts/conferences never sit before 8am, so 1-7 always means PM.
+const toClock=t=>{ t=String(t||"").trim(); const m=t.match(/^(\d{1,2})[.:](\d{2})$/)||t.match(/^(\d{1,2})$/); if(!m) return ""; let h=+m[1]; const mm=m[2]||"00"; if(h>=1&&h<=7) h+=12; return String(h).padStart(2,"0")+":"+mm; };
+const toDotted=v=>{ v=String(v||"").trim(); const m=v.match(/^(\d{1,2}):(\d{2})$/); if(!m) return v; let h=+m[1]%12; if(h===0)h=12; return h+"."+m[2]; };
 
 function toast(msg,icon="ti-check"){ const t=$("toast"); t.innerHTML=`<span class="ic ti ${icon}"></span>${esc(msg)}`; t.classList.remove("hidden"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.add("hidden"),2400); }
 
@@ -1264,39 +1277,56 @@ async function applySCYear(year){
 function dayDetail(iso){
   const d=new Date(iso+"T00:00");
   const wd=d.toLocaleDateString('en-IN',{weekday:'long'});
-  const list=Object.values(briefs).filter(b=>b.status!=="disposed"&&b.nextDate===iso);
-  const mine=list.filter(b=>(b.assignedTo||[]).includes(me.uid));
-  const confs=(dsAll[iso]?.conferences||[]).slice().sort((a,b)=>(parseFloat(a.time)||99)-(parseFloat(b.time)||99));
-  const hasSheet=!!(dsAll[iso]?.entries||[]).length;
+  const entries=(dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]);
+  const confItems=(conferenceList(iso)[0]?.items)||[];
+  const hol=isHol(iso), off=seniorOff(iso);
   openSheet(`<div class="sheet-head"><div><h3>${wd}, ${fmtDateY(iso)}</h3>
-      <div class="sub">${list.length?`${list.length} chamber matter${list.length>1?'s':''}${me.role==="junior"?` · ${mine.length} yours`:''}`:'No matters with this date'}${confs.length?` · ${confs.length} conference${confs.length>1?'s':''}`:''}</div></div>
+      <div class="sub">${entries.length?`${entries.length} item${entries.length>1?'s':''} listed`:'Nothing listed yet'}${confItems.length?` · ${confItems.length} conference${confItems.length>1?'s':''}`:''}</div></div>
       <button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      ${isHol(iso)?`<div class="notice warn" style="margin-bottom:14px"><span class="ti ti-beach"></span><div><b>${esc(holidays[iso])}</b> — court holiday.</div></div>`:''}
-      ${seniorOff(iso)?`<div class="notice warn" style="margin-bottom:14px"><span class="ti ti-user-off"></span><div><b>Senior not available</b>${seniorAvail[iso]?` — ${esc(seniorAvail[iso])}`:''}</div></div>`:''}
-      ${canAdmin()?`<div class="section-label">Court holiday <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(admin)</span></div>
-        <label>Holiday name <span class="muted" style="font-weight:400">(leave blank if the court sits)</span></label>
-        <input id="dh_name" value="${esc(holidays[iso]??'')}" placeholder="e.g. Holi, Summer vacation">`:''}
-      ${canManage()?`<div class="section-label" style="margin-top:16px">Senior's availability</div>
-        <label class="chk-row"><input type="checkbox" id="ds_off" ${seniorOff(iso)?'checked':''}>Senior not available this day</label>
-        <input id="ds_note" value="${esc(seniorAvail[iso]??'')}" placeholder="Note — e.g. travelling, part-heard at Delhi HC">
-        <div style="margin:14px 0 22px"><button class="btn sm" id="dh_save">Save</button></div>`:''}
-      <div class="section-label">Matters on this date</div>
-      ${list.length?list.map(b=>`<button class="jbrief" data-brief="${b.id}" style="width:100%">
-          <div class="jbrief-t"><span class="dotu" style="background:var(--s-${b.status})"></span><span class="nm">${esc(labelOf(b))}</span></div>
-          <div class="jbrief-m">${esc(b.caseNo||b.diaryNo||b.matterType)} · ${STATUS[b.status].label} · ${(b.assignedTo||[]).map(u=>esc(nameOf(u))).join(" / ")||"unassigned"}</div>
-        </button>`).join(""):'<div class="muted" style="font-size:13px">None in the register.</div>'}
-      ${confs.length?`<div class="section-label" style="margin-top:18px">Conferences</div>
-        ${confs.map(c=>`<div class="conf-row"><span class="mono" style="min-width:44px">${esc(c.time||"—")}</span><span>${esc(c.name||"")}</span></div>`).join("")}`:''}
-      <div style="margin-top:22px"><button class="btn ghost sm" id="dOpenSheet"><span class="ic ti ti-list-check"></span>${hasSheet?'Open the day sheet':'Open day sheet for this date'}</button></div>
+      ${hol?`<div class="notice warn" style="margin-bottom:12px"><span class="ti ti-beach"></span><div><b>${esc(holidays[iso])}</b> — court holiday.</div></div>`:''}
+      ${off?`<div class="notice warn" style="margin-bottom:12px"><span class="ti ti-user-off"></span><div><b>Senior not available</b>${seniorAvail[iso]?` — ${esc(seniorAvail[iso])}`:''}</div></div>`:''}
+
+      <div class="section-label">Listing — court items</div>
+      ${entries.length?entries.map((e,i)=>{const R=resolveEntry(e,iso);
+        return `<button class="jbrief" data-dsopen="${i}" style="width:100%">
+          <div class="jbrief-t"><span class="mono" style="min-width:58px;font-size:12px">${e.courtNo?`Ct ${esc(e.courtNo)}`:'—'}${e.itemNo?`/${esc(e.itemNo)}`:''}</span><span class="nm">${esc(R.title)}</span></div>
+          <div class="jbrief-m">${[e.time?`${esc(e.time)}`:'', R.listType, jrsOf(e).map(u=>esc(nameOf(u))).join(" / ")].filter(Boolean).join(" · ")||'&nbsp;'}</div>
+        </button>`;}).join(""):'<div class="muted" style="font-size:13px">No matters entered for this day yet.</div>'}
+
+      ${confItems.length?`<div class="section-label" style="margin-top:18px">Conferences</div>
+        ${confItems.map(c=>`<div class="conf-row"><span class="mono" style="min-width:52px">${esc(c.time||"—")}</span><span>${esc(c.label||"")}</span></div>`).join("")}`:''}
+
+      ${canManage()?`<div class="section-label" style="margin-top:20px">Senior's availability</div>
+        <div class="seg" id="avSeg" style="width:100%">
+          <button type="button" data-av="in" class="${off?'':'active'}" style="flex:1"><span class="ti ti-user-check"></span> Available</button>
+          <button type="button" data-av="out" class="${off?'active':''}" style="flex:1"><span class="ti ti-user-off"></span> Not available</button>
+        </div>
+        <input id="ds_note" style="margin-top:8px;${off?'':'display:none'}" value="${esc(seniorAvail[iso]??'')}" placeholder="Reason (optional) — e.g. travelling, part-heard at Delhi HC">`:''}
+
+      ${canAdmin()?`<div class="section-label" style="margin-top:18px">Court holiday</div>
+        <div id="holBox">${hol
+          ? `<div class="row" style="align-items:center;gap:10px"><span class="chip st-prep"><span class="ti ti-beach"></span> ${esc(holidays[iso])}</span><button class="btn ghost sm" id="holRemove" style="color:var(--danger)">Remove holiday</button></div>`
+          : `<div class="row" style="gap:8px"><input id="dh_name" placeholder="Name — e.g. Holi, Ambedkar Jayanti" style="flex:1"><button class="btn sm" id="holMark">Mark holiday</button></div>
+             <div class="muted" style="font-size:11.5px;margin-top:6px">Missed one? Mark a single day here, or a whole range from the calendar's “Mark holidays” button.</div>`}</div>`:''}
+
+      <div style="margin-top:22px"><button class="btn ghost sm" id="dOpenSheet"><span class="ic ti ti-list-check"></span>${entries.length?'Open the day sheet':'Open day sheet for this date'}</button></div>
     </div>`);
-  if($("dh_save"))$("dh_save").onclick=async()=>{
-    if(canAdmin()&&$("dh_name")) await db.set("config/holidays",{[iso]:$("dh_name").value.trim()||null},true);
-    if($("ds_off")) await db.set("config/senioravail",{[iso]:$("ds_off").checked?($("ds_note").value.trim()||""):null},true);
-    closeSheet(); toast("Saved","ti-calendar-check");
-  };
-  $("dOpenSheet").onclick=()=>{ closeSheet(); dsDate=iso; watchDaysheet(); selectTab("today"); };
-  bindClicks($("modalRoot"));
+  const goSheet=()=>{ closeSheet(); dsDate=iso; watchDaysheet(); selectTab("today"); };
+  document.querySelectorAll("[data-dsopen]").forEach(x=>x.onclick=goSheet);
+  $("dOpenSheet").onclick=goSheet;
+  // senior availability — immediate toggle, no separate Save
+  document.querySelectorAll('#avSeg [data-av]').forEach(b=>b.onclick=async()=>{
+    const out=b.dataset.av==="out";
+    document.querySelectorAll('#avSeg [data-av]').forEach(x=>x.classList.toggle("active",x===b));
+    if($("ds_note")) $("ds_note").style.display=out?"":"none";
+    await db.set("config/senioravail",{[iso]: out?($("ds_note")?.value.trim()||""):null},true);
+    toast(out?"Marked — Senior not available":"Marked — Senior available","ti-calendar-check");
+  });
+  if($("ds_note")) $("ds_note").onchange=async()=>{ if(seniorOff(iso)||document.querySelector('#avSeg [data-av="out"]')?.classList.contains("active")) await db.set("config/senioravail",{[iso]:$("ds_note").value.trim()||""},true); };
+  // holiday — mark / remove, then refresh this sheet
+  if($("holMark")) $("holMark").onclick=async()=>{ await db.set("config/holidays",{[iso]:($("dh_name").value.trim()||"Court holiday")},true); toast("Marked as court holiday","ti-beach"); dayDetail(iso); };
+  if($("holRemove")) $("holRemove").onclick=async()=>{ await db.set("config/holidays",{[iso]:null},true); toast("Holiday removed"); dayDetail(iso); };
 }
 
 // Bulk holiday entry — the SC calendar arrives once a year; the clerk marks
@@ -1857,8 +1887,7 @@ function dsForm(idx=null){
   openSheet(`<div class="sheet-head"><div><h3>${idx!==null?'Edit':'Add'} day-sheet matter</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <div class="grid2"><div><label>Date of listing <span class="muted" style="font-weight:400">(required)</span></label><input type="date" id="f_date" value="${esc(dsDate)}"></div>
-        <div><label>Time</label><input id="f_time" class="mono" list="courttimes" value="${esc(e.time??'10.30')}"></div></div>
-      <datalist id="courttimes">${COURT_TIMES.map(t=>`<option value="${t}"></option>`).join("")}</datalist>
+        <div><label>Time</label><input type="time" id="f_time" value="${esc(toClock(e.time??'10.30'))}"></div></div>
       <label>Causelist type <span class="muted" style="font-weight:400">(which SC list to look the item up in)</span></label>
       <select id="f_listtype"><option value="">— select —</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select>
       <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
@@ -1873,12 +1902,12 @@ function dsForm(idx=null){
       <datalist id="lawfirms">${LAW_FIRMS.map(f=>`<option value="${esc(f)}"></option>`).join("")}</datalist>
       <label>Conference <span class="muted" style="font-weight:400">(optional — date then time; add now or later)</span></label>
       <div class="grid2"><div><input type="date" id="f_confdate" value="${esc(e.confDate||'')}"></div>
-        <div><input id="f_conf" class="mono" list="courttimes" value="${esc(e.confTime||'')}" placeholder="time e.g. 4.00"></div></div>
+        <div><input type="time" id="f_conf" value="${esc(toClock(e.confTime||''))}" title="Conference time"></div></div>
       <label>Bench</label><input id="f_bench" value="${esc(e.bench||'')}" placeholder="fills from the causelist">
       <div id="f_benchhint" style="margin-top:6px;min-height:16px"></div>
       <label>Link to a brief <span class="muted" style="font-weight:400">(optional)</span></label><select id="f_brief"><option value="">— not in the register —</option>${opts}</select>
       <label>Chamber colleagues on the matter</label>
-      <div id="f_jrs">${juniors().map(j=>`<label class="chk-row"><input type="checkbox" data-jr="${j.id}" ${jrsOf(e).includes(j.id)?'checked':''}><span>${esc(j.name)}</span></label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
+      <div id="f_jrs">${chamberColleagues().map(j=>`<label class="chk-row"><input type="checkbox" data-jr="${j.id}" ${jrsOf(e).includes(j.id)?'checked':''}><span class="mini-ava">${esc(initials(j.name))}</span>${esc(j.name)}${j.pending?' <span class="chip st-prep" style="margin-left:auto;font-size:10px">yet to sign in</span>':''}</label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
       <label>Remarks</label><input id="f_rem" value="${esc(e.remarks||'')}" placeholder="e.g. mentioning at 10:30, pass-over likely">
       <div style="margin-top:20px"><button class="btn" id="f_save">Save matter</button></div>
     </div>`);
@@ -1928,7 +1957,7 @@ function dsForm(idx=null){
     const juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
     const listDate=fdate();
     const entry={briefId:$("f_brief").value||null,caseTitle:$("f_title").value.trim(),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
-      listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:$("f_time").value.trim(),confTime:$("f_conf").value.trim(),confDate:($("f_conf").value.trim()?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
+      listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:toDotted($("f_conf").value),confDate:(toDotted($("f_conf").value)?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
       juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
     if(!((entry.courtNo&&entry.itemNo)||entry.caseTitle||entry.briefId)){toast("Enter the court no + item no (or a case title)","ti-alert-triangle");return;}
     // save-time backfill: whatever the fetched list already knows, store it
