@@ -239,6 +239,14 @@ content) opens an editable plain-text preview in the clerk's own paper format �
 Copy / WhatsApp (`wa.me/?text=` on mobile, `web.whatsapp.com/send?text=` on
 desktop, UA-sniffed) / mailto buttons acting on the edited text. This IS the
 clerk's delivery mechanism; composer lives in `shareText()`/`shareDaySheet()`.
+**Print** button (beside Share) — `printCauseList()` opens a print window in the
+clerk's PAPER format: centred `SENIOR NAME` (big caps) + italic "Senior
+Advocate", underlined `SUPREME COURT (DAY) DD.MM.YYYY`, then the six-column
+table (Court/Item · Time · Case Name · Judges · Advocates Name · Total matter;
+Advocates cell = briefing counsel over "/"-joined colleagues), then Conferences.
+EB Garamond (Google Fonts) 14px, serif fallback. Print is triggered from the
+PARENT after `w.document.fonts.ready` — no inline script in the written HTML.
+Admin is a `canManage()` superset, so Adith can add matters + print like Staff.
 
 ## SC cause-list auto-fetch (Jul 2026 — owner's "enrich entered listings" model)
 
