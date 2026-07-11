@@ -1869,9 +1869,12 @@ function printCauseList(iso){
   const q = s => String(s??"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const rows=entries.map((e,i)=>{
     const R=resolveEntry(e,iso);
-    const ci=`Ct-${q(e.courtNo||"?")} #${q(e.itemNo||"?")}`;
+    const ci=`${q(e.courtNo||"?")} #${q(e.itemNo||"?")}`;
     const judges=String(R.bench||"").split(/\s*,\s*/).filter(Boolean).map(q).join("<br>");   // one judge per line
-    const adv=[e.counsel, ...jrsOf(e).map(u=>nameOf(u))].filter(Boolean).map(q).join("<br>"); // one name per line
+    // (P)/(R) = which side we appear for; a short own line so the advocate names
+    // keep their exact width/height. Respondent -> (R), any other side -> (P).
+    const side = R.appearingFor ? (/resp/i.test(R.appearingFor) ? "(R)" : "(P)") : "";
+    const adv=[side?`<b>${side}</b>`:"", ...[e.counsel, ...jrsOf(e).map(u=>nameOf(u))].filter(Boolean).map(q)].filter(Boolean).join("<br>"); // side marker then one name per line
     let totLine="";
     if(R.total){
       totLine=`<div>Total ${q(R.total)}</div>`;
