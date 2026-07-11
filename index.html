@@ -1046,13 +1046,13 @@ auth.onChange(async user=>{
 function startApp(){
   showView("app"); paintChrome();
   unsub.push(db.watchCollection("users", rows=>{ users={}; rows.forEach(u=>users[u.id]=u); renderActive(); paintChrome(); }));
-  unsub.push(db.watchCollection("briefs", rows=>{ briefs={}; rows.forEach(b=>briefs[b.id]=b); $("cntBriefs").textContent=Object.values(briefs).filter(b=>b.status!=="disposed").length; renderActive(); }, ["updatedAt","desc"]));
+  unsub.push(db.watchCollection("briefs", rows=>{ briefs={}; rows.forEach(b=>briefs[b.id]=b); $("cntBriefs").textContent=Object.values(briefs).filter(b=>b.status!=="disposed").length; renderActive(); _briefsLoaded=true; maybeSyncRegister(); }, ["updatedAt","desc"]));
   unsub.push(db.watchCollection("availability", rows=>{ availToday={}; availAll={}; rows.forEach(a=>{ availAll[a.uid+"_"+a.date]=a; if(a.date===todayISO())availToday[a.uid]=a; }); renderActive(); }));
   unsub.push(db.watchDoc("config/roster", d=>{ roster = d || {order:[],pointer:0}; renderActive(); }));
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
   unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
-  unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); renderActive(); }));
+  unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   loadCourtUpdates();
   watchDaysheet();
@@ -1110,7 +1110,10 @@ function closeSheet(){ sheetUnsubs.forEach(u=>u()); sheetUnsubs=[]; $("modalRoot
 // Effective roster = chamber seniority (date of joining, senior-most first).
 // Owner's decision: the order is fixed by joinedOn — no manual reordering —
 // so the rotation explains itself. config/roster now carries only the pointer.
-function effectiveRoster(){ return juniors().map(j=>j.id); }
+// The roster runs over ALL chamber colleagues — including ones added but not yet
+// signed in (id "pending:<email>") — so work can be distributed before anyone
+// logs in. Their assignments migrate to the real uid on first login (syncRegister).
+function effectiveRoster(){ return rosterDisplay().map(m=>m.id); }
 function isOnLeave(uid){ return availToday[uid]?.status==="leave"; }
 function onLeaveOn(uid,dateISO){ return availAll[uid+"_"+dateISO]?.status==="leave"; }
 
@@ -1168,6 +1171,56 @@ function findBriefForListing(entry, caseNo, diaryNo){
   const t=(entry.caseTitle||"").trim().toLowerCase();
   if(t.length>6){ const m=Object.values(briefs).find(b=>(b.caseTitle||"").trim().toLowerCase()===t); if(m)return m; }
   return null;
+}
+// One-shot reconciliation (admin/clerk only — needs write access):
+//  1) create a register brief for any day-sheet listing that doesn't have one yet
+//     (so listings entered before this existed still appear in the register), and
+//  2) migrate "pending:<email>" colleague ids to the real uid once that colleague
+//     has signed in for the first time.
+let _registerSynced=false, _briefsLoaded=false, _dsLoaded=false;
+// run the reconciliation only once BOTH collections have loaded — otherwise an
+// empty-yet briefs map would make every already-linked listing look unlinked.
+function maybeSyncRegister(){ if(_briefsLoaded && _dsLoaded) syncRegister(); }
+async function syncRegister(force){
+  if((!force && _registerSynced) || !me || !canManage()) return;
+  _registerSynced=true;
+  const uidByEmail={}; Object.values(users).forEach(u=>{ if(u.email&&u.role!=="pending") uidByEmail[emailKey(u.email)]=u.id; });
+  const mapId=x=>{ if(typeof x==="string"&&x.startsWith("pending:")){ return uidByEmail[x.slice(8)]||x; } return x; };
+  // migrate pending ids in the briefs register
+  for(const b of Object.values(briefs)){
+    const patch={};
+    ["assignedTo","everAssigned","ackBy"].forEach(f=>{ if(Array.isArray(b[f])){ const nv=b[f].map(mapId); if(nv.some((v,i)=>v!==b[f][i])) patch[f]=nv; } });
+    if(Object.keys(patch).length){ patch.updatedAt=db.now(); try{ await db.update("briefs/"+b.id,patch); }catch(_){} }
+  }
+  // walk every day sheet: migrate ids + backfill a brief for unlinked entries
+  for(const [date,ds] of Object.entries(dsAll)){
+    let changed=false; const entries=[];
+    for(const e0 of (ds.entries||[])){
+      const e={...e0};
+      const j=jrsOf(e).map(mapId);
+      if(j.join("|")!==jrsOf(e0).join("|")){ e.juniorUids=j; e.juniorUid=j[0]||null; changed=true; }
+      if(!(e.briefId&&briefs[e.briefId]) && (e.caseTitle||(e.courtNo&&e.itemNo))){
+        const hit=(e.courtNo&&e.itemNo)?lookupCauselistItem(date,e.courtNo,e.itemNo,e.listType):null;
+        const refs=hit?refsFromCauseLine(hit.caseLine):{caseNo:"",diaryNo:""};
+        const title=e.caseTitle||(hit?titleFromCauseLine(hit.caseLine):"");
+        const existing=findBriefForListing({...e,caseTitle:title},refs.caseNo,refs.diaryNo);
+        if(existing){ e.briefId=existing.id; changed=true; }
+        else if(title||refs.caseNo){ const jr=e.juniorUids||jrsOf(e)||[];
+          const id=await db.add("briefs",{caseTitle:title||"(from causelist)",caseNo:refs.caseNo,diaryNo:refs.diaryNo,
+            matterType:guessMatterType(refs.caseNo),appearingFor:e.appearingFor||"",aor:e.counsel||"",chamberNo:"",
+            assignedTo:jr.slice(),everAssigned:jr.slice(),ackBy:jr.slice(),declinedBy:[],
+            assignHistory:jr.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:"listed"})),
+            status:"listed",priority:false,nextDate:date,detailsAwaited:!(refs.caseNo||refs.diaryNo),
+            fromListing:true,createdBy:me.uid,createdAt:db.now(),updatedAt:db.now()});
+          e.briefId=id; changed=true;
+          briefs[id]={id,caseTitle:title,caseNo:refs.caseNo,diaryNo:refs.diaryNo,assignedTo:jr.slice()}; // local cache so the same matter on a later date dedups
+        }
+      }
+      entries.push(e);
+    }
+    if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
+  }
+  if(curTab==="briefs"||curTab==="roster") renderActive();
 }
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
 function activeLoad(uid){
@@ -2226,7 +2279,7 @@ function importCauseList(){
    ============================================================ */
 let briefFilter="", briefSearch="";
 function renderBriefs(){
-  $("topbarAction").innerHTML = canManage()? `<button class="btn" id="tbNewBrief2"><span class="ic ti ti-plus"></span>New brief</button>`:"";
+  $("topbarAction").innerHTML = canManage()? `<button class="btn ghost sm" id="tbSyncReg" title="Add any listed matter that isn't in the register yet"><span class="ic ti ti-refresh"></span>Sync listings</button> <button class="btn" id="tbNewBrief2"><span class="ic ti ti-plus"></span>New brief</button>`:"";
   const filters=[["","Active"],["mine","Mine"],["urgent","Urgent"],["awaited","Incomplete"],["listed","Listed"],["disposed","Disposed"]];
   const bar=`<div class="filters">
     <div class="search"><span class="ic ti ti-search"></span><input id="bSearch" placeholder="Search title, diary or case number" value="${esc(briefSearch)}"></div>
@@ -2267,11 +2320,12 @@ function renderBriefs(){
   $("bSearch").oninput=e=>{briefSearch=e.target.value; renderBriefs(); $("bSearch").focus(); const v=$("bSearch").value;$("bSearch").setSelectionRange(v.length,v.length);};
   document.querySelectorAll("[data-bf]").forEach(x=>x.onclick=()=>{briefFilter=x.dataset.bf;renderBriefs();});
   if($("tbNewBrief2"))$("tbNewBrief2").onclick=()=>briefForm();
+  if($("tbSyncReg"))$("tbSyncReg").onclick=async()=>{ $("tbSyncReg").disabled=true; await syncRegister(true); toast("Register synced with the listings","ti-check"); renderBriefs(); };
   bindClicks($("tab-briefs"));
 }
 
 function briefForm(b=null){
-  const j=juniors();
+  const j=chamberColleagues();   // includes colleagues not yet signed in
   openSheet(`<div class="sheet-head"><div><h3>${b?'Edit brief':'New brief'}</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <label>Case title</label><input id="b_title" value="${esc(b?.caseTitle||'')}" placeholder="Petitioner vs Respondent">
@@ -2292,7 +2346,7 @@ function briefForm(b=null){
         <button type="button" data-mode="auto"><span class="ti ti-wand"></span> Auto-assign</button>
       </div>`:''}
       <div id="asgnManual">
-        <div>${j.length? j.map(u=>`<label class="chk-row"><input type="checkbox" data-as="${u.id}" ${(b?.assignedTo||[]).includes(u.id)?'checked':''}><span class="mini-ava">${esc(initials(u.name))}</span>${esc(u.name)} <span class="muted" style="font-size:11.5px;margin-left:auto">${activeCount(u.id)} active</span></label>`).join("") : '<span class="muted" style="font-size:13px">No colleagues approved yet.</span>'}</div>
+        <div>${j.length? j.map(u=>`<label class="chk-row"><input type="checkbox" data-as="${u.id}" ${(b?.assignedTo||[]).includes(u.id)?'checked':''}><span class="mini-ava">${esc(initials(u.name))}</span>${esc(u.name)}${u.pending?' <span class="chip st-prep" style="font-size:10px">yet to sign in</span>':''} <span class="muted" style="font-size:11.5px;margin-left:auto">${activeCount(u.id)} active</span></label>`).join("") : '<span class="muted" style="font-size:13px">No colleagues added yet.</span>'}</div>
         <label class="chk-row" style="margin-top:6px"><input type="checkbox" id="b_directed" ${b?.directed?'checked':''}><span class="ti ti-pin" style="color:var(--accent-ink)"></span>On Senior's direction <span class="muted" style="font-weight:400">(pins the colleague; objections held for Staff; roster turn not consumed)</span></label>
       </div>
       ${j.length?`<div id="asgnAuto" style="display:none">
