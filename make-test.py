@@ -59,10 +59,9 @@ SEED = '''function seedDemo(db){
     appearingFor:"Petitioner",aor:"",assignedTo:[],everAssigned:[],assignHistory:[],declinedBy:[],ackBy:[],
     status:"received",priority:false,nextDate:nx,conferenceAt:null,createdAt:n(),updatedAt:{_t:Date.now()}}));
 
-  // calendar samples: a vacation range and a senior-away day (all editable in-app)
-  db.set("config/holidays",{"2026-07-17":"Sample holiday — edit me",
-    "2026-07-27":"Sample vacation (edit)","2026-07-28":"Sample vacation (edit)",
-    "2026-07-29":"Sample vacation (edit)","2026-07-30":"Sample vacation (edit)","2026-07-31":"Sample vacation (edit)"});
+  // calendar: real SC 2026 summer vacation (partial court, ends 12 Jul) + a
+  // senior-away day, so the demo shows the actual shading (no fake clutter).
+  db.set("config/vacation",{ranges:[["2026-06-01","2026-07-12","Summer vacation — partial court working days"]]});
   db.set("config/senioravail",{"2026-07-15":"Travelling (sample)"});
 
   // everyone available today and on the 13th

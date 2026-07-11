@@ -1022,6 +1022,10 @@ function paintChrome(){
   $("sbName").textContent=CHAMBER.seniorName; $("sbCourt").textContent=CHAMBER.court;
   $("sbUserName").textContent=me.name; $("sbUserRole").textContent=ROLES[me.role]||me.role;
   $("sbAva").textContent=initials(me.name);
+  // colleagues get "My work" (a personal home); Staff/admin get the distribution board
+  const boardLabel=me.role==="junior"?"My work":"Work board";
+  document.querySelectorAll('#sbNav button[data-tab="board"]').forEach(b=>{ const s=b.querySelector('span:last-child')||b.lastChild; b.innerHTML=`<span class="ic ti ti-layout-grid"></span>${boardLabel}`; });
+  document.querySelectorAll('#mobileNav button[data-tab="board"]').forEach(b=>{ b.innerHTML=`<span class="ic ti ti-layout-grid"></span>${me.role==="junior"?"My work":"Board"}`; });
 }
 
 /* ---- tab routing ---- */
