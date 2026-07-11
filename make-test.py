@@ -70,7 +70,7 @@ SEED = '''function seedDemo(db){
     [D,todayISO()].forEach(dt=>db.set("availability/"+u+"_"+dt,{uid:u,date:dt,status:"available",note:"",at:n()})));
   // the paper itself: one day-sheet doc for Monday, mirrored onto today so the tab isn't empty on open
   const entries=M.map(([id,title,bench,court,item,counsel,af,jrs,ct])=>({briefId:id,caseTitle:title,
-    courtNo:court,itemNo:item,listType:"Miscellaneous",time:"10.30",confTime:ct,bench,counsel,juniorUids:jrs.slice(),juniorUid:jrs[0],remarks:"",done:false}));
+    courtNo:court,itemNo:item,listType:"Miscellaneous",time:"10.30",confTime:ct,confDate:D,bench,counsel,juniorUids:jrs.slice(),juniorUid:jrs[0],remarks:"",done:false}));
   [D,todayISO()].forEach(dt=>db.set("daysheets/"+dt,{date:dt,updatedAt:n(),updatedBy:"u_clerk",
     entries:entries.map(e=>({...e})),conferences:[]}));
 }
