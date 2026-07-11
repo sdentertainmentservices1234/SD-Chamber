@@ -290,6 +290,25 @@ takes just **court + item** as the primary inputs; `lookupCauselistItem(date,
 court,item)` searches ALL list types (item-number ranges differ so court+item is
 unique) and fills case title (`titleFromCauseLine`), list type, and bench.
 Everything else on the form is optional.
+- Item capture (Jul 2026): parse_courts grabs the petitioner line + the line
+  after "Versus" (`caseLine` = "PET .. VERSUS RESP .."); `court["total"]` =
+  item count. App `titleFromCauseLine` strips the case-no prefix, splits on
+  VERSUS, trims each side at "& Ors./and Anr." (drops the trailing AoR),
+  title-cases → "Petitioner vs Respondent". Bug fixed: the entry form tracks
+  what IT auto-filled (`auto{title,bench,type}`) so typing item "3"→"30" lands
+  on the FINAL item's case, and a value the clerk edits is never overwritten.
+- Briefing counsel is an `<input list="lawfirms">` datalist of top Indian firms
+  (`LAW_FIRMS`) — pick or type any AoR. Each entry has an optional `confTime`
+  (add now or edit later). `conferenceList(date)` builds the Conferences section
+  (day sheet + print + share) from entries' confTime: "time — counsel", and
+  when a counsel has >1 conference that day, "(FirstWordOfCauseTitle)". Manual
+  daysheet.conferences[] merge in.
+- `resolveEntry(e,date)` returns title/bench/listType/total from the entry
+  falling back to the fetched causelist — used by rail, table, share AND print
+  so a court+item-only entry completes once its list is fetched.
+- Print = "SD CAUSELIST — SUPREME COURT (DAY) DATE" (title tag "SD Causelist
+  DATE"); columns Sr. | Court/Item (narrow, stacked) | Time | Case Name |
+  Judges | Advocates | Total & Seq. (court total + item seq); EB Garamond 14.
 - List-type → PDF suffix (verified against real 13-07-2026 PDFs, via an
   authorised one-time probe): Miscellaneous `M_J`, Regular `F_J`, Chamber `M_C`,
   Single Judge `M_S`, Registrar `M_R`, Curative & Review `M_CC`; `_1` main,

@@ -125,6 +125,8 @@ def parse_courts(text):
     courts = {}
     cur = None
     in_header = False
+    pending = None      # (court, item) awaiting a "Versus" respondent
+    await_resp = False
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
@@ -150,21 +152,39 @@ def parse_courts(text):
         fm = FRESH_RE.search(line)
         if fm and not courts[cur]["fresh"]:
             courts[cur]["fresh"] = fm.group(1)
-        # an item line — record its number -> case line (first occurrence only,
-        # page-header repeats won't overwrite)
+        # an item line — record its number -> petitioner side (first occurrence
+        # only; page-header repeats won't overwrite). The respondent is captured
+        # from the line after "Versus" so the title reads "Petitioner vs Resp".
         im = ITEM_LINE_RE.match(line)
         if im and re.search(r"[A-Za-z]{3}", im.group(2)):
             in_header = False
             it = im.group(1)
             if it not in courts[cur]["items"]:
-                courts[cur]["items"][it] = re.sub(r"\s+", " ", im.group(2)).strip()[:90]
+                courts[cur]["items"][it] = re.sub(r"\s+", " ", im.group(2)).strip()[:70]
+                pending = (cur, it); await_resp = False
+            else:
+                pending = None
             continue
+        if pending is not None:
+            if re.match(r"^versus$", line, re.I):
+                await_resp = True
+                continue
+            if await_resp and re.search(r"[A-Za-z]{3}", line) \
+                    and not re.match(r"^[\[{(]", line):   # skip [CAVEAT] etc.
+                resp = re.sub(r"\s+", " ", line).strip()[:50]
+                pc, pit = pending
+                courts[pc]["items"][pit] += " VERSUS " + resp
+                pending = None; await_resp = False
+                continue
         if in_header:
             if is_coram(line):
                 piece = re.sub(r"\s+", " ", line).strip()
                 courts[cur]["coram"] = (courts[cur]["coram"] + " " + piece).strip()[:200]
             else:
                 in_header = False
+    for c in courts.values():
+        if not c["total"]:
+            c["total"] = str(len(c["items"]))   # SC lists have no total line
     return courts
 
 

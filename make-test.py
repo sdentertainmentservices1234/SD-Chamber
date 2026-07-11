@@ -69,12 +69,10 @@ SEED = '''function seedDemo(db){
   ["u_adith","u_ankur","u_yash","u_shaishir","u_anshula","u_rongong","u_rishit"].forEach(u=>
     [D,todayISO()].forEach(dt=>db.set("availability/"+u+"_"+dt,{uid:u,date:dt,status:"available",note:"",at:n()})));
   // the paper itself: one day-sheet doc for Monday, mirrored onto today so the tab isn't empty on open
-  const entries=M.map(([id,title,bench,court,item,counsel,af,jrs])=>({briefId:id,caseTitle:title,
-    courtNo:court,itemNo:item,listType:"Miscellaneous",time:"10.30",bench,counsel,juniorUids:jrs.slice(),juniorUid:jrs[0],remarks:"",done:false}));
-  const conferences=M.map(([id,,,,,counsel,,,ct])=>({time:ct,name:counsel,briefId:id}))
-    .sort((a,b)=>parseFloat(a.time)-parseFloat(b.time));
+  const entries=M.map(([id,title,bench,court,item,counsel,af,jrs,ct])=>({briefId:id,caseTitle:title,
+    courtNo:court,itemNo:item,listType:"Miscellaneous",time:"10.30",confTime:ct,bench,counsel,juniorUids:jrs.slice(),juniorUid:jrs[0],remarks:"",done:false}));
   [D,todayISO()].forEach(dt=>db.set("daysheets/"+dt,{date:dt,updatedAt:n(),updatedBy:"u_clerk",
-    entries:entries.map(e=>({...e})),conferences:conferences.map(c=>({...c}))}));
+    entries:entries.map(e=>({...e})),conferences:[]}));
 }
 '''
 
