@@ -211,17 +211,23 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .cal-cell:hover{border-color:var(--accent)}
 .cal-cell.blank{background:none;border:none;cursor:default;min-height:0}
 .cal-cell.wknd{background:var(--surface-2)}
-.cal-cell.hol{background:var(--warn-bg)}
-.cal-cell.partial{background:#fdf4e8}
+.cal-cell.hol{background:#f0edf5}                     /* holiday — soft purple */
+.cal-cell.partial{background:#fdf4e8}                 /* vacation — cream */
+.cal-cell.senoff{background:#eef2f7}                  /* Senior away — slate-blue */
+.cal-cell.load-g{background:#e9f2ec}                  /* <5 matters — green */
+.cal-cell.load-y{background:#f9f0d4}                  /* 5–10 — yellow */
+.cal-cell.load-r{background:#f9e2dc}                  /* >10 — red */
 .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .cal-top{display:flex;justify-content:space-between;align-items:center}
 .cal-num{font-family:"Fraunces",serif;font-size:15px;color:var(--ink)}
 .cal-cell.today .cal-num{color:var(--accent-ink);font-weight:600}
 .cal-sen{color:var(--warn);font-size:14px}
-.cal-hol{font-size:10.5px;color:var(--warn);line-height:1.3}
+.cal-hol{font-size:10.5px;color:#6a5a86;line-height:1.3}
 .cal-hol.nonsit{color:var(--ink-3)}
 .cal-hol.partsit{color:#a3612a}
-.leg-part{width:12px;height:12px;border-radius:3px;background:#fdf4e8;border:1px solid #d9a35a;display:inline-block}
+.leg-sw{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.14);vertical-align:-1px}
+.leg-sw.lg{background:#e9f2ec}.leg-sw.ly{background:#f9f0d4}.leg-sw.lr{background:#f9e2dc}
+.leg-sw.lh{background:#f0edf5}.leg-sw.lp{background:#fdf4e8}.leg-sw.ls{background:#eef2f7}.leg-sw.lw{background:var(--surface-2)}
 .cal-chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:auto}
 .cal-chip{font-size:10.5px;padding:2px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
 .cal-chip.mine{background:var(--s-ready-bg);color:var(--s-ready)}
@@ -549,7 +555,10 @@ body.demo .topbar{top:34px}
         <button class="hamburger" id="hamburger" aria-label="Menu"><span class="ti ti-menu-2"></span></button>
         <div><h1 id="pageTitle">Calendar</h1><div class="sub" id="pageSub"></div></div>
       </div>
-      <div id="topbarAction"></div>
+      <div class="row" style="gap:8px;align-items:center">
+        <div id="topbarAction"></div>
+        <button class="tbtn icon-only" id="btnRefresh" title="Refresh — fetch the latest data and app version" aria-label="Refresh"><span class="ic ti ti-refresh"></span></button>
+      </div>
     </div>
     <div class="page">
       <section id="tab-cal"></section>
@@ -884,6 +893,16 @@ $("loginBtn").onclick=async()=>{ $("loginErr").textContent="";
 $("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("loginBtn").click();});
 $("pendingSignOut").onclick=()=>auth.signOut();
 $("signOutBtn").onclick=()=>auth.signOut();
+// Hard refresh: pull the newest app shell + data even on an installed PWA whose
+// service worker is holding an old copy. Clears the shell cache, nudges the SW,
+// then reloads with a cache-buster.
+async function hardRefresh(){
+  toast("Refreshing…","ti-refresh");
+  try{ if(window.caches){ const keys=await caches.keys(); await Promise.all(keys.map(k=>caches.delete(k))); } }catch(e){}
+  try{ if("serviceWorker" in navigator){ const regs=await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r=>r.update().catch(()=>{}))); } }catch(e){}
+  location.replace(location.pathname+"?r="+Date.now());
+}
+$("btnRefresh").onclick=hardRefresh;
 if(DEMO){ $("demoBar").classList.remove("hidden"); $("demoRole").onchange=e=>window.__demoSetUser(e.target.value); }
 
 function showView(v){ ["authView","pendingView","app"].forEach(x=>$(x).classList.toggle("hidden",x!==v)); }
@@ -1156,7 +1175,12 @@ function renderCal(){
     const n=(byDate[iso]||[]).length, mine=(mineBy[iso]||[]).length;
     const conf=(dsAll[iso]?.conferences||[]).length;
     const part=(!isHol(iso)&&!wknd)?isPartial(iso):null;
-    cells.push(`<button class="cal-cell ${wknd?'wknd':''} ${isHol(iso)?'hol':''} ${part?'partial':''} ${iso===today?'today':''}" data-cald="${iso}">
+    // workload = matters listed that day (register next-dates or day-sheet entries)
+    const load=Math.max(n,(dsAll[iso]?.entries||[]).length);
+    // one colour per day, staff-readable at a glance:
+    // holiday > vacation > Senior away > workload (green <5, yellow 5-10, red >10) > weekend
+    const state=isHol(iso)?'hol':part?'partial':seniorOff(iso)?'senoff':load?(load<5?'load-g':load<=10?'load-y':'load-r'):wknd?'wknd':'';
+    cells.push(`<button class="cal-cell ${state} ${iso===today?'today':''}" data-cald="${iso}">
       <div class="cal-top"><span class="cal-num">${d}</span>${seniorOff(iso)?`<span class="cal-sen ti ti-user-off" title="Senior not available${seniorAvail[iso]?' — '+esc(seniorAvail[iso]):''}"></span>`:''}</div>
       ${isHol(iso)?`<div class="cal-hol">${esc(holidays[iso])}</div>`:wknd?'<div class="cal-hol nonsit">Non-sitting</div>':part?'<div class="cal-hol partsit" title="'+esc(part)+'">Partial court</div>':''}
       <div class="cal-chips">
@@ -1174,7 +1198,7 @@ function renderCal(){
         <button class="tbtn icon-only" id="calNext" aria-label="Next month"><span class="ic ti ti-chevron-right"></span></button>
         <button class="tbtn" id="calToday">Today</button>
       </div>
-      <div class="cal-legend muted"><span class="cal-chip all">matters</span>${me.role==="junior"?'<span class="cal-chip mine">yours</span>':''}<span class="cal-chip conf">conferences</span><span class="leg-hol"></span>holiday<span class="leg-part"></span>vacation<span class="ti ti-user-off" style="color:var(--warn)"></span>Senior away</div>
+      <div class="cal-legend muted"><span class="leg-sw lg"></span>&lt;5 matters<span class="leg-sw ly"></span>5–10<span class="leg-sw lr"></span>&gt;10<span class="leg-sw lh"></span>holiday<span class="leg-sw lp"></span>vacation<span class="leg-sw ls"></span>Senior away<span class="leg-sw lw"></span>non-sitting${me.role==="junior"?'<span class="cal-chip mine">yours</span>':''}<span class="cal-chip conf">conf</span></div>
     </div>
     <div class="cal-dow">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(x=>`<div>${x}</div>`).join("")}</div>
     <div class="cal-grid">${cells.join("")}</div>`;
