@@ -207,6 +207,18 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .conf-list{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:2px 16px;max-width:620px}
 .conf-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
 .conf-row:first-child{border-top:none}
+/* numbered register (calendar day view) */
+.reg{border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;margin-top:2px}
+.reg-row{display:flex;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:0;align-items:stretch;font-family:inherit}
+.reg-row:last-child{border-bottom:none}
+.reg-row:not(.static){cursor:pointer;transition:background .1s}
+.reg-row:not(.static):hover{background:var(--surface)}
+.reg-sn{flex-shrink:0;width:32px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12.5px;color:var(--ink-3);background:var(--surface);border-right:1px solid var(--line)}
+.reg-main{flex:1;min-width:0;padding:9px 12px;display:flex;flex-direction:column;gap:2px}
+.reg-line1{font-size:13.5px;color:var(--ink);line-height:1.35}
+.reg-line2{font-size:11.5px;color:var(--ink-2)}
+.reg-line3{font-size:11.5px;color:var(--ink-2);display:flex;align-items:center;gap:4px}
+.reg-go{flex-shrink:0;display:flex;align-items:center;padding-right:10px;color:var(--ink-3);font-size:15px}
 .wt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 22px;padding:6px 0}
 .wt-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink);margin:0}
 .wt-row input{width:58px;text-align:center;font-family:"IBM Plex Mono",monospace}
@@ -1348,15 +1360,25 @@ function dayDetail(iso){
       ${hol?`<div class="notice warn" style="margin-bottom:12px"><span class="ti ti-beach"></span><div><b>${esc(holidays[iso])}</b> — court holiday.</div></div>`:''}
       ${off?`<div class="notice warn" style="margin-bottom:12px"><span class="ti ti-user-off"></span><div><b>Senior not available</b>${seniorAvail[iso]?` — ${esc(seniorAvail[iso])}`:''}</div></div>`:''}
 
-      <div class="section-label">Listing — court items</div>
-      ${entries.length?entries.map((e,i)=>{const R=resolveEntry(e,iso);
-        return `<button class="jbrief" data-dsopen="${i}" style="width:100%">
-          <div class="jbrief-t"><span class="mono" style="min-width:58px;font-size:12px">${e.courtNo?`Ct ${esc(e.courtNo)}`:'—'}${e.itemNo?`/${esc(e.itemNo)}`:''}</span><span class="nm">${esc(R.title)}</span></div>
-          <div class="jbrief-m">${[e.time?`${esc(e.time)}`:'', R.listType, jrsOf(e).map(u=>esc(nameOf(u))).join(" / ")].filter(Boolean).join(" · ")||'&nbsp;'}</div>
-        </button>`;}).join(""):'<div class="muted" style="font-size:13px">No matters entered for this day yet.</div>'}
+      <div class="section-label">Cases listed${entries.length?` (${entries.length})`:''}</div>
+      ${entries.length?`<div class="reg">${entries.map((e,i)=>{const R=resolveEntry(e,iso); const jr=jrsOf(e).map(u=>esc(nameOf(u))).join(" / ");
+        return `<button class="reg-row" data-dsopen="${i}">
+          <span class="reg-sn">${i+1}</span>
+          <span class="reg-main">
+            <span class="reg-line1"><b>${esc(R.title)}</b></span>
+            <span class="reg-line2">${[e.courtNo?`Court ${esc(e.courtNo)}`:'', e.itemNo?`Item ${esc(e.itemNo)}`:'', e.time?esc(e.time):'', R.listType].filter(Boolean).join(" &middot; ")||'&nbsp;'}</span>
+            ${jr?`<span class="reg-line3"><span class="ti ti-users" style="font-size:11px"></span> ${jr}</span>`:''}
+          </span>
+          <span class="reg-go ti ti-chevron-right"></span>
+        </button>`;}).join("")}</div>`:'<div class="muted" style="font-size:13px">No cases entered for this day yet.</div>'}
 
-      ${confItems.length?`<div class="section-label" style="margin-top:18px">Conferences</div>
-        ${confItems.map(c=>`<div class="conf-row"><span class="mono" style="min-width:52px">${esc(c.time||"—")}</span><span>${esc(c.label||"")}</span></div>`).join("")}`:''}
+      <div class="section-label" style="margin-top:18px">Conferences${confItems.length?` (${confItems.length})`:''}</div>
+      ${confItems.length?`<div class="reg">${confItems.map((c,i)=>`<div class="reg-row static">
+          <span class="reg-sn">${i+1}</span>
+          <span class="reg-main">
+            <span class="reg-line1">${esc(c.label||"—")}</span>
+            <span class="reg-line2"><b class="mono">${esc(c.time||"—")}</b>${c.title?` &middot; ${esc(c.title)}`:''}</span>
+          </span></div>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No conferences on this day.</div>'}
 
       ${canManage()?`<div class="section-label" style="margin-top:20px">Senior's availability</div>
         <div class="seg" id="avSeg" style="width:100%">
