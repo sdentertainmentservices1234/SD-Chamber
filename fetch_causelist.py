@@ -114,7 +114,10 @@ def pdf_to_text(data):
         return ""
 
 
-ITEM_LINE_RE = re.compile(r"^([0-9]{1,4})[.\)]?\s+(.+)$")
+# an item number, optionally a sub-item ("37" or "37.1"). "37.1 Connected .."
+# sub-items are captured as their own keys so the clerk can enter either the
+# main item or a specific sub-item.
+ITEM_LINE_RE = re.compile(r"^([0-9]{1,4}(?:\.[0-9]{1,3})?)[.\)]?\s+(.+)$")
 
 
 def parse_courts(text):

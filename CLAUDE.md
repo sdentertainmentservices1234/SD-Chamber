@@ -306,9 +306,19 @@ Everything else on the form is optional.
 - `resolveEntry(e,date)` returns title/bench/listType/total from the entry
   falling back to the fetched causelist — used by rail, table, share AND print
   so a court+item-only entry completes once its list is fetched.
-- Print = "SD CAUSELIST — SUPREME COURT (DAY) DATE" (title tag "SD Causelist
-  DATE"); columns Sr. | Court/Item (narrow, stacked) | Time | Case Name |
-  Judges | Advocates | Total & Seq. (court total + item seq); EB Garamond 14.
+- Print heading = "SUPREME COURT (DAY) DATE"; `<title>` (= saved PDF file name)
+  = "SD Causelist DATE". Columns: Court/Item (one line) | Time | Case Name |
+  Judges | Advocates | Total & Seq. (court total + item seq). EB Garamond 14.
+- Jul 2026 (2nd pass): Add-matter form order = **Causelist type FIRST**, then
+  court+item (lookup is scoped to the chosen type — `lookupCauselistItem(...,
+  preferType)`). Fetcher captures **sub-items** (ITEM_LINE_RE = `N` or `N.M`,
+  e.g. 37.1 "Connected .."). Party cleaning: `cleanCauseSide` strips the
+  case-TYPE prefix ("SLP(C) No.") even when the number sits on the next PDF
+  line, strips a leading "Connected", trims trailing AoR at "& Ors./and Anr.".
+  `partiesFromCauseLine`→{pet,resp}; `renderTitle(title,appearingFor,mode)`
+  bolds the side we appear for (`<b>` in html, `*..*` in WhatsApp text) — entry
+  has `appearingFor`. Time + conference time are `<input list="courttimes">`
+  (COURT_TIMES datalist).
 - List-type → PDF suffix (verified against real 13-07-2026 PDFs, via an
   authorised one-time probe): Miscellaneous `M_J`, Regular `F_J`, Chamber `M_C`,
   Single Judge `M_S`, Registrar `M_R`, Curative & Review `M_CC`; `_1` main,
