@@ -93,8 +93,14 @@ def pdf_to_text(data):
         return ""
 
 
+ITEM_LINE_RE = re.compile(r"^([0-9]{1,4})[.\)]?\s+(.+)$")
+
+
 def parse_courts(text):
-    """Text of one list PDF -> {court_number(str): {coram, total, fresh}}."""
+    """Text of one list PDF ->
+       {court(str): {coram, total, fresh, items:{item(str): case-line}}}.
+    The item line carries the case number + parties, so the app can auto-fill a
+    matter's title from just court + item."""
     courts = {}
     cur = None
     in_header = False
@@ -110,7 +116,7 @@ def parse_courts(text):
             court = "1"
         if court is not None:
             cur = court
-            courts.setdefault(cur, {"coram": "", "total": "", "fresh": ""})
+            courts.setdefault(cur, {"coram": "", "total": "", "fresh": "", "items": {}})
             # collect the bench only until we have it; page headers repeat the
             # court + coram on every page, so re-collecting would duplicate it.
             in_header = not courts[cur]["coram"]
@@ -123,12 +129,20 @@ def parse_courts(text):
         fm = FRESH_RE.search(line)
         if fm and not courts[cur]["fresh"]:
             courts[cur]["fresh"] = fm.group(1)
+        # an item line — record its number -> case line (first occurrence only,
+        # page-header repeats won't overwrite)
+        im = ITEM_LINE_RE.match(line)
+        if im and re.search(r"[A-Za-z]{3}", im.group(2)):
+            in_header = False
+            it = im.group(1)
+            if it not in courts[cur]["items"]:
+                courts[cur]["items"][it] = re.sub(r"\s+", " ", im.group(2)).strip()[:90]
+            continue
         if in_header:
             if is_coram(line):
                 piece = re.sub(r"\s+", " ", line).strip()
                 courts[cur]["coram"] = (courts[cur]["coram"] + " " + piece).strip()[:200]
             else:
-                # first non-blank, non-coram line (item, note, party) ends the header
                 in_header = False
     return courts
 

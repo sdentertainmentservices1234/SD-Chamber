@@ -21,6 +21,11 @@ The senior advocate is deliberately NOT a user (role removed by owner decision).
   Button "Add member", panel "Members — awaiting first sign-in", form fields
   name/email/role/phone/joinedOn. Junior signs in with that email + "Set your
   password". Keep the approvals-doc plumbing; only the words changed.
+- **Roster shows added-but-not-logged-in members** (`rosterDisplay()` merges
+  role=junior approvals into the seniority list, tagged "awaiting first login",
+  no loads). effectiveRoster()/assignment still use logged-in `users` only —
+  a member with no uid can't be assigned/ack until they activate. The People
+  directory (Chamber tab) stays alphabetical-by-role; the Roster is seniority.
 
 ## Terminology (Jul 2026 — display only)
 
@@ -273,6 +278,12 @@ rolling 8-weekday window and extracts, per (date → list-type → court), the
 **bench (coram)** + total/fresh. Staff enter court/item/**listType**/date on the
 day sheet; the app (`loadCourtUpdates` → `coramFor(date,type,court)` →
 `cleanCoram`) auto-fills the authoritative bench and prints it. No watchlist.json.
+Jul 2026 UPGRADE: the fetcher also stores `items:{itemNo: case-line}` per court
+(case number + parties, ~96KB/day for ~1150 items). The Add-matter form now
+takes just **court + item** as the primary inputs; `lookupCauselistItem(date,
+court,item)` searches ALL list types (item-number ranges differ so court+item is
+unique) and fills case title (`titleFromCauseLine`), list type, and bench.
+Everything else on the form is optional.
 - List-type → PDF suffix (verified against real 13-07-2026 PDFs, via an
   authorised one-time probe): Miscellaneous `M_J`, Regular `F_J`, Chamber `M_C`,
   Single Judge `M_S`, Registrar `M_R`, Curative & Review `M_CC`; `_1` main,

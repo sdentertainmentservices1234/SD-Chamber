@@ -1367,6 +1367,25 @@ function cleanCoram(raw){
   return raw.replace(/\s+/g," ").trim();  // registrar / other
 }
 const causeListReady = () => !!(courtUpdates && courtUpdates.by_date && Object.keys(courtUpdates.by_date).length);
+// Given just court + item (+ date), find the matter across ALL list types.
+// Returns {listType, caseLine, coram} or null. Item-number ranges differ by
+// list type, so court+item is effectively unique.
+function lookupCauselistItem(dateISO, court, item){
+  const day=courtUpdates?.by_date?.[dateISO]; if(!day||!court||!item) return null;
+  court=String(court).trim(); item=String(item).trim();
+  for(const [listType,courts] of Object.entries(day.lists||{})){
+    const c=courts[court]; const line=c?.items?.[item];
+    if(line) return {listType, caseLine:line, coram:c.coram||""};
+  }
+  return null;
+}
+// Strip the leading "C.A. No. 283/2024" / "Diary No. 8077-2026" prefix off a
+// cause line to get the party names for the Case Name field.
+function titleFromCauseLine(s){
+  if(!s) return "";
+  const m=s.match(/[\/\-]\s*(?:19|20)\d{2}\s+(.+)$/);
+  return (m?m[1]:s).replace(/\s+VERSUS\s+/i," vs ").trim();
+}
 
 function renderToday(){
   const entries=(daysheet?.entries||[]);
@@ -1588,41 +1607,54 @@ function dsForm(idx=null){
   const opts=Object.values(briefs).filter(b=>b.status!=="disposed").map(b=>`<option value="${b.id}" ${e.briefId===b.id?'selected':''}>${esc(labelOf(b))}${b.diaryNo?` — Dy. ${esc(b.diaryNo)}`:''}</option>`).join("");
   openSheet(`<div class="sheet-head"><div><h3>${idx!==null?'Edit':'Add'} day-sheet matter</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
+      <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
+        <div><label>Item no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or MM"></div></div>
+      <div id="f_foundhint" style="margin-top:4px;min-height:16px"></div>
+      <p class="muted" style="font-size:11.5px;margin:4px 0 12px"><span class="ti ti-info-circle"></span> Enter court + item from the briefing counsel — the case name, list type &amp; bench fill from the SC causelist. Everything below is optional.</p>
       <label>Link to a brief</label><select id="f_brief"><option value="">— not in the register —</option>${opts}</select>
-      <label>Case title</label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="Petitioner vs Respondent">
-      <div class="grid2"><div><label>Court no.</label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
-        <div><label>Item no.</label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or MM"></div></div>
+      <label>Case title</label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="fills from the causelist — or type it">
       <div class="grid2"><div><label>Causelist type</label><select id="f_listtype"><option value="">—</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select></div>
         <div><label>Time</label><input id="f_time" class="mono" value="${esc(e.time??'10.30')}"></div></div>
       <label>Briefing counsel</label><input id="f_counsel" value="${esc(e.counsel||'')}" placeholder="e.g. Karanjawala & Co.">
-      <label>Bench</label><input id="f_bench" value="${esc(e.bench||'')}" placeholder="e.g. C.J.I., Joymala Bagchi, V. Mohana">
+      <label>Bench</label><input id="f_bench" value="${esc(e.bench||'')}" placeholder="fills from the causelist">
       <div id="f_benchhint" style="margin-top:6px;min-height:16px"></div>
       <label>Chamber colleagues on the matter</label>
       <div id="f_jrs">${juniors().map(j=>`<label class="chk-row"><input type="checkbox" data-jr="${j.id}" ${jrsOf(e).includes(j.id)?'checked':''}><span>${esc(j.name)}</span></label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
       <label>Remarks</label><input id="f_rem" value="${esc(e.remarks||'')}" placeholder="e.g. mentioning at 10:30, pass-over likely">
       <div style="margin-top:20px"><button class="btn" id="f_save">Save matter</button></div>
     </div>`);
-  $("f_brief").onchange=()=>{const b=briefs[$("f_brief").value];if(b){$("f_title").value=labelOf(b);
+  $("f_brief").onchange=()=>{const b=briefs[$("f_brief").value];if(b){if(!$("f_title").value.trim())$("f_title").value=labelOf(b);
     if(b.aor&&!$("f_counsel").value)$("f_counsel").value=b.aor;
     document.querySelectorAll("#f_jrs [data-jr]").forEach(cb=>cb.checked=(b.assignedTo||[]).includes(cb.dataset.jr));}};
-  // Fill the bench from the SC causelist once court + type are set for this date.
+  // bench from court + type (fallback / on type change)
   function benchSuggest(){
     const ct=$("f_court").value.trim(), lt=$("f_listtype").value, box=$("f_benchhint");
     const raw=coramFor(dsDate, lt, ct);
     if(raw){ const clean=cleanCoram(raw);
       if(!$("f_bench").value.trim()) $("f_bench").value=clean;
-      box.innerHTML=`<span class="chip bal-even"><span class="dot"></span>SC list: ${esc(clean)}</span> <button type="button" class="tbtn" id="f_usebench">Use this bench</button>`;
+      box.innerHTML=`<span class="chip bal-even"><span class="dot"></span>SC bench: ${esc(clean)}</span> <button type="button" class="tbtn" id="f_usebench">Use this</button>`;
       $("f_usebench").onclick=()=>{$("f_bench").value=clean; toast("Bench filled from the SC causelist");};
-    } else box.innerHTML = (ct&&lt&&causeListReady())
-      ? `<span class="muted" style="font-size:11.5px">No SC bench found for Court ${esc(ct)} in the ${esc(lt)} list on ${fmtDate(dsDate)} — check the court/type, or the list may not be published yet.</span>` : "";
+    } else box.innerHTML="";
   }
-  $("f_court").oninput=benchSuggest; $("f_listtype").onchange=benchSuggest; benchSuggest();
+  // court + item -> find the matter in ANY list type, fill title/type/bench
+  function causeFill(){
+    const ct=$("f_court").value.trim(), it=$("f_item").value.trim();
+    const hit=(ct&&it)?lookupCauselistItem(dsDate,ct,it):null;
+    if(hit){
+      if(!$("f_title").value.trim()) $("f_title").value=titleFromCauseLine(hit.caseLine);
+      if(!$("f_listtype").value) $("f_listtype").value=hit.listType;
+      $("f_foundhint").innerHTML=`<span class="chip bal-even"><span class="dot"></span>Found · ${esc(hit.listType)}</span> <span class="muted" style="font-size:11px">${esc(hit.caseLine.slice(0,58))}</span>`;
+    } else $("f_foundhint").innerHTML=(ct&&it&&causeListReady())
+      ? `<span class="muted" style="font-size:11.5px">Court ${esc(ct)} item ${esc(it)} not in the SC lists for ${fmtDate(dsDate)} — type the details, or the list may not be out yet.</span>` : "";
+    benchSuggest();
+  }
+  $("f_court").oninput=causeFill; $("f_item").oninput=causeFill; $("f_listtype").onchange=benchSuggest; causeFill();
   $("f_save").onclick=()=>{
     const juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
     const entry={briefId:$("f_brief").value||null,caseTitle:$("f_title").value.trim(),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
       listType:$("f_listtype").value||"",time:$("f_time").value.trim(),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
       juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
-    if(!entry.caseTitle&&!entry.briefId){toast("Add a title or link a brief","ti-alert-triangle");return;}
+    if(!entry.courtNo&&!entry.itemNo&&!entry.caseTitle&&!entry.briefId){toast("Enter a court + item (or a title)","ti-alert-triangle");return;}
     const arr=[...(daysheet?.entries||[])]; if(idx!==null)arr[idx]=entry;else arr.push(entry);
     saveDaysheet(arr); closeSheet(); toast("Day sheet updated");
   };
@@ -1953,10 +1985,22 @@ function roleForm(uid){const u=users[uid];
 /* ============================================================
    ROSTER
    ============================================================ */
+// Roster DISPLAY = logged-in colleagues + members Adith has added but who
+// haven't signed in yet (from approvals), all in seniority order so the full
+// chamber shows by date of joining. Assignment still targets logged-in ones.
+function rosterDisplay(){
+  const real=juniors().map(j=>({id:j.id,name:j.name,joinedOn:j.joinedOn,real:true}));
+  const have=new Set(juniors().map(j=>emailKey(j.email)));
+  const pending=Object.values(approvals).filter(a=>a.role==="junior"&&!have.has(a.id))
+    .map(a=>({id:"pending:"+a.id,name:a.name||a.email,joinedOn:a.joinedOn,real:false}));
+  return [...real,...pending].sort((a,b)=>(a.joinedOn||"9999-99-99").localeCompare(b.joinedOn||"9999-99-99")||(a.name||"").localeCompare(b.name||""));
+}
 function renderRoster(){
   $("topbarAction").innerHTML="";
   const ros=effectiveRoster();
   const nextIdx=ros.length? roster.pointer%ros.length : 0;
+  const nextUid=ros.length? ros[nextIdx] : null;
+  const disp=rosterDisplay();
   const explain=`<div class="roster-explain">
     <div class="clps-head ${uiExp.rosterInfo?'open':''}" id="reToggle">
       <div class="re-title" style="margin:0"><span class="ti ti-info-circle"></span>How assignment works</div>
@@ -1967,18 +2011,17 @@ function renderRoster(){
     </div>
   </div>`;
   let list;
-  if(!ros.length){
-    list=`<div class="empty"><span class="ic ti ti-users"></span>No colleagues to place in the roster yet. Approve colleagues from the Chamber tab.</div>`;
+  if(!disp.length){
+    list=`<div class="empty"><span class="ic ti ti-users"></span>No colleagues yet. Add them from the Chamber tab.</div>`;
   } else {
     list=`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates in the Chamber tab</span></div>
-      ${ros.map((uid,i)=>{
-        const u=users[uid]; const av=availToday[uid];
-        const onLeave=av?.status==="leave";
-        return `<div class="roster-row ${i===nextIdx?'is-next':''} ${onLeave?'is-leave':''}">
+      ${disp.map((m,i)=>{
+        const isNext=m.real&&m.id===nextUid; const av=m.real?availToday[m.id]:null; const onLeave=av?.status==="leave";
+        return `<div class="roster-row ${isNext?'is-next':''} ${onLeave?'is-leave':''}" ${m.real?'':'style="opacity:.72"'}>
           <div class="roster-pos">${i+1}</div>
-          <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(u?.name))}</div>
-          <div class="info"><div class="nm">${esc(u?.name||'—')}${i===nextIdx?'<span class="next-tag">Next up</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
-            <div class="roster-load muted">${u?.joinedOn?`Joined ${fmtDateY(u.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'} · Active load ${activeLoad(uid)} · Total ${totalLoad(uid)} · ${activeCount(uid)} live · ${lifetimeCount(uid)} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===uid)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}</div></div>
+          <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
+          <div class="info"><div class="nm">${esc(m.name||'—')}${isNext?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
+            <div class="roster-load muted">${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${activeLoad(m.id)} · Total ${totalLoad(m.id)} · ${activeCount(m.id)} live · ${lifetimeCount(m.id)} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
         </div>`;
       }).join("")}</div>
       ${canManage()?`<div class="row" style="margin-top:14px"><button class="btn ghost sm" id="rReset"><span class="ic ti ti-refresh"></span>Reset “next up” to top</button></div>`:''}`;
