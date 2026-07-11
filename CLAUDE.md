@@ -8,6 +8,25 @@ file as `CLAUDE.md` in the repository root — Claude Code reads it automaticall
 A work-allocation and cause-list tool **between the clerk and the juniors**.
 The senior advocate is deliberately NOT a user (role removed by owner decision).
 
+## Review-pass changes (Jul 2026, most recent)
+
+- **Board nav label is dynamic** (`paintChrome()`): colleagues land on the
+  personal `renderMyWork()` home, so their sidebar/mobile board item reads **"My
+  work"**; Staff/admin keep **"Work board"**. Label matches the page.
+- **New-brief assignment mode** (`briefForm()`): a `.seg` toggle — **Choose
+  colleague** (the existing checklist, now with each person's active count) vs
+  **Auto-assign** (roster engine, with a live `#autoPickName` preview of who it
+  lands on). Save-time auto path reuses `pickNext()` + `advancePointer()` and
+  records `assignHistory` mode `auto`/`forced`, identical to the standalone
+  `autoAssign()`. `asgnMode` var drives it; `directed` is manual-only.
+- **Roster fairness view** (`renderRoster()`): a colleague sees a
+  `.roster-standing-banner` ("You're #N in the rotation · next up in K turns ·
+  carrying … active … lifetime") and a **You** tag + `.is-me` accent on their
+  own row. Banner is colleagues-only (Staff/admin aren't in the rotation).
+- **Demo seed** (`make-test.py`): dropped the fake "Sample holiday/Sample
+  vacation" clutter; seeds the real SC summer-vacation range via
+  `config/vacation` so the preview shows true calm shading.
+
 ## Branding & onboarding copy (Jul 2026)
 
 - **SD logo**: gold Fraunces "SD" with a hairline underline (echoes the app
