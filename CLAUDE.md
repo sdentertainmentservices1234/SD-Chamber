@@ -333,6 +333,25 @@ Everything else on the form is optional.
   A 13-07-2026 seed is committed; the Action overwrites it on first run. Owner
   must enable workflow write permission + run once (see CAUSELIST-SETUP.md).
 
+## SC annual calendar import (Jul 2026)
+
+The SC publishes an annual calendar (image PDF, no text layer — can't auto-parse)
+each Nov/Dec. `SC_CALENDAR` encodes it per year: `holidays:[[from,to|null,name]]`
++ `vacation:[[from,to,label]]` (summer partial-court period). Calendar tab →
+**Import SC calendar** (admin): one-click `applySCYear(year)` expands the ranges
+into `config/holidays` (merge) and writes `config/vacation`; a paste box takes
+future years line-by-line ("YYYY-MM-DD Name" / "YYYY-MM-DD to YYYY-MM-DD Name").
+`config/vacation` = {ranges:[[from,to,label]]}, watched into `vacation`;
+`isPartial(iso)` shades vacation weekdays "Partial court" (holiday > weekend >
+partial priority). To add a year: extend `SC_CALENDAR` from the published PDF.
+
+## Lookup note
+
+`lookupCauselistItem(date,court,item,preferType)`: a chosen `preferType` is
+AUTHORITATIVE — NO cross-type fallback (picking Miscellaneous can't return a
+Registrar matter). Only an empty type searches all lists. The form message
+distinguishes "no list fetched for this date" from "not in the <type> list".
+
 ## Out-of-app notification
 
 `waLink(uid, brief)` → WhatsApp deep link with prefilled nudge message;

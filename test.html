@@ -212,6 +212,7 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .cal-cell.blank{background:none;border:none;cursor:default;min-height:0}
 .cal-cell.wknd{background:var(--surface-2)}
 .cal-cell.hol{background:var(--warn-bg)}
+.cal-cell.partial{background:#fdf4e8}
 .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .cal-top{display:flex;justify-content:space-between;align-items:center}
 .cal-num{font-family:"Fraunces",serif;font-size:15px;color:var(--ink)}
@@ -219,6 +220,8 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .cal-sen{color:var(--warn);font-size:14px}
 .cal-hol{font-size:10.5px;color:var(--warn);line-height:1.3}
 .cal-hol.nonsit{color:var(--ink-3)}
+.cal-hol.partsit{color:#a3612a}
+.leg-part{width:12px;height:12px;border-radius:3px;background:#fdf4e8;border:1px solid #d9a35a;display:inline-block}
 .cal-chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:auto}
 .cal-chip{font-size:10.5px;padding:2px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
 .cal-chip.mine{background:var(--s-ready-bg);color:var(--s-ready)}
@@ -790,7 +793,7 @@ function seedDemo(db){
 let me=null, users={}, briefs={}, daysheet={entries:[]}, availToday={}, availAll={}, dsDate=todayISO();
 // calendar state: month shown, SC holidays map {dateISO:name|null}, senior
 // unavailability map {dateISO:note|null} (null = cleared), all day-sheet docs
-let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={};
+let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={}, vacation={ranges:[]};
 // email pre-approvals (admin invites a member before they ever sign in)
 let approvals={};
 // SC cause-list benches, fetched by the GitHub Action into court-updates.json.
@@ -811,6 +814,31 @@ const LAW_FIRMS=["Karanjawala & Co.","AZB & Partners","Cyril Amarchand Mangaldas
   "Parekh & Co.","UNUC Legal LLP","M/s. Mitter & Mitter Co.","Suresh A. Shroff & Co."];
 // Common SC sitting / conference times (a datalist — any value still typable).
 const COURT_TIMES=["10.30","10.45","11.00","11.30","12.00","12.30","2.00","2.30","3.00","3.30","4.00","4.30","5.00","5.30","6.00","6.30","7.00"];
+// Supreme Court published annual calendar (the SC releases it each Nov/Dec).
+// Encoded from the official PDF. Holidays: [from, to|null, name]; vacation =
+// partial-court-working period. Admin imports a year in one click; future
+// years can be pasted (see importCalForm) or added here.
+const SC_CALENDAR={
+  "2026":{
+    holidays:[
+      ["2026-01-01","2026-01-02","New Year Holidays"],["2026-01-14",null,"Makar Sankranti / Pongal"],
+      ["2026-01-26",null,"Republic Day"],["2026-03-02","2026-03-07","Holi Holidays"],
+      ["2026-03-21",null,"Id-ul-Fitr"],["2026-03-26",null,"Ram Navami"],
+      ["2026-03-27",null,"Local Holiday"],["2026-03-30",null,"Local Holiday"],
+      ["2026-03-31",null,"Mahavir Jayanti"],["2026-04-03",null,"Good Friday"],
+      ["2026-05-01",null,"Budha Purnima"],["2026-05-27",null,"Id-ul-Zuha (Bakrid)"],
+      ["2026-06-26",null,"Muharram"],["2026-08-15",null,"Independence Day"],
+      ["2026-08-26",null,"Milad-un-Nabi / Id-e-Milad"],["2026-08-28",null,"Raksha Bandhan"],
+      ["2026-09-04",null,"Janmashtami"],["2026-09-14",null,"Ganesh Chaturthi"],
+      ["2026-10-02",null,"Mahatma Gandhi's Birthday"],["2026-10-19","2026-10-24","Dussehra Holidays"],
+      ["2026-11-09","2026-11-14","Diwali Holidays"],["2026-11-24",null,"Guru Nanak's Birthday"],
+      ["2026-12-21","2026-12-31","Christmas & New Year Holidays"],
+    ],
+    vacation:[["2026-06-01","2026-07-12","Summer vacation — partial court working days"]],
+  },
+};
+function eachDate(from,to,cb){ let d=new Date(from+"T00:00"); const end=new Date((to||from)+"T00:00"); let g=0;
+  while(d<=end && g++<400){ cb(d.toLocaleDateString("en-CA")); d.setDate(d.getDate()+1); } }
 let roster={order:[],pointer:0};
 let unsub=[], dsUnsub=null, sheetUnsubs=[];
 // Adith is admin by role OR by matching the configured admin email (bootstrap-safe).
@@ -889,6 +917,7 @@ function startApp(){
   unsub.push(db.watchCollection("availability", rows=>{ availToday={}; availAll={}; rows.forEach(a=>{ availAll[a.uid+"_"+a.date]=a; if(a.date===todayISO())availToday[a.uid]=a; }); renderActive(); }));
   unsub.push(db.watchDoc("config/roster", d=>{ roster = d || {order:[],pointer:0}; renderActive(); }));
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
+  unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
   unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); if(curTab==="cal")renderCal(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
@@ -1103,9 +1132,11 @@ function waLink(uid, b){
 const shiftMonth=(ym,d)=>{const[y,m]=ym.split("-").map(Number);return new Date(y,m-1+d,1).toLocaleDateString('en-CA').slice(0,7);};
 const isHol=iso=>holidays[iso]!=null;
 const seniorOff=iso=>seniorAvail[iso]!=null;
+// a date within an SC partial-court-working (vacation) range
+const isPartial=iso=>{ for(const r of (vacation.ranges||[])){ if(iso>=r[0]&&iso<=(r[1]||r[0])) return r[2]||"Partial court working"; } return null; };
 
 function renderCal(){
-  $("topbarAction").innerHTML = canAdmin()? `<button class="btn ghost sm" id="calRange"><span class="ic ti ti-beach"></span>Mark holidays / vacation</button>`:"";
+  $("topbarAction").innerHTML = canAdmin()? `<button class="btn ghost sm" id="calImport"><span class="ic ti ti-calendar-plus"></span>Import SC calendar</button> <button class="btn ghost sm" id="calRange"><span class="ic ti ti-beach"></span>Mark holidays</button>`:"";
   const [y,m]=calMonth.split("-").map(Number);
   const first=new Date(y,m-1,1);
   const startDow=(first.getDay()+6)%7;           // Monday-first grid
@@ -1124,9 +1155,10 @@ function renderCal(){
     const wknd=dow===0||dow===6;
     const n=(byDate[iso]||[]).length, mine=(mineBy[iso]||[]).length;
     const conf=(dsAll[iso]?.conferences||[]).length;
-    cells.push(`<button class="cal-cell ${wknd?'wknd':''} ${isHol(iso)?'hol':''} ${iso===today?'today':''}" data-cald="${iso}">
+    const part=(!isHol(iso)&&!wknd)?isPartial(iso):null;
+    cells.push(`<button class="cal-cell ${wknd?'wknd':''} ${isHol(iso)?'hol':''} ${part?'partial':''} ${iso===today?'today':''}" data-cald="${iso}">
       <div class="cal-top"><span class="cal-num">${d}</span>${seniorOff(iso)?`<span class="cal-sen ti ti-user-off" title="Senior not available${seniorAvail[iso]?' — '+esc(seniorAvail[iso]):''}"></span>`:''}</div>
-      ${isHol(iso)?`<div class="cal-hol">${esc(holidays[iso])}</div>`:wknd?'<div class="cal-hol nonsit">Non-sitting</div>':''}
+      ${isHol(iso)?`<div class="cal-hol">${esc(holidays[iso])}</div>`:wknd?'<div class="cal-hol nonsit">Non-sitting</div>':part?'<div class="cal-hol partsit" title="'+esc(part)+'">Partial court</div>':''}
       <div class="cal-chips">
         ${n?`<span class="cal-chip all">${n} matter${n>1?'s':''}</span>`:''}
         ${me.role==="junior"&&mine?`<span class="cal-chip mine">${mine} mine</span>`:''}
@@ -1142,7 +1174,7 @@ function renderCal(){
         <button class="tbtn icon-only" id="calNext" aria-label="Next month"><span class="ic ti ti-chevron-right"></span></button>
         <button class="tbtn" id="calToday">Today</button>
       </div>
-      <div class="cal-legend muted"><span class="cal-chip all">matters</span>${me.role==="junior"?'<span class="cal-chip mine">yours</span>':''}<span class="cal-chip conf">conferences</span><span class="leg-hol"></span>holiday<span class="ti ti-user-off" style="color:var(--warn)"></span>Senior away</div>
+      <div class="cal-legend muted"><span class="cal-chip all">matters</span>${me.role==="junior"?'<span class="cal-chip mine">yours</span>':''}<span class="cal-chip conf">conferences</span><span class="leg-hol"></span>holiday<span class="leg-part"></span>vacation<span class="ti ti-user-off" style="color:var(--warn)"></span>Senior away</div>
     </div>
     <div class="cal-dow">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(x=>`<div>${x}</div>`).join("")}</div>
     <div class="cal-grid">${cells.join("")}</div>`;
@@ -1150,7 +1182,41 @@ function renderCal(){
   $("calNext").onclick=()=>{calMonth=shiftMonth(calMonth,1);renderCal();};
   $("calToday").onclick=()=>{calMonth=todayISO().slice(0,7);renderCal();};
   if($("calRange"))$("calRange").onclick=holidayRangeForm;
+  if($("calImport"))$("calImport").onclick=importCalForm;
   document.querySelectorAll("[data-cald]").forEach(x=>x.onclick=()=>dayDetail(x.dataset.cald));
+}
+
+// Import the Supreme Court's published annual calendar. One click applies a
+// year we've encoded; future years can be pasted line-by-line (the SC publishes
+// the calendar as an image, so there's no auto-parse — this is the yearly step).
+function importCalForm(){
+  const years=Object.keys(SC_CALENDAR).sort();
+  openSheet(`<div class="sheet-head"><div><h3>Import Supreme Court calendar</h3><div class="sub">Loads the court holidays &amp; vacation into this calendar</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <div class="section-label">Published years</div>
+      ${years.length?years.map(y=>`<div class="trow"><div class="info"><div class="nm">Supreme Court ${y}</div><div class="rl">${SC_CALENDAR[y].holidays.length} holidays${SC_CALENDAR[y].vacation?.length?" + summer vacation":""}</div></div><button class="btn sm" data-applyr="${y}">Apply</button></div>`).join(""):'<div class="muted" style="font-size:13px">None bundled.</div>'}
+      <div class="section-label" style="margin-top:18px">Or paste another year's holidays</div>
+      <div class="muted" style="font-size:11.5px;margin-bottom:6px">One per line: <b>YYYY-MM-DD Name</b>, or a range <b>YYYY-MM-DD to YYYY-MM-DD Name</b>. From the SC's published holiday list.</div>
+      <textarea id="ci_text" rows="6" class="mono" style="font-size:12px" placeholder="2027-01-26 Republic Day&#10;2027-11-01 to 2027-11-05 Diwali Holidays"></textarea>
+      <div style="margin-top:12px"><button class="btn" id="ci_apply">Apply pasted holidays</button></div>
+    </div>`);
+  document.querySelectorAll("[data-applyr]").forEach(x=>x.onclick=()=>applySCYear(x.dataset.applyr));
+  $("ci_apply").onclick=()=>{
+    const hol={}; let count=0;
+    $("ci_text").value.split(/\r?\n+/).forEach(line=>{ const l=line.trim(); if(!l)return;
+      const m=l.match(/^(\d{4}-\d{2}-\d{2})(?:\s+to\s+(\d{4}-\d{2}-\d{2}))?\s+(.+)$/);
+      if(m){ eachDate(m[1],m[2],iso=>{hol[iso]=m[3].trim();count++;}); }
+    });
+    if(!count){toast("No valid lines — use YYYY-MM-DD Name","ti-alert-triangle");return;}
+    db.set("config/holidays",hol,true); closeSheet(); toast(`${count} holiday day(s) added`,"ti-calendar-check");
+  };
+}
+async function applySCYear(year){
+  const cal=SC_CALENDAR[year]; if(!cal) return;
+  const hol={}; cal.holidays.forEach(([f,t,name])=>eachDate(f,t,iso=>hol[iso]=name));
+  await db.set("config/holidays",hol,true);
+  await db.set("config/vacation",{ranges:cal.vacation||[]});
+  closeSheet(); toast(`Supreme Court ${year} calendar imported`,"ti-calendar-check");
 }
 
 // Day detail: everything the chamber knows about a date, plus the clerk's
@@ -1396,10 +1462,15 @@ function lookupCauselistItem(dateISO, court, item, preferType){
   const day=courtUpdates?.by_date?.[dateISO]; if(!day||!court||!item) return null;
   court=String(court).trim(); item=String(item).trim();
   const tryType=lt=>{ const c=day.lists?.[lt]?.[court]; const line=c?.items?.[item]; return line?{listType:lt, caseLine:line, coram:c.coram||""}:null; };
-  if(preferType){ const r=tryType(preferType); if(r) return r; }   // the type the clerk chose wins
+  // A chosen list type is AUTHORITATIVE — never fall back to another list (so
+  // picking "Miscellaneous" can't silently return a Registrar matter). Only
+  // when no type is chosen do we search across all lists.
+  if(preferType) return tryType(preferType);
   for(const lt of Object.keys(day.lists||{})){ const r=tryType(lt); if(r) return r; }
   return null;
 }
+// Does the fetch have ANY data for this date? (to tell "not fetched" apart from "not in this list")
+const causeListHasDate=dateISO=>!!(courtUpdates?.by_date?.[dateISO]&&Object.keys(courtUpdates.by_date[dateISO].lists||{}).length);
 const titleCase=s=>String(s||"").toLowerCase().replace(/\b([a-z])/g,m=>m.toUpperCase());
 const cleanCauseSide=side=>{
   side=String(side||"").replace(/^Connected\s+/i,"").trim();          // sub-item marker
@@ -1760,8 +1831,13 @@ function dsForm(idx=null){
       if(!$("f_listtype").value||$("f_listtype").value===auto.type){ $("f_listtype").value=hit.listType; auto.type=hit.listType; }
       $("f_foundhint").innerHTML=`<span class="chip bal-even"><span class="dot"></span>Found · ${esc(hit.listType)}</span> <span class="muted" style="font-size:11px">${esc(titleFromCauseLine(hit.caseLine).slice(0,52))}</span>`;
     } else { clearAuto("f_title","title");
-      $("f_foundhint").innerHTML=(ct&&it&&causeListReady())
-      ? `<span class="muted" style="font-size:11.5px">Court ${esc(ct)} item ${esc(it)} not in the SC lists for ${fmtDate(fdate())} yet — save anyway; the details fill in on their own once that day's list is fetched.</span>` : ""; }
+      const lt=$("f_listtype").value;
+      $("f_foundhint").innerHTML = !(ct&&it) ? "" :
+        !causeListHasDate(fdate())
+          ? `<span class="muted" style="font-size:11.5px"><span class="ti ti-clock"></span> No SC list fetched for ${fmtDate(fdate())} yet — save anyway; the details fill in on their own once that day's list is out (published ~1–3 days ahead).</span>`
+          : lt
+            ? `<span class="muted" style="font-size:11.5px">Court ${esc(ct)} item ${esc(it)} isn't in the <b>${esc(lt)}</b> list for ${fmtDate(fdate())}. Check the type/court/item — or clear the type to search every list.</span>`
+            : `<span class="muted" style="font-size:11.5px">Court ${esc(ct)} item ${esc(it)} not found in any list for ${fmtDate(fdate())}.</span>`; }
     benchSuggest();
   }
   // typing in title/bench marks them as manually owned (stop auto-fill)
