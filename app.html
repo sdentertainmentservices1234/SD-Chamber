@@ -847,6 +847,10 @@ let me=null, users={}, briefs={}, daysheet={entries:[]}, availToday={}, availAll
 let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={};
 // email pre-approvals (admin invites a member before they ever sign in)
 let approvals={};
+// SC cause-list benches, fetched by the GitHub Action into court-updates.json.
+// Staff enter court/item/type/date; the app fills the authoritative bench.
+let courtUpdates=null;
+const CAUSELIST_TYPES=["Miscellaneous","Regular","Chamber","Single Judge","Registrar","Curative & Review"];
 let roster={order:[],pointer:0};
 let unsub=[], dsUnsub=null, sheetUnsubs=[];
 // Adith is admin by role OR by matching the configured admin email (bootstrap-safe).
@@ -928,6 +932,7 @@ function startApp(){
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
   unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); if(curTab==="cal")renderCal(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
+  loadCourtUpdates();
   watchDaysheet();
 }
 function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(curTab==="today")renderToday(); }); }
@@ -1390,15 +1395,49 @@ function jbrief(b){
 /* ============================================================
    DAY SHEET
    ============================================================ */
+// Read the auto-fetched SC benches (same-origin, no-store). Silent if absent.
+async function loadCourtUpdates(){
+  try{ const r=await fetch("court-updates.json?_="+Date.now(),{cache:"no-store"}); if(r.ok) courtUpdates=await r.json(); }
+  catch(e){/* not published yet — the day sheet just won't auto-fill benches */}
+  if(curTab==="today") renderToday();
+}
+// The published bench for a (date, list-type, court), if the fetch has it.
+function coramFor(dateISO, listType, court){
+  const c = courtUpdates?.by_date?.[dateISO]?.lists?.[listType]?.[String(court||"").trim()];
+  return c ? c.coram : "";
+}
+// "HON'BLE THE CHIEF JUSTICE HON'BLE MR. JUSTICE JOYMALYA BAGCHI …" -> the
+// clerk's short form "C.J.I., Joymalya Bagchi, …" (or a registrar's name).
+function cleanCoram(raw){
+  if(!raw) return "";
+  const tc = s => s.toLowerCase().replace(/\b([a-z])/g, m=>m.toUpperCase());
+  const parts = raw.split(/HON'?BLE/i).map(s=>s.trim()).filter(Boolean);
+  if(parts.length){
+    const names = parts.map(p=>{
+      if(/CHIEF\s+JUSTICE/i.test(p)) return "C.J.I.";
+      return tc(p.replace(/^(THE\s+)?(MR|MRS|MS|DR|SMT|KUM)\b\.?\s*/i,"")
+                 .replace(/\bJUSTICE\b\.?\s*/i,"").replace(/\.$/,"").trim());
+    }).filter(Boolean);
+    return names.join(", ");
+  }
+  return raw.replace(/\s+/g," ").trim();  // registrar / other
+}
+const causeListReady = () => !!(courtUpdates && courtUpdates.by_date && Object.keys(courtUpdates.by_date).length);
+
 function renderToday(){
   const entries=(daysheet?.entries||[]);
   const isToday=dsDate===todayISO();
   $("pageSub").textContent = isToday? "Today · "+fmtDateY(dsDate) : fmtDateY(dsDate);
   $("topbarAction").innerHTML = canManage()? `<button class="btn ghost sm" id="tbImport"><span class="ic ti ti-file-import"></span>Import cause list</button> <button class="btn" id="tbAddDs"><span class="ic ti ti-plus"></span>Add matter</button>`:"";
 
+  const clDay=courtUpdates?.by_date?.[dsDate];
+  const clStatus = clDay
+    ? `<span class="chip bal-even" title="Supreme Court benches fetched for this date — the Add-matter form fills the bench automatically"><span class="dot"></span>SC benches loaded</span>`
+    : (causeListReady()? `<span class="muted" style="font-size:11.5px"><span class="ti ti-clock"></span> No SC list fetched for this date yet</span>` : "");
   const toolbar=`<div class="ds-toolbar">
     <div class="ds-date"><span class="lab">Date</span><input type="date" id="dsDateInp" value="${dsDate}"></div>
     <a class="dlink" href="https://www.sci.gov.in/cause-list/" target="_blank" rel="noopener"><span class="ic ti ti-external-link"></span>SCI cause list</a>
+    ${clStatus}
     ${(entries.length||(daysheet?.conferences||[]).length)?`<button class="btn ghost sm" id="tbShare" style="margin-left:auto"><span class="ic ti ti-share"></span>Share</button>`:''}
   </div>`;
 
@@ -1416,6 +1455,7 @@ function renderToday(){
           <div class="rail-top">
             <span class="court-badge">Court ${esc(e.courtNo||"—")}</span>
             <span class="item-badge">Item ${esc(e.itemNo||"—")}</span>
+            ${e.listType?`<span class="chip st-received" style="font-size:10.5px">${esc(e.listType)}</span>`:''}
             ${e.time?`<span class="mono muted" style="font-size:12px">${esc(e.time)}</span>`:''}
             ${b?.priority?'<span class="chip urgent-tag"><span class="dot"></span>Urgent</span>':''}
           </div>
@@ -1449,7 +1489,7 @@ function renderToday(){
       const jrs=jrsOf(e);
       return `<tr class="${e.done?'done':''} ${i===nextUndone?'now':''}">
         <td class="num">${e.done?'<span class="ti ti-check"></span>':i+1}</td>
-        <td class="mono ctitem">Ct-${esc(e.courtNo||'?')}#${esc(e.itemNo||'?')}</td>
+        <td class="mono ctitem">Ct-${esc(e.courtNo||'?')}#${esc(e.itemNo||'?')}${e.listType?`<div class="muted" style="font-size:10.5px;font-family:Inter,sans-serif">${esc(e.listType)}</div>`:''}</td>
         <td class="mono time">${esc(e.time||'')}</td>
         <td><div class="tcase">${esc(e.caseTitle||(b?labelOf(b):'(matter)'))}${b?.priority?' <span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px"></span>':''}</div>${e.bench?`<div class="tbench muted">${esc(e.bench)}</div>`:''}</td>
         <td>${e.counsel?`<div>${esc(e.counsel)}</div>`:''}<div class="${e.counsel?'muted':''}">${jrs.length?jrs.map(u=>esc(nameOf(u))+(onLeaveOn(u,dsDate)?' <span class="ti ti-plane-departure" style="color:var(--warn)" title="On leave this day"></span>':'')).join(" / "):'<span class="muted">no colleague marked</span>'}</div></td>
@@ -1555,9 +1595,11 @@ function dsForm(idx=null){
       <label>Case title</label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="Petitioner vs Respondent">
       <div class="grid2"><div><label>Court no.</label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
         <div><label>Item no.</label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or MM"></div></div>
-      <div class="grid2"><div><label>Time</label><input id="f_time" class="mono" value="${esc(e.time??'10.30')}"></div>
-        <div><label>Briefing counsel</label><input id="f_counsel" value="${esc(e.counsel||'')}" placeholder="e.g. Karanjawala & Co."></div></div>
+      <div class="grid2"><div><label>Causelist type</label><select id="f_listtype"><option value="">—</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select></div>
+        <div><label>Time</label><input id="f_time" class="mono" value="${esc(e.time??'10.30')}"></div></div>
+      <label>Briefing counsel</label><input id="f_counsel" value="${esc(e.counsel||'')}" placeholder="e.g. Karanjawala & Co.">
       <label>Bench</label><input id="f_bench" value="${esc(e.bench||'')}" placeholder="e.g. C.J.I., Joymala Bagchi, V. Mohana">
+      <div id="f_benchhint" style="margin-top:6px;min-height:16px"></div>
       <label>Chamber colleagues on the matter</label>
       <div id="f_jrs">${juniors().map(j=>`<label class="chk-row"><input type="checkbox" data-jr="${j.id}" ${jrsOf(e).includes(j.id)?'checked':''}><span>${esc(j.name)}</span></label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
       <label>Remarks</label><input id="f_rem" value="${esc(e.remarks||'')}" placeholder="e.g. mentioning at 10:30, pass-over likely">
@@ -1566,10 +1608,22 @@ function dsForm(idx=null){
   $("f_brief").onchange=()=>{const b=briefs[$("f_brief").value];if(b){$("f_title").value=labelOf(b);
     if(b.aor&&!$("f_counsel").value)$("f_counsel").value=b.aor;
     document.querySelectorAll("#f_jrs [data-jr]").forEach(cb=>cb.checked=(b.assignedTo||[]).includes(cb.dataset.jr));}};
+  // Fill the bench from the SC causelist once court + type are set for this date.
+  function benchSuggest(){
+    const ct=$("f_court").value.trim(), lt=$("f_listtype").value, box=$("f_benchhint");
+    const raw=coramFor(dsDate, lt, ct);
+    if(raw){ const clean=cleanCoram(raw);
+      if(!$("f_bench").value.trim()) $("f_bench").value=clean;
+      box.innerHTML=`<span class="chip bal-even"><span class="dot"></span>SC list: ${esc(clean)}</span> <button type="button" class="tbtn" id="f_usebench">Use this bench</button>`;
+      $("f_usebench").onclick=()=>{$("f_bench").value=clean; toast("Bench filled from the SC causelist");};
+    } else box.innerHTML = (ct&&lt&&causeListReady())
+      ? `<span class="muted" style="font-size:11.5px">No SC bench found for Court ${esc(ct)} in the ${esc(lt)} list on ${fmtDate(dsDate)} — check the court/type, or the list may not be published yet.</span>` : "";
+  }
+  $("f_court").oninput=benchSuggest; $("f_listtype").onchange=benchSuggest; benchSuggest();
   $("f_save").onclick=()=>{
     const juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
     const entry={briefId:$("f_brief").value||null,caseTitle:$("f_title").value.trim(),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
-      time:$("f_time").value.trim(),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
+      listType:$("f_listtype").value||"",time:$("f_time").value.trim(),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
       juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
     if(!entry.caseTitle&&!entry.briefId){toast("Add a title or link a brief","ti-alert-triangle");return;}
     const arr=[...(daysheet?.entries||[])]; if(idx!==null)arr[idx]=entry;else arr.push(entry);
