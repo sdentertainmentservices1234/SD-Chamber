@@ -44,6 +44,11 @@ LIST_TYPES = {
 
 WINDOW_DAYS = 8
 OUTPUT_FILE = "court-updates.json"
+# Bump whenever parse_courts changes how items/benches are extracted. The size-
+# based change-detection reuses a cached parse when the PDF is unchanged; without
+# this, a parser FIX never reaches already-cached dates (their PDFs don't change).
+# A version mismatch forces a full re-parse of every date in the window.
+PARSER_VERSION = 2
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; sd-chamber-causelist-bot/1.0)"}
 
 COURT_RE = re.compile(r"COURT\s*NO\.?\s*[:\-]?\s*([0-9]+)", re.I)
@@ -229,7 +234,22 @@ def build_for_date(date_str, prev_day=None, prev_sizes=None):
                 continue
             lists_found.append("{} ({})".format(human, variant))
             for court, info in parse_courts(text).items():
-                merged[court] = info   # supplementary overrides main for same court
+                if court in merged:
+                    # a supplementary list ADDS matters to the same court — union the
+                    # items (do NOT replace, or the main list's items are wiped, e.g.
+                    # court 1's item 30 vanished behind the supp's items 46-51). Keep
+                    # the main bench; only fill coram/fresh from supp if main lacked it.
+                    ex = merged[court]
+                    ex["items"].update(info.get("items", {}))
+                    if not ex.get("coram") and info.get("coram"):
+                        ex["coram"] = info["coram"]
+                    if not ex.get("fresh") and info.get("fresh"):
+                        ex["fresh"] = info["fresh"]
+                else:
+                    merged[court] = info
+        # SC lists carry no total line — total is the merged item count
+        for c in merged.values():
+            c["total"] = str(len(c["items"]))
         if merged:
             lists[human] = merged
     return lists_found, lists, sizes, False
@@ -244,7 +264,14 @@ def main():
             prev = json.load(f)
     except Exception:
         pass
-    prev_by, prev_src = prev.get("by_date", {}), prev.get("sources", {})
+    # If the parser was upgraded since this file was written, discard the cached
+    # parses so every date is re-parsed with the new logic (otherwise a fixed
+    # parser never reaches dates whose PDFs haven't changed size).
+    stale_parser = prev.get("parser_version") != PARSER_VERSION
+    if stale_parser and prev:
+        print("Parser version changed ({} -> {}) — forcing a full re-parse."
+              .format(prev.get("parser_version"), PARSER_VERSION))
+    prev_by, prev_src = ({}, {}) if stale_parser else (prev.get("by_date", {}), prev.get("sources", {}))
     by_date, sources = {}, {}
     for date_str in dates:
         lists_found, lists, sizes, reused = build_for_date(
@@ -258,12 +285,14 @@ def main():
                 date_str, len(lists), ncourts, "  [unchanged — reused]" if reused else "  [FETCHED]"))
     # Nothing new anywhere -> leave the file untouched so the workflow commits
     # nothing and Pages doesn't rebuild. (generated_at = time of last CHANGE.)
-    if prev and json.dumps(by_date, sort_keys=True) == json.dumps(prev_by, sort_keys=True) \
+    if prev and not stale_parser \
+            and json.dumps(by_date, sort_keys=True) == json.dumps(prev_by, sort_keys=True) \
             and json.dumps(sources, sort_keys=True) == json.dumps(prev_src, sort_keys=True):
         print("No change since last run — output left untouched.")
         return
     result = {
         "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "parser_version": PARSER_VERSION,
         "window": dates,
         "by_date": by_date,
         "sources": sources,
