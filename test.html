@@ -959,7 +959,7 @@ let curTab="cal";
 // Owner's call (Jul 2026): board shows its information by default — the balance
 // panel starts open and junior cards start expanded; `cardsClosed` tracks the
 // ones a user collapses for the session.
-const uiExp={ balance:true, rosterInfo:false, cardsClosed:new Set(), sheetFiles:false, sheetDisc:false };
+const uiExp={ balance:true, rosterInfo:false, cardsClosed:new Set() };
 const TITLES={cal:["Calendar","Court days, holidays and the chamber's diary"],
   board:["Work board","Distribution and workload across the chamber"],
   today:["Day sheet",""], briefs:["Briefs","The chamber's matter register"],
@@ -1019,16 +1019,11 @@ function activeCount(uid){
   return Object.values(briefs).filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid)).length;
 }
 // Lifetime total ever assigned (includes disposed) — historical fairness.
+// LIFETIME count — every matter ever assigned (disposed included), counted as
+// 1 each (NO weightage; owner's decision). This is the career-fairness "clock".
+// Weightage applies ONLY to activeLoad, for immediate distribution.
 function lifetimeCount(uid){
   return Object.values(briefs).filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid)).length;
-}
-// Weighted TOTAL load — everything ever assigned, disposed included. The
-// career-fairness number: a junior who just disposed of five heavy matters
-// should not look identical to one who never carried them.
-function totalLoad(uid){
-  return Object.values(briefs)
-    .filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid))
-    .reduce((s,b)=>s + weightOf(b), 0);
 }
 
 // Pick the next junior for a brief.
@@ -1048,9 +1043,9 @@ function pickNext(brief, exclude=[]){
     const ranked = eligible
       .map(id=>{
         const pos = (ros.indexOf(id) - start + ros.length) % ros.length; // turn distance
-        return {id, load:activeLoad(id), total:totalLoad(id), turn:pos};
+        return {id, load:activeLoad(id), life:lifetimeCount(id), turn:pos};
       })
-      .sort((a,b)=> a.load-b.load || a.total-b.total || a.turn-b.turn);
+      .sort((a,b)=> a.load-b.load || a.life-b.life || a.turn-b.turn);
     return {uid:ranked[0].id, reason:"rotation"};
   }
   // Everyone eligible has declined or is on leave -> force-assign to lightest active load
@@ -1366,11 +1361,11 @@ function renderBoard(){
         return `<div class="bal-row" data-brief="" >
           <div class="bal-name">${esc(l.j.name)}${av&&av.status==='leave'?' <span class="muted" style="font-size:11px">· on leave</span>':''}${imm?` <span class="crunch" title="${imm} matter(s) listed within 4 days — load doubled"><span class="ti ti-flame"></span>${imm}</span>`:''}</div>
           <div class="bal-track"><div class="bal-fill" style="width:${Math.round(l.load/maxLoad*100)}%"></div></div>
-          <div class="bal-nums"><span class="bal-load" title="Weighted active load">${l.load}</span><span class="bal-sub">total ${totalLoad(l.j.id)} · ${l.count} active · ${l.life} lifetime</span></div>
+          <div class="bal-nums"><span class="bal-load" title="Weighted active load">${l.load}</span><span class="bal-sub">${l.count} active · ${l.life} lifetime</span></div>
         </div>`;
       }).join("")}
     </div>
-    <div class="balance-foot muted">Every matter counts as 1 unless Staff marks it heavier on the brief; a matter listed within 4 days counts double. Total is the lifetime figure — everything ever assigned, disposed included.</div>
+    <div class="balance-foot muted">Active load is weighted for immediate distribution (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). Lifetime counts every matter ever assigned as 1 — no weightage.</div>
     </div>
   </div>`:"";
 
@@ -1408,7 +1403,7 @@ function renderBoard(){
       <div class="jcard-load">
         <div class="load-pill"><div class="n">${mine.length}</div><div class="l">Active</div></div>
         <div class="load-pill"><div class="n">${activeLoad(j.id)}</div><div class="l">Load</div></div>
-        <div class="load-pill"><div class="n">${totalLoad(j.id)}</div><div class="l">Total</div></div>
+        <div class="load-pill"><div class="n">${lifetimeCount(j.id)}</div><div class="l">Lifetime</div></div>
         <div class="load-pill ${listed?'hot':''}"><div class="n">${listed}</div><div class="l">Listed</div></div>
       </div>
       <div class="jcard-body">${ mine.length? mine.map(jbrief).join("") : `<div class="jbrief-empty">No active briefs.</div>`}</div>
@@ -2061,18 +2056,6 @@ function openBrief(id){
           ${b.declinedBy.map(d=>`<div class="obj-row"><span class="obj-ground">${esc(OBJECTION_GROUNDS[d.ground]||d.ground)}</span> — ${esc(nameOf(d.uid))}${d.note?`<span class="obj-note">“${esc(d.note)}”</span>`:''}<span class="obj-at">${d.at?new Date(d.at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></div>`).join("")}
         </div>`:''}
       </div>
-      <div class="sec-head ${uiExp.sheetFiles?'open':''}" id="secFiles"><label>Files &amp; links</label><span class="sec-count" id="fileCount">…</span><span class="chev ti ti-chevron-down"></span></div>
-      <div class="sec-body ${uiExp.sheetFiles?'open':''}" id="secFilesBody">
-        <div id="fileList" class="muted" style="font-size:13px">Loading…</div>
-        <div class="inline-add"><input id="fl_name" placeholder="Label" style="flex:2"><input id="fl_url" placeholder="Drive / link URL" style="flex:3">
-          <select id="fl_kind" style="width:auto"><option value="court">Court file</option><option value="note">Chamber note</option><option value="senior">Senior\u2019s note</option></select>
-          <button class="btn sm" id="fl_add">Add</button></div>
-      </div>
-      <div class="sec-head ${uiExp.sheetDisc?'open':''}" id="secDisc"><label>Discussion</label><span class="sec-count" id="cmtCount">…</span><span class="chev ti ti-chevron-down"></span></div>
-      <div class="sec-body ${uiExp.sheetDisc?'open':''}" id="secDiscBody">
-        <div id="cmtList" class="muted" style="font-size:13px">Loading…</div>
-        <div class="inline-add"><input id="cm_text" placeholder="Message the team on this matter"><button class="btn sm" id="cm_add">Post</button></div>
-      </div>
     </div>`);
   document.querySelectorAll("[data-status]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{status:x.dataset.status,updatedAt:db.now()});closeSheet();openBrief(id);});
   document.querySelectorAll("[data-editbrief]").forEach(x=>x.onclick=()=>{closeSheet();briefForm(b);});
@@ -2082,23 +2065,6 @@ function openBrief(id){
   document.querySelectorAll("[data-keepheld]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{heldForClerk:false,updatedAt:db.now()});toast("Senior's direction upheld — assignment stands");closeSheet();openBrief(id);});
   document.querySelectorAll("[data-copy]").forEach(x=>x.onclick=()=>{navigator.clipboard?.writeText(x.dataset.copy);toast("Diary number copied","ti-copy");});
   document.querySelectorAll("[data-copymsg]").forEach(x=>x.onclick=()=>{navigator.clipboard?.writeText(nudgeMsg(b));toast("Nudge message copied — paste it anywhere","ti-copy");});
-  $("secFiles").onclick=()=>{uiExp.sheetFiles=!uiExp.sheetFiles;$("secFiles").classList.toggle("open");$("secFilesBody").classList.toggle("open");};
-  $("secDisc").onclick=()=>{uiExp.sheetDisc=!uiExp.sheetDisc;$("secDisc").classList.toggle("open");$("secDiscBody").classList.toggle("open");};
-  sheetUnsubs.push(db.watchCollection("briefs/"+id+"/files",rows=>{
-    rows.sort((a,b)=>(b.at?._t??0)-(a.at?._t??0));
-    const vis=rows;
-    const fc=$("fileCount"); if(fc)fc.textContent=vis.length;
-    const el=$("fileList"); if(!el)return;
-    el.innerHTML=vis.length? vis.map(f=>`<div class="file-item"><span class="file-kind ${f.kind==='court'?'fk-court':f.kind==='senior'?'fk-senior':'fk-note'}">${f.kind==='court'?'Court':f.kind==='senior'?'Senior':'Note'}</span><div><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a><div class="fby">${esc(f.byName||'')}</div></div></div>`).join("") : '<span class="muted">No files yet. Paste Drive links below.</span>';
-  }));
-  $("fl_add").onclick=async()=>{const name=$("fl_name").value.trim(),url=$("fl_url").value.trim();if(!name||!url){toast("Label and link needed","ti-alert-triangle");return;}await db.add("briefs/"+id+"/files",{name,url,kind:$("fl_kind").value,by:me.uid,byName:me.name,at:db.now()});$("fl_name").value="";$("fl_url").value="";};
-  sheetUnsubs.push(db.watchCollection("briefs/"+id+"/comments",rows=>{
-    rows.sort((a,b)=>(a.at?._t??0)-(b.at?._t??0));
-    const cc=$("cmtCount"); if(cc)cc.textContent=rows.length;
-    const el=$("cmtList"); if(!el)return;
-    el.innerHTML=rows.length? rows.map(c=>`<div class="cmt"><div class="cmt-ava">${esc(initials(c.byName))}</div><div class="cmt-body"><div><span class="cmt-by">${esc(c.byName)}</span><span class="cmt-at">${c.at?._t?new Date(c.at._t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):(c.at?.toDate?c.at.toDate().toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'')}</span></div><div class="cmt-txt">${esc(c.text)}</div></div></div>`).join("") : '<span class="muted">No messages yet.</span>';
-  }));
-  $("cm_add").onclick=async()=>{const t=$("cm_text").value.trim();if(!t)return;await db.add("briefs/"+id+"/comments",{text:t,by:me.uid,byName:me.name,at:db.now()});await db.update("briefs/"+id,{updatedAt:db.now()});$("cm_text").value="";};
 }
 
 function objectForm(id){
@@ -2245,7 +2211,7 @@ function renderRoster(){
       <span class="chev ti ti-chevron-down"></span>
     </div>
     <div class="clps-body ${uiExp.rosterInfo?'open':''}" style="margin-top:8px">
-    <p>The roster runs in <b>chamber seniority</b> — date of joining, senior-most first (set each colleague's date from the Chamber tab). A new matter goes to whoever carries the <b>lightest active load</b> (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). Ties go to the lower <b>total load</b> — everything ever assigned, so career fairness corrects drift — and any remaining tie to whoever is <b>next up</b> in the rotation. Colleagues on leave are skipped; objections pass the matter to the next eligible colleague; if everyone is unavailable it force-assigns to the lightest-loaded and flags you.</p>
+    <p>The roster runs in <b>chamber seniority</b> — date of joining, senior-most first (set each colleague's date from the Chamber tab). A new matter goes to whoever carries the <b>lightest active load</b> (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). Ties go to the lower <b>lifetime count</b> — total matters ever assigned, counted 1 each (no weightage), so career fairness corrects drift — and any remaining tie to whoever is <b>next up</b> in the rotation. Colleagues on leave are skipped; objections pass the matter to the next eligible colleague; if everyone is unavailable it force-assigns to the lightest-loaded and flags you.</p>
     </div>
   </div>`;
   let list;
@@ -2259,7 +2225,7 @@ function renderRoster(){
           <div class="roster-pos">${i+1}</div>
           <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
           <div class="info"><div class="nm">${esc(m.name||'—')}${isNext?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
-            <div class="roster-load muted">${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${activeLoad(m.id)} · Total ${totalLoad(m.id)} · ${activeCount(m.id)} live · ${lifetimeCount(m.id)} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
+            <div class="roster-load muted">${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${activeLoad(m.id)} · ${activeCount(m.id)} live · ${lifetimeCount(m.id)} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
         </div>`;
       }).join("")}</div>
       ${canManage()?`<div class="row" style="margin-top:14px"><button class="btn ghost sm" id="rReset"><span class="ic ti ti-refresh"></span>Reset “next up” to top</button></div>`:''}`;

@@ -147,9 +147,11 @@ Timestamp. Read with `x?._t ?? x?.toDate?.()` patterns; keep both paths alive.
   nextDate/conferenceAt (ISO), assignedTo[], everAssigned[], ackBy[],
   assignedAt (ms), declinedBy[{uid,ground,note,at}], heldForClerk,
   assignHistory[{uid,at,by?,mode}], createdBy/At, updatedAt
-  - subcollections: `comments/{id}` {text,by,byName,at},
-    `files/{id}` {name,url,kind:`court|note|senior`,by,byName,at} —
-    kind `senior` is now just a label, visible to all
+  - subcollections `comments/{id}` + `files/{id}` EXIST in the rules but their
+    UI (Files & Discussion in the brief detail) was **removed Jul 2026** (owner:
+    file/note upload is a later phase). Rules left in place (harmless); re-add
+    the brief-detail sections when that phase resumes. Current app scope: brief
+    details, causelist, work distribution + roster only.
 - `daysheets/{YYYY-MM-DD}`: {date, entries[], conferences[], updatedAt, updatedBy} —
   entries: {briefId?, caseTitle, courtNo, itemNo (free text — "MM" = mentioning),
   listType (one of CAUSELIST_TYPES: Miscellaneous/Regular/Chamber/Single Judge/
@@ -205,12 +207,14 @@ populate config/holidays the way the cause-list Action populates scindex.
 - `isImminent(b)`: nextDate within 0–4 days → that brief counts **double**
   in `activeLoad(uid)`. This is how "junior busy with a matter coming up"
   auto-repels new work.
-- `totalLoad(uid)`: weighted LIFETIME load — every brief ever assigned
-  (everAssigned), disposed included. The career-fairness number.
+- `lifetimeCount(uid)`: LIFETIME count — every brief ever assigned
+  (everAssigned), disposed included, counted **1 each — NO weightage** (owner's
+  decision Jul 2026: weightage is only for immediate distribution, not the
+  career clock). `totalLoad` (the old weighted-lifetime fn) was removed.
 - `pickNext(brief, exclude)`: eligible = effectiveRoster() (= seniority order)
-  minus declinedBy minus on-leave-today; rank eligible by (activeLoad asc,
-  then totalLoad asc, then turn-distance from `roster.pointer` asc) — owner's
-  chosen "active → total → turn" equity model. If none eligible → **forced**
+  minus declinedBy minus on-leave-today; rank eligible by (activeLoad asc [the
+  ONLY weighted metric], then lifetimeCount asc, then turn-distance from
+  `roster.pointer` asc) — "active → lifetime → turn" equity model. If none eligible → **forced**
   assign to lightest-loaded non-leave member, `{forced:true}` (flagged toast).
 - `autoAssign` sets assignedTo=[pick], status=assigned, resets `ackBy=[]`,
   stamps `assignedAt`, appends assignHistory, then `advancePointer()`.
