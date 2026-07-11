@@ -967,6 +967,16 @@ function chamberColleagues(){ return rosterDisplay().map(m=>({id:m.id,name:m.nam
 // no AM/PM). Courts/conferences never sit before 8am, so 1-7 always means PM.
 const toClock=t=>{ t=String(t||"").trim(); const m=t.match(/^(\d{1,2})[.:](\d{2})$/)||t.match(/^(\d{1,2})$/); if(!m) return ""; let h=+m[1]; const mm=m[2]||"00"; if(h>=1&&h<=7) h+=12; return String(h).padStart(2,"0")+":"+mm; };
 const toDotted=v=>{ v=String(v||"").trim(); const m=v.match(/^(\d{1,2}):(\d{2})$/); if(!m) return v; let h=+m[1]%12; if(h===0)h=12; return h+"."+m[2]; };
+// The causelist is always ordered by court room number (Court 1 first), then
+// item number. Sort a copy, keeping original order as a stable tiebreak.
+const _courtNum=e=>{ const n=parseInt(String(e?.courtNo??"").trim(),10); return isNaN(n)?9999:n; };
+const _itemNum=e=>{ const m=String(e?.itemNo??"").match(/\d+/); return m?parseInt(m[0],10):9999; };
+const byCourt=arr=>arr.map((e,i)=>[e,i]).sort((a,b)=>_courtNum(a[0])-_courtNum(b[0])||_itemNum(a[0])-_itemNum(b[0])||a[1]-b[1]).map(x=>x[0]);
+// which SC list types publish a supplementary (Curative does not); and whether
+// that supplementary has actually been fetched yet for a date (it's released
+// ~8pm the evening before, so until then the Supp figure is left blank).
+const SUPP_TYPES=new Set(["Miscellaneous","Regular","Chamber","Single Judge","Registrar"]);
+const suppFetched=(dateISO,listType)=>{ const lf=courtUpdates?.by_date?.[dateISO]?.lists_found||[]; return !!listType&&lf.some(x=>x.indexOf(listType)===0&&/supp/i.test(x)); };
 
 function toast(msg,icon="ti-check"){ const t=$("toast"); t.innerHTML=`<span class="ic ti ${icon}"></span>${esc(msg)}`; t.classList.remove("hidden"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.add("hidden"),2400); }
 
@@ -1045,7 +1055,7 @@ function startApp(){
   loadCourtUpdates();
   watchDaysheet();
 }
-function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(curTab==="today")renderToday(); }); }
+function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(daysheet.entries) daysheet.entries=byCourt(daysheet.entries); if(curTab==="today")renderToday(); }); }
 
 function paintChrome(){
   $("sbName").textContent=CHAMBER.seniorName; $("sbCourt").textContent=CHAMBER.court;
@@ -1350,7 +1360,7 @@ async function applySCYear(year){
 function dayDetail(iso){
   const d=new Date(iso+"T00:00");
   const wd=d.toLocaleDateString('en-IN',{weekday:'long'});
-  const entries=(dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]);
+  const entries=byCourt((dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]));
   const confItems=(conferenceList(iso)[0]?.items)||[];
   const hol=isHol(iso), off=seniorOff(iso);
   openSheet(`<div class="sheet-head"><div><h3>${wd}, ${fmtDateY(iso)}</h3>
@@ -1393,9 +1403,13 @@ function dayDetail(iso){
           : `<div class="row" style="gap:8px"><input id="dh_name" placeholder="Name — e.g. Holi, Ambedkar Jayanti" style="flex:1"><button class="btn sm" id="holMark">Mark holiday</button></div>
              <div class="muted" style="font-size:11.5px;margin-top:6px">Missed one? Mark a single day here, or a whole range from the calendar's “Mark holidays” button.</div>`}</div>`:''}
 
-      <div style="margin-top:22px"><button class="btn ghost sm" id="dOpenSheet"><span class="ic ti ti-list-check"></span>${entries.length?'Open the day sheet':'Open day sheet for this date'}</button></div>
+      <div class="row" style="margin-top:22px;gap:8px">
+        <button class="btn ghost sm" id="dOpenSheet"><span class="ic ti ti-list-check"></span>${entries.length?'Open the day sheet':'Open day sheet for this date'}</button>
+        ${entries.length?`<button class="btn ghost sm" id="dPrint"><span class="ic ti ti-printer"></span>Print causelist</button>`:''}
+      </div>
     </div>`);
   const goSheet=()=>{ closeSheet(); dsDate=iso; watchDaysheet(); selectTab("today"); };
+  if($("dPrint")) $("dPrint").onclick=()=>printCauseList(iso);
   document.querySelectorAll("[data-dsopen]").forEach(x=>x.onclick=goSheet);
   $("dOpenSheet").onclick=goSheet;
   // senior availability — immediate toggle, no separate Save
@@ -1783,12 +1797,9 @@ function renderToday(){
           <div class="rail-actions">
             ${(canManage()||isSenior())?`<button class="tbtn done-btn" data-dsdone="${i}"><span class="ic ti ${e.done?'ti-arrow-back-up':'ti-circle-check'}"></span>${e.done?'Undo':'Done'}</button>`:''}
             ${b?`<button class="tbtn" data-brief="${b.id}"><span class="ic ti ti-folder"></span>Brief</button>`:''}
-            ${canManage()?`<span class="rail-ext"></span><button class="tbtn icon-only" data-dstools="${i}" aria-label="More actions"><span class="ic ti ti-dots"></span></button>
-              <span class="tools-more" id="dstools-${i}">
-              <button class="tbtn icon-only" data-dsup="${i}" ${i===0?'disabled':''} aria-label="Move up"><span class="ic ti ti-arrow-up"></span></button>
-              <button class="tbtn icon-only" data-dsdown="${i}" ${i===entries.length-1?'disabled':''} aria-label="Move down"><span class="ic ti ti-arrow-down"></span></button>
+            ${canManage()?`<span class="rail-ext"></span>
               <button class="tbtn icon-only" data-dsedit="${i}" aria-label="Edit"><span class="ic ti ti-pencil"></span></button>
-              <button class="tbtn icon-only" data-dsdel="${i}" aria-label="Remove"><span class="ic ti ti-trash"></span></button></span>`:''}
+              <button class="tbtn icon-only" data-dsdel="${i}" aria-label="Remove"><span class="ic ti ti-trash"></span></button>`:''}
           </div>
         </div>
       </div>`;
@@ -1833,7 +1844,7 @@ function renderToday(){
   if($("tbAddDs"))$("tbAddDs").onclick=()=>dsForm();
   if($("tbImport"))$("tbImport").onclick=importCauseList;
   if($("tbShare"))$("tbShare").onclick=shareDaySheet;
-  if($("tbPrint"))$("tbPrint").onclick=printCauseList;
+  if($("tbPrint"))$("tbPrint").onclick=()=>printCauseList(dsDate);
   if($("tbAddConf"))$("tbAddConf").onclick=()=>confForm();
   $("tab-today").querySelectorAll("[data-confedit]").forEach(x=>x.onclick=()=>confForm(+x.dataset.confedit));
   $("tab-today").querySelectorAll("[data-confdel]").forEach(x=>x.onclick=()=>{const c=[...(daysheet?.conferences||[])];c.splice(+x.dataset.confdel,1);saveDaysheet(daysheet?.entries||[],c);});
@@ -1909,23 +1920,31 @@ function shareDaySheet(){
 
 // Printable cause list in the clerk's paper format: SHYAM DIVAN header, italic
 // "Senior Advocate", then the six-column table, then conferences — Garamond 14.
-function printCauseList(){
-  const d=new Date(dsDate+"T00:00");
+function printCauseList(iso){
+  iso = (typeof iso==="string" && iso) ? iso : dsDate;
+  const d=new Date(iso+"T00:00");
   const day=d.toLocaleDateString("en-IN",{weekday:"long"}).toUpperCase();
   const dt=d.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,".");
-  const entries=(daysheet?.entries||[]);
-  const confs=(daysheet?.conferences||[]).slice().sort((a,b)=>(parseFloat(a.time)||99)-(parseFloat(b.time)||99));
+  // always ordered by court room number, then item
+  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])));
   const q = s => String(s??"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const rows=entries.map((e,i)=>{
-    const R=resolveEntry(e,dsDate);
+    const R=resolveEntry(e,iso);
     const ci=`Ct-${q(e.courtNo||"?")} #${q(e.itemNo||"?")}`;
     const judges=String(R.bench||"").split(/\s*,\s*/).filter(Boolean).map(q).join("<br>");   // one judge per line
     const adv=[e.counsel, ...jrsOf(e).map(u=>nameOf(u))].filter(Boolean).map(q).join("<br>"); // one name per line
-    const totLine = R.total ? `<div>Total ${q(R.total)}</div>${R.courtSupp>0?`<div class="brk">Main ${q(R.courtMain)} · Supp ${q(R.courtSupp)}</div>`:""}` : "";
+    let totLine="";
+    if(R.total){
+      totLine=`<div>Total ${q(R.total)}</div>`;
+      if(SUPP_TYPES.has(R.listType)){                    // supp comes late — blank until fetched
+        const s = suppFetched(iso,R.listType) ? q(R.courtSupp) : "—";
+        totLine+=`<div class="brk">Main ${q(R.courtMain)} · Supp ${s}</div>`;
+      }
+    }
     const last = `${totLine}<div class="seq">Seq <span class="wl">&nbsp;</span></div>`;
     return `<tr><td class="ci">${ci}</td><td class="tm">${q(e.time||"")}</td><td class="nm">${renderTitle(R.title,R.appearingFor,"html")}</td><td class="jg">${judges}</td><td class="ad">${adv}</td><td class="last">${last}</td></tr>`;
   }).join("");
-  const confGroups=conferenceList(dsDate);
+  const confGroups=conferenceList(iso);
   const confHtml=confGroups.length?`<div class="confs"><div class="ch">Conferences</div>${confGroups.map(g=>`<div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(c=>`<div class="cf"><span class="t">${q(c.time||"—")}</span><span>-</span><span>${q(c.label||"")}</span></div>`).join("")}`).join("")}</div>`:"";
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>SD Causelist ${dt}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1939,12 +1958,12 @@ body{font-family:"EB Garamond",Garamond,"Times New Roman",serif;font-size:13px;c
 table{width:100%;border-collapse:collapse;table-layout:fixed}
 th,td{border:1px solid #000;padding:3px 6px;vertical-align:top;text-align:left;line-height:1.28;overflow-wrap:break-word}
 th{font-weight:600;font-size:12px;white-space:normal}
-td.ci,th.ci{width:62px;white-space:nowrap;font-size:12px}
-td.tm,th.tm{width:40px;white-space:nowrap;font-size:12px}
-td.nm{font-size:15.5px;line-height:1.34}          /* the cause title — the largest column */
-td.jg,th.jg{width:94px;font-size:11.5px;line-height:1.42}   /* judges, one per line */
-td.ad,th.ad{width:86px;font-size:11.5px;line-height:1.42}   /* advocates, one per line */
-td.last,th.last{width:84px;font-size:11px}
+td.ci,th.ci{width:54px;white-space:nowrap;font-size:11.5px}
+td.tm,th.tm{width:34px;white-space:nowrap;font-size:11.5px}
+td.nm{font-size:16px;line-height:1.34}            /* the cause title — the largest column */
+td.jg,th.jg{width:84px;font-size:10.5px;line-height:1.38}   /* judges, one per line */
+td.ad,th.ad{width:88px;font-size:10.5px;line-height:1.38}   /* advocates, one per line */
+td.last,th.last{width:78px;font-size:10.5px}
 .brk{font-size:10px;margin-top:1px}
 .seq{margin-top:5px;white-space:nowrap}
 .wl{display:inline-block;border-bottom:1px solid #000;min-width:34px;vertical-align:baseline}
@@ -1953,12 +1972,12 @@ td.last,th.last{width:84px;font-size:11px}
 .cfday{font-weight:600;margin:7px 0 2px}
 .cf{display:flex;gap:10px;margin:2px 0 2px 14px}
 .cf .t{min-width:46px}
-@page{margin:10mm}
+@page{size:A4;margin:10mm}
 </style></head><body>
 <div class="name">${q(CHAMBER.seniorName.toUpperCase())}</div>
 <div class="role">Senior Advocate</div>
 <div class="court">SUPREME COURT (${day}) ${dt}</div>
-<table><thead><tr><th class="ci">Court/<br>Item</th><th class="tm">Time</th><th>Case Name</th><th>Judges</th><th>Advocates Name</th><th class="last">Total &amp; Seq.</th></tr></thead>
+<table><thead><tr><th class="ci">Court/<br>Item</th><th class="tm">Time</th><th class="nm">Case Name</th><th class="jg">Judges</th><th class="ad">Advocates</th><th class="last">Total &amp; Seq.</th></tr></thead>
 <tbody>${rows||'<tr><td colspan="6" style="text-align:center;padding:16px">No matters listed.</td></tr>'}</tbody></table>
 ${confHtml}
 </body></html>`;
