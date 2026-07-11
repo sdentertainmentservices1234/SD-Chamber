@@ -1616,6 +1616,8 @@ const cleanCauseSide=side=>{
   side=side.replace(/^.*?[\/\-](?:19|20)\d{2}\s+/,"").trim();         // "C.A. No. 283/2022 " -> ""
   side=side.replace(/^[A-Z][A-Za-z.()&\/]*\.?\s*No\.?\s+/i,"").trim();// "SLP(C) No. " (number on next line) -> ""
   side=side.replace(/^[0-9IVXLC][0-9IVXLC.\/\-]*\s+/,"").trim();      // stray leading number / roman
+  side=side.replace(/\[[^\]]*\]?/g,"").replace(/\{[^}]*\}?/g,"").trim();// [R-1]/[CAVEAT]/{Mention Memo} — advocate-side markers
+  side=side.replace(/\s+@\s+.*$/i,"").trim();                         // drop "@ alias ..."
   const m=side.match(/^(.*?\b(?:AND\s+ANR|AND\s+ORS|&\s+ANR|&\s+ORS|ETC)\b\.?)/i);
   if(m) side=m[1];                                                    // cut trailing AoR at "& Ors."/"and Anr."
   return titleCase(side.trim());

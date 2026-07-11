@@ -48,7 +48,7 @@ OUTPUT_FILE = "court-updates.json"
 # based change-detection reuses a cached parse when the PDF is unchanged; without
 # this, a parser FIX never reaches already-cached dates (their PDFs don't change).
 # A version mismatch forces a full re-parse of every date in the window.
-PARSER_VERSION = 2
+PARSER_VERSION = 3
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; sd-chamber-causelist-bot/1.0)"}
 
 COURT_RE = re.compile(r"COURT\s*NO\.?\s*[:\-]?\s*([0-9]+)", re.I)
@@ -117,6 +117,52 @@ def pdf_to_text(data):
     except Exception as e:
         print("  PDF extraction failed:", e)
         return ""
+
+
+# The SC list is a two-column table: party text on the left, the ADVOCATE on the
+# right (a fixed column starting at x0 ~= 426 on a 595pt page). Plain extract_text
+# flattens the columns onto one line, so the advocate name bleeds into the cause
+# title ("VIRENDRA SINGH NAGAR RAJ KISHOR CHOUDHARY"). We can't tell party from
+# advocate by text alone, but we can by x-position. So for ITEM rows we drop every
+# word at/after the advocate column; header/coram rows are kept whole (a right-
+# positioned officer line like "ADDITIONAL REGISTRAR" must not be truncated).
+ADV_COL_X = 415   # advocate column left edge (words at/after this are the advocate)
+SNO_COL_X = 60    # an item row's serial number sits in the far-left margin
+ITEM_SNO_RE = re.compile(r"^[0-9]{1,4}(?:\.[0-9]{1,3})?[.\)]?$")
+
+
+def pdf_to_column_text(data):
+    """Rebuild the PDF text, dropping the advocate column from item rows only.
+    Returns None if word-level extraction isn't available (caller falls back to
+    pdf_to_text). A court header resets to header mode (coram kept whole); the
+    first serial-numbered row switches on item mode (advocate column dropped)."""
+    try:
+        import pdfplumber
+    except Exception:
+        return None
+    try:
+        out = []
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            for page in pdf.pages:
+                rows = {}
+                for w in page.extract_words(use_text_flow=True):
+                    rows.setdefault(round(w["top"] / 2), []).append(w)
+                in_items = False
+                for key in sorted(rows):
+                    ws = sorted(rows[key], key=lambda w: w["x0"])
+                    full = " ".join(w["text"] for w in ws)
+                    if REG_RE.search(full) or COURT_RE.search(full) or CJ_RE.search(full):
+                        in_items = False           # a court header — coram follows
+                    elif ws[0]["x0"] < SNO_COL_X and ITEM_SNO_RE.match(ws[0]["text"]):
+                        in_items = True            # a serial-numbered item row
+                    if in_items:
+                        out.append(" ".join(w["text"] for w in ws if w["x0"] < ADV_COL_X))
+                    else:
+                        out.append(full)
+        return "\n".join(out)
+    except Exception as e:
+        print("  column extraction failed:", e)
+        return None
 
 
 # an item number, optionally a sub-item ("37" or "37.1"). "37.1 Connected .."
@@ -229,7 +275,7 @@ def build_for_date(date_str, prev_day=None, prev_sizes=None):
             data = fetch_pdf(DAILY_BASE.format(date=date_str, suffix=suffix))
             if not data:
                 continue
-            text = pdf_to_text(data)
+            text = pdf_to_column_text(data) or pdf_to_text(data)  # drop advocate column
             if not text.strip():
                 continue
             lists_found.append("{} ({})".format(human, variant))
