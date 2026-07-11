@@ -8,6 +8,20 @@ file as `CLAUDE.md` in the repository root — Claude Code reads it automaticall
 A work-allocation and cause-list tool **between the clerk and the juniors**.
 The senior advocate is deliberately NOT a user (role removed by owner decision).
 
+## Branding & onboarding copy (Jul 2026)
+
+- **SD logo**: gold Fraunces "SD" with a hairline underline (echoes the app
+  icon). `.sb-logo` in the sidebar masthead (gold on navy); `.brand-mark` =
+  navy rounded tile w/ gold SD on the light auth + pending cards. Colour scheme
+  unchanged (navy #101418 / gold #cbb682 institutional).
+- **Onboarding relabelled** away from "invite / pre-approve" to just **"Add
+  member"** (owner's call — Adith enters real members, no approval step in his
+  head). The MECHANISM is unchanged: still `approvals/{emailLower}` claimed on
+  first sign-in (the only credential-free way — Firestore users are uid-keyed).
+  Button "Add member", panel "Members — awaiting first sign-in", form fields
+  name/email/role/phone/joinedOn. Junior signs in with that email + "Set your
+  password". Keep the approvals-doc plumbing; only the words changed.
+
 ## Terminology (Jul 2026 — display only)
 
 The owner renamed the user-facing labels: **Clerk → "Staff"**, **Junior →

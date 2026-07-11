@@ -73,6 +73,10 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .sb-brand .k{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--sidebar-ink-2)}
 .sb-brand .n{font-family:var(--serif);font-size:19px;font-weight:450;color:#f3f2ee;line-height:1.2;margin-top:3px}
 .sb-brand .c{font-size:11.5px;color:var(--sidebar-ink-2);margin-top:4px;letter-spacing:.03em}
+/* SD monogram logo — gold Fraunces, echoing the app icon */
+.sb-logo{font-family:var(--serif);font-size:29px;font-weight:450;letter-spacing:3px;color:#cbb682;line-height:1;display:inline-block;position:relative;padding-bottom:9px;margin-bottom:12px}
+.sb-logo::after{content:"";position:absolute;left:2px;bottom:0;width:32px;height:1px;background:#cbb682;opacity:.75}
+.brand-mark{width:58px;height:58px;border-radius:15px;background:#101418;color:#cbb682;font-family:var(--serif);font-size:26px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 4px 16px rgba(16,20,24,.2)}
 .sb-nav{padding:14px 12px;flex:1;display:flex;flex-direction:column;gap:2px}
 .sb-nav button{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;padding:10px 12px;border-radius:var(--r);font-size:14px;font-weight:450;color:var(--sidebar-ink);text-align:left;transition:background .12s}
 .sb-nav button .ic{font-size:18px;width:20px;text-align:center;color:var(--sidebar-ink-2);transition:color .12s}
@@ -480,6 +484,7 @@ body.demo .topbar{top:34px}
 <!-- ============ AUTH ============ -->
 <div id="authView" class="auth-wrap hidden">
   <div class="auth-card">
+    <div class="brand-mark">SD</div>
     <div class="k">Chambers of</div>
     <h1 id="authName">Senior Advocate</h1>
     <div class="court" id="authCourt">Supreme Court of India</div>
@@ -489,16 +494,17 @@ body.demo .topbar{top:34px}
     <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••">
     <div style="margin-top:20px"><button class="btn" id="loginBtn">Sign in</button></div>
     <div class="err" id="loginErr"></div>
-    <div class="auth-note" id="authToggleNote">First time here? <a href="#" id="authToggle">Set your password</a> — use the email your chamber pre-approved.</div>
+    <div class="auth-note" id="authToggleNote">First time here? <a href="#" id="authToggle">Set your password</a> — use the email your chamber entered for you.</div>
   </div>
 </div>
 
 <!-- ============ PENDING ============ -->
 <div id="pendingView" class="auth-wrap hidden">
   <div class="auth-card" style="text-align:center">
+    <div class="brand-mark">SD</div>
     <div class="k">Chambers</div>
     <h1>Not approved yet</h1>
-    <p class="auth-note" style="margin-top:8px">This email hasn't been pre-approved for the chamber. Ask Adith to add your exact email, then sign in again — access is immediate once it's on the list.</p>
+    <p class="auth-note" style="margin-top:8px">This email hasn't been added to the chamber yet. Ask Adith to add your exact email, then sign in again — access is immediate once it's in.</p>
     <div style="margin-top:18px"><button class="btn ghost" id="pendingSignOut" style="width:100%;justify-content:center">Sign out</button></div>
   </div>
 </div>
@@ -508,6 +514,7 @@ body.demo .topbar{top:34px}
   <div class="scrim" id="scrim"></div>
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand">
+      <div class="sb-logo">SD</div>
       <div class="k">Chambers of</div>
       <div class="n" id="sbName">Senior Advocate</div>
       <div class="c" id="sbCourt">Supreme Court of India</div>
@@ -814,7 +821,7 @@ function paintAuthMode(){ const up=authMode==="up"; $("loginErr").textContent=""
   $("loginBtn").textContent=up?"Create my access":"Sign in";
   $("passLabel").textContent=up?"Choose a password":"Password";
   $("loginPass").setAttribute("autocomplete",up?"new-password":"current-password");
-  $("authToggleNote").innerHTML=up?`Returning member? <a href="#" id="authToggle">Sign in instead</a>`:`First time here? <a href="#" id="authToggle">Set your password</a> — use the email your chamber pre-approved.`;
+  $("authToggleNote").innerHTML=up?`Returning member? <a href="#" id="authToggle">Sign in instead</a>`:`First time here? <a href="#" id="authToggle">Set your password</a> — use the email your chamber entered for you.`;
   $("authToggle").onclick=toggleAuthMode; }
 function toggleAuthMode(e){ e.preventDefault(); authMode=authMode==="in"?"up":"in"; paintAuthMode(); }
 $("authToggle").onclick=toggleAuthMode;
@@ -1843,7 +1850,7 @@ function objectForm(id){
    TEAM
    ============================================================ */
 function renderTeam(){
-  $("topbarAction").innerHTML= canAdmin()? `<button class="btn" id="tbInvite"><span class="ic ti ti-user-plus"></span>Add / pre-approve member</button>`:"";
+  $("topbarAction").innerHTML= canAdmin()? `<button class="btn" id="tbInvite"><span class="ic ti ti-user-plus"></span>Add member</button>`:"";
   const order={admin:0,senior:1,clerk:2,pa:3,junior:4};
   const members=Object.values(users).filter(u=>u.role!=="pending"&&u.active!==false).sort((a,b)=>order[a.role]-order[b.role]||(a.name||"").localeCompare(b.name||""));
   const pending=Object.values(users).filter(u=>u.role==="pending");
@@ -1868,11 +1875,11 @@ function renderTeam(){
         ${canAdmin()?`<button class="tbtn" data-role="${u.id}"><span class="ic ti ti-settings"></span></button>`:''}</div>
       </div>`;}).join("")}</div>`;
 
-  const invitePanel = canAdmin()? `<div class="panel" style="margin-top:16px"><div class="panel-head">Invited — awaiting first sign-in ${invited.length?`<span class="chip st-prep">${invited.length}</span>`:'<span class="muted" style="font-weight:400;font-size:12px">none</span>'}</div>
+  const invitePanel = canAdmin()? `<div class="panel" style="margin-top:16px"><div class="panel-head">Members — awaiting first sign-in ${invited.length?`<span class="chip st-prep">${invited.length}</span>`:'<span class="muted" style="font-weight:400;font-size:12px">none</span>'}</div>
     ${invited.length? invited.map(a=>`<div class="trow"><div class="sb-ava" style="background:var(--surface-2);color:var(--ink-3)"><span class="ti ti-mail"></span></div>
       <div class="info"><div class="nm">${esc(a.name||a.email)}</div><div class="rl">${esc(a.email)} · will join as ${ROLES[a.role]||a.role}${a.joinedOn?` · ${fmtDateY(a.joinedOn)}`:''}</div></div>
       <div class="row" style="gap:6px">${DEMO?`<button class="tbtn" data-siminvite="${a.id}" title="Demo only: simulate this person signing in for the first time"><span class="ic ti ti-login"></span>Simulate sign-in</button>`:''}<button class="tbtn" data-editinvite="${a.id}"><span class="ic ti ti-pencil"></span></button><button class="tbtn" data-delinvite="${a.id}"><span class="ic ti ti-trash"></span></button></div></div>`).join("")
-      : `<div class="trow"><div class="info muted" style="font-size:13px">No pending invites. Use “Add / pre-approve member” to invite someone by email — they get their role the moment they sign in.</div></div>`}</div>`:"";
+      : `<div class="trow"><div class="info muted" style="font-size:13px">No one waiting to sign in. Use “Add member” to add a colleague by email — they get access the moment they first sign in.</div></div>`}</div>`:"";
 
   const availPanel=`<div class="panel"><div class="panel-head">Availability today <span class="muted" style="font-weight:400;font-size:12px">${fmtDateY(todayISO())}</span></div>
     ${juniors().map(j=>{const av=availToday[j.id];
@@ -1906,13 +1913,13 @@ function renderTeam(){
   document.querySelectorAll("[data-role]").forEach(x=>x.onclick=()=>roleForm(x.dataset.role));
 }
 
-// Admin pre-approves a member by email. On that person's first sign-in the
+// Admin adds a member by email. On that person's first sign-in the
 // approval is claimed (see auth.onChange) and they enter at this role with
 // these details — no manual approval step. Editable/removable until claimed.
 function inviteForm(key=null){
   const a=key?approvals[key]:{};
   const roleOpts=[["junior","Chamber Colleague"],["clerk","Staff"],["pa","PA"],["admin","Admin"]];
-  openSheet(`<div class="sheet-head"><div><h3>${key?'Edit invite':'Add / pre-approve member'}</h3><div class="sub">They set their own password on first sign-in</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+  openSheet(`<div class="sheet-head"><div><h3>${key?'Edit member':'Add member'}</h3><div class="sub">No approval step — they sign in with this email and set their own password</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <label>Email <span class="muted" style="font-weight:400">(exactly the address they will sign in with)</span></label>
       <input id="i_email" inputmode="email" value="${esc(a.email||'')}" placeholder="name@gmail.com" ${key?'disabled':''}>
@@ -1920,14 +1927,14 @@ function inviteForm(key=null){
       <label>Role</label><select id="i_role">${roleOpts.map(([k,v])=>`<option value="${k}" ${a.role===k?'selected':''}>${v}</option>`).join("")}</select>
       <label>Phone <span class="muted" style="font-weight:400">(for WhatsApp nudges, 10-digit)</span></label><input id="i_phone" inputmode="tel" value="${esc(a.phone||'')}" placeholder="98220 12345">
       <label>Date of joining the chamber <span class="muted" style="font-weight:400">(sets roster seniority for colleagues)</span></label><input type="date" id="i_joined" value="${esc(a.joinedOn||'')}">
-      <div style="margin-top:20px"><button class="btn" id="i_save">${key?'Save invite':'Send pre-approval'}</button></div>
+      <div style="margin-top:20px"><button class="btn" id="i_save">${key?'Save member':'Add member'}</button></div>
     </div>`);
   $("i_save").onclick=async()=>{
     const email=$("i_email").value.trim(); if(!email||!email.includes("@")){toast("Enter a valid email","ti-alert-triangle");return;}
     const rec={email,name:$("i_name").value.trim()||email.split("@")[0],role:$("i_role").value,phone:$("i_phone").value.trim(),joinedOn:$("i_joined").value||null,by:me.uid,at:db.now()};
     if(Object.values(users).some(u=>emailKey(u.email)===emailKey(email))){toast("That email already has an account — edit them in People","ti-alert-triangle");return;}
     await db.set("approvals/"+emailKey(email),rec);
-    closeSheet(); toast(key?"Invite updated":`${rec.name} pre-approved — they can sign in now`,"ti-user-check");
+    closeSheet(); toast(key?"Member updated":`${rec.name} added — they can sign in now`,"ti-user-check");
   };
 }
 function roleForm(uid){const u=users[uid];
