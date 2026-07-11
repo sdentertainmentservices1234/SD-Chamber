@@ -6,8 +6,10 @@
 <meta name="theme-color" content="#101418">
 <title>Chamber</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="shortcut icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Chamber">
@@ -1395,6 +1397,18 @@ function titleFromCauseLine(s){
   const m=s.match(/[\/\-]\s*(?:19|20)\d{2}\s+(.+)$/);
   return (m?m[1]:s).replace(/\s+VERSUS\s+/i," vs ").trim();
 }
+// Merge a stored entry with whatever the fetched causelist knows, so an entry
+// saved with ONLY court + item still displays — and prints — with the case
+// name, list type and bench, even when the list was fetched AFTER saving.
+function resolveEntry(e, dateISO){
+  const hit=(e.courtNo&&e.itemNo)?lookupCauselistItem(dateISO,e.courtNo,e.itemNo):null;
+  const b=e.briefId?briefs[e.briefId]:null;
+  return {
+    title: e.caseTitle || (b?labelOf(b):"") || (hit?titleFromCauseLine(hit.caseLine):"") || "(awaiting causelist)",
+    bench: e.bench || (hit?cleanCoram(hit.coram):""),
+    listType: e.listType || (hit?hit.listType:"")
+  };
+}
 
 function renderToday(){
   const entries=(daysheet?.entries||[]);
@@ -1410,7 +1424,7 @@ function renderToday(){
     <div class="ds-date"><span class="lab">Date</span><input type="date" id="dsDateInp" value="${dsDate}"></div>
     <a class="dlink" href="https://www.sci.gov.in/cause-list/" target="_blank" rel="noopener"><span class="ic ti ti-external-link"></span>SCI cause list</a>
     ${clStatus}
-    ${(entries.length||(daysheet?.conferences||[]).length)?`<button class="btn ghost sm" id="tbPrint" style="margin-left:auto"><span class="ic ti ti-printer"></span>Print</button><button class="btn ghost sm" id="tbShare"><span class="ic ti ti-share"></span>Share</button>`:''}
+    <button class="btn ghost sm" id="tbPrint" style="margin-left:auto"><span class="ic ti ti-printer"></span>Print</button><button class="btn ghost sm" id="tbShare"><span class="ic ti ti-share"></span>Share</button>
   </div>`;
 
   let rail;
@@ -1419,6 +1433,7 @@ function renderToday(){
   } else {
     rail=`<div class="rail">`+entries.map((e,i)=>{
       const b=e.briefId?briefs[e.briefId]:null;
+      const R=resolveEntry(e,dsDate);
       const nextUndone=entries.findIndex(x=>!x.done);
       const isNow=(i===nextUndone);
       return `<div class="rail-item ${e.done?'done':''} ${isNow?'now':''}">
@@ -1427,12 +1442,12 @@ function renderToday(){
           <div class="rail-top">
             <span class="court-badge">Court ${esc(e.courtNo||"—")}</span>
             <span class="item-badge">Item ${esc(e.itemNo||"—")}</span>
-            ${e.listType?`<span class="chip st-received" style="font-size:10.5px">${esc(e.listType)}</span>`:''}
+            ${R.listType?`<span class="chip st-received" style="font-size:10.5px">${esc(R.listType)}</span>`:''}
             ${e.time?`<span class="mono muted" style="font-size:12px">${esc(e.time)}</span>`:''}
             ${b?.priority?'<span class="chip urgent-tag"><span class="dot"></span>Urgent</span>':''}
           </div>
-          <div class="rail-case">${esc(e.caseTitle||(b?labelOf(b):"(matter)"))}</div>
-          ${e.bench?`<div class="rail-meta" style="margin-top:2px"><span class="muted">Bench:</span><span>${esc(e.bench)}</span></div>`:''}
+          <div class="rail-case">${esc(R.title)}</div>
+          ${R.bench?`<div class="rail-meta" style="margin-top:2px"><span class="muted">Bench:</span><span>${esc(R.bench)}</span></div>`:''}
           <div class="rail-meta">
             ${e.counsel?`<span>${esc(e.counsel)}</span><span>·</span>`:''}
             ${jrsOf(e).length?jrsOf(e).map(u=>`<span class="rail-jr"><span class="mini-ava">${esc(initials(nameOf(u)))}</span>${esc(nameOf(u))}${onLeaveOn(u,dsDate)?' <span class="chip av-leave" style="margin-left:4px"><span class="dot"></span>On leave this day</span>':''}</span>`).join(""):'<span class="muted">No colleague marked</span>'}
@@ -1458,12 +1473,13 @@ function renderToday(){
     <thead><tr><th></th><th>Ct / Item</th><th>Time</th><th>Case &amp; Bench</th><th>Counsel — Colleagues</th><th>Remarks</th><th></th></tr></thead>
     <tbody>${entries.map((e,i)=>{
       const b=e.briefId?briefs[e.briefId]:null;
+      const R=resolveEntry(e,dsDate);
       const jrs=jrsOf(e);
       return `<tr class="${e.done?'done':''} ${i===nextUndone?'now':''}">
         <td class="num">${e.done?'<span class="ti ti-check"></span>':i+1}</td>
-        <td class="mono ctitem">Ct-${esc(e.courtNo||'?')}#${esc(e.itemNo||'?')}${e.listType?`<div class="muted" style="font-size:10.5px;font-family:Inter,sans-serif">${esc(e.listType)}</div>`:''}</td>
+        <td class="mono ctitem">Ct-${esc(e.courtNo||'?')}#${esc(e.itemNo||'?')}${R.listType?`<div class="muted" style="font-size:10.5px;font-family:Inter,sans-serif">${esc(R.listType)}</div>`:''}</td>
         <td class="mono time">${esc(e.time||'')}</td>
-        <td><div class="tcase">${esc(e.caseTitle||(b?labelOf(b):'(matter)'))}${b?.priority?' <span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px"></span>':''}</div>${e.bench?`<div class="tbench muted">${esc(e.bench)}</div>`:''}</td>
+        <td><div class="tcase">${esc(R.title)}${b?.priority?' <span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px"></span>':''}</div>${R.bench?`<div class="tbench muted">${esc(R.bench)}</div>`:''}</td>
         <td>${e.counsel?`<div>${esc(e.counsel)}</div>`:''}<div class="${e.counsel?'muted':''}">${jrs.length?jrs.map(u=>esc(nameOf(u))+(onLeaveOn(u,dsDate)?' <span class="ti ti-plane-departure" style="color:var(--warn)" title="On leave this day"></span>':'')).join(" / "):'<span class="muted">no colleague marked</span>'}</div></td>
         <td class="muted" style="font-size:12.5px">${esc(e.remarks||'')}</td>
         <td class="tact">${(canManage()||isSenior())?`<button class="tbtn icon-only" data-dsdone="${i}" title="${e.done?'Undo':'Mark done'}"><span class="ic ti ${e.done?'ti-arrow-back-up':'ti-circle-check'}"></span></button>`:''}${b?`<button class="tbtn icon-only" data-brief="${b.id}" title="Open brief"><span class="ic ti ti-folder"></span></button>`:''}${canManage()?`<button class="tbtn icon-only" data-dsedit="${i}" title="Edit"><span class="ic ti ti-pencil"></span></button><button class="tbtn icon-only" data-dsdel="${i}" title="Remove"><span class="ic ti ti-trash"></span></button>`:''}</td>
@@ -1527,9 +1543,10 @@ function shareText(){
   const dt=d.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,".");
   const lines=[CHAMBER.seniorName.toUpperCase(),`SUPREME COURT (${day}) ${dt}`,""];
   (daysheet?.entries||[]).forEach((e,i)=>{
+    const R=resolveEntry(e,dsDate);
     lines.push(`${i+1}) Ct-${e.courtNo||"?"}#${e.itemNo||"?"}${e.time?` — ${e.time}`:""}`);
-    lines.push(e.caseTitle||(e.briefId&&briefs[e.briefId]?labelOf(briefs[e.briefId]):"(matter)"));
-    if(e.bench)lines.push(`Bench: ${e.bench}`);
+    lines.push(R.title);
+    if(R.bench)lines.push(`Bench: ${R.bench}`);
     const who=[e.counsel,jrsOf(e).map(u=>nameOf(u)).join(" / ")].filter(Boolean).join(" — ");
     if(who)lines.push(who);
     if(e.remarks)lines.push(`(${e.remarks})`);
@@ -1569,11 +1586,11 @@ function printCauseList(){
   const confs=(daysheet?.conferences||[]).slice().sort((a,b)=>(parseFloat(a.time)||99)-(parseFloat(b.time)||99));
   const q = s => String(s??"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const rows=entries.map(e=>{
+    const R=resolveEntry(e,dsDate);
     const ct=`Ct-${q(e.courtNo||"?")}#${q(e.itemNo||"?")}`;
-    const title=q(e.caseTitle||(e.briefId&&briefs[e.briefId]?labelOf(briefs[e.briefId]):""));
     const jr=jrsOf(e).map(u=>q(nameOf(u))).join(" / ");
     const adv=[e.counsel?q(e.counsel):"", jr].filter(Boolean).join("<br>");
-    return `<tr><td class="ci">${ct}</td><td>${q(e.time||"")}</td><td>${title}</td><td>${q(e.bench||"")}</td><td>${adv}</td><td></td></tr>`;
+    return `<tr><td class="ci">${ct}</td><td>${q(e.time||"")}</td><td>${q(R.title)}</td><td>${q(R.bench)}</td><td>${adv}</td><td></td></tr>`;
   }).join("");
   const confHtml=confs.length?`<div class="confs"><div class="ch">Conferences and meetings:</div>${confs.map(c=>`<div class="cf"><span class="t">${q(c.time||"—")}</span><span>-</span><span>${q(c.name||"")}</span></div>`).join("")}</div>`:"";
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cause list ${dt}</title>
@@ -1618,12 +1635,13 @@ function dsForm(idx=null){
     <div class="sheet-body">
       <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
         <div><label>Item no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or MM"></div></div>
+      <div class="grid2"><div><label>Date of listing</label><input type="date" id="f_date" value="${esc(dsDate)}"></div>
+        <div><label>Time</label><input id="f_time" class="mono" value="${esc(e.time??'10.30')}"></div></div>
       <div id="f_foundhint" style="margin-top:4px;min-height:16px"></div>
-      <p class="muted" style="font-size:11.5px;margin:4px 0 12px"><span class="ti ti-info-circle"></span> Enter court + item from the briefing counsel — the case name, list type &amp; bench fill from the SC causelist. Everything below is optional.</p>
+      <p class="muted" style="font-size:11.5px;margin:4px 0 12px"><span class="ti ti-info-circle"></span> Court + item + date is all you need — the case name, list type &amp; bench fill from the SC causelist (now, or automatically once that day's list is out). Everything below is optional.</p>
       <label>Link to a brief</label><select id="f_brief"><option value="">— not in the register —</option>${opts}</select>
       <label>Case title</label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="fills from the causelist — or type it">
-      <div class="grid2"><div><label>Causelist type</label><select id="f_listtype"><option value="">—</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select></div>
-        <div><label>Time</label><input id="f_time" class="mono" value="${esc(e.time??'10.30')}"></div></div>
+      <label>Causelist type</label><select id="f_listtype"><option value="">—</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select>
       <label>Briefing counsel</label><input id="f_counsel" value="${esc(e.counsel||'')}" placeholder="e.g. Karanjawala & Co.">
       <label>Bench</label><input id="f_bench" value="${esc(e.bench||'')}" placeholder="fills from the causelist">
       <div id="f_benchhint" style="margin-top:6px;min-height:16px"></div>
@@ -1635,37 +1653,54 @@ function dsForm(idx=null){
   $("f_brief").onchange=()=>{const b=briefs[$("f_brief").value];if(b){if(!$("f_title").value.trim())$("f_title").value=labelOf(b);
     if(b.aor&&!$("f_counsel").value)$("f_counsel").value=b.aor;
     document.querySelectorAll("#f_jrs [data-jr]").forEach(cb=>cb.checked=(b.assignedTo||[]).includes(cb.dataset.jr));}};
+  const fdate=()=>$("f_date").value||dsDate;
   // bench from court + type (fallback / on type change)
   function benchSuggest(){
     const ct=$("f_court").value.trim(), lt=$("f_listtype").value, box=$("f_benchhint");
-    const raw=coramFor(dsDate, lt, ct);
+    const raw=coramFor(fdate(), lt, ct);
     if(raw){ const clean=cleanCoram(raw);
       if(!$("f_bench").value.trim()) $("f_bench").value=clean;
       box.innerHTML=`<span class="chip bal-even"><span class="dot"></span>SC bench: ${esc(clean)}</span> <button type="button" class="tbtn" id="f_usebench">Use this</button>`;
       $("f_usebench").onclick=()=>{$("f_bench").value=clean; toast("Bench filled from the SC causelist");};
     } else box.innerHTML="";
   }
-  // court + item -> find the matter in ANY list type, fill title/type/bench
+  // court + item + date -> find the matter in ANY list type, fill title/type/bench
   function causeFill(){
     const ct=$("f_court").value.trim(), it=$("f_item").value.trim();
-    const hit=(ct&&it)?lookupCauselistItem(dsDate,ct,it):null;
+    const hit=(ct&&it)?lookupCauselistItem(fdate(),ct,it):null;
     if(hit){
       if(!$("f_title").value.trim()) $("f_title").value=titleFromCauseLine(hit.caseLine);
       if(!$("f_listtype").value) $("f_listtype").value=hit.listType;
       $("f_foundhint").innerHTML=`<span class="chip bal-even"><span class="dot"></span>Found · ${esc(hit.listType)}</span> <span class="muted" style="font-size:11px">${esc(hit.caseLine.slice(0,58))}</span>`;
     } else $("f_foundhint").innerHTML=(ct&&it&&causeListReady())
-      ? `<span class="muted" style="font-size:11.5px">Court ${esc(ct)} item ${esc(it)} not in the SC lists for ${fmtDate(dsDate)} — type the details, or the list may not be out yet.</span>` : "";
+      ? `<span class="muted" style="font-size:11.5px">Court ${esc(ct)} item ${esc(it)} not in the SC lists for ${fmtDate(fdate())} yet — save anyway; the details fill in on their own once that day's list is fetched.</span>` : "";
     benchSuggest();
   }
-  $("f_court").oninput=causeFill; $("f_item").oninput=causeFill; $("f_listtype").onchange=benchSuggest; causeFill();
-  $("f_save").onclick=()=>{
+  $("f_court").oninput=causeFill; $("f_item").oninput=causeFill; $("f_date").onchange=causeFill; $("f_listtype").onchange=benchSuggest; causeFill();
+  $("f_save").onclick=async()=>{
     const juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
+    const listDate=fdate();
     const entry={briefId:$("f_brief").value||null,caseTitle:$("f_title").value.trim(),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
       listType:$("f_listtype").value||"",time:$("f_time").value.trim(),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
       juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
-    if(!entry.courtNo&&!entry.itemNo&&!entry.caseTitle&&!entry.briefId){toast("Enter a court + item (or a title)","ti-alert-triangle");return;}
-    const arr=[...(daysheet?.entries||[])]; if(idx!==null)arr[idx]=entry;else arr.push(entry);
-    saveDaysheet(arr); closeSheet(); toast("Day sheet updated");
+    if(!((entry.courtNo&&entry.itemNo)||entry.caseTitle||entry.briefId)){toast("Enter the court no + item no (or a case title)","ti-alert-triangle");return;}
+    // save-time backfill: whatever the fetched list already knows, store it
+    const hit=(entry.courtNo&&entry.itemNo)?lookupCauselistItem(listDate,entry.courtNo,entry.itemNo):null;
+    if(hit){ if(!entry.caseTitle)entry.caseTitle=titleFromCauseLine(hit.caseLine);
+      if(!entry.listType)entry.listType=hit.listType;
+      if(!entry.bench)entry.bench=cleanCoram(hit.coram); }
+    const writeTo=(dt,entriesArr,confs)=>db.set("daysheets/"+dt,{date:dt,entries:entriesArr,conferences:confs,updatedAt:db.now(),updatedBy:me.uid},true);
+    if(listDate===dsDate){
+      const arr=[...(daysheet?.entries||[])]; if(idx!==null)arr[idx]=entry;else arr.push(entry);
+      await writeTo(dsDate,arr,daysheet?.conferences||[]);
+    } else {
+      // saving to a different date's sheet (and, when editing, moving it there)
+      const tgt=[...(dsAll[listDate]?.entries||[])]; tgt.push(entry);
+      await writeTo(listDate,tgt,dsAll[listDate]?.conferences||[]);
+      if(idx!==null){ const cur=[...(daysheet?.entries||[])]; cur.splice(idx,1); await writeTo(dsDate,cur,daysheet?.conferences||[]); }
+      dsDate=listDate; watchDaysheet();
+    }
+    closeSheet(); toast(`Saved to ${fmtDateY(listDate)}`); renderActive();
   };
 }
 

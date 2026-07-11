@@ -1,7 +1,8 @@
 /* Minimal service worker: makes the app installable and caches the shell.
    Data always comes live from Firestore; only static assets are cached. */
-const CACHE = "chamber-shell-v1";
-const ASSETS = ["./", "./index.html", "./manifest.json"];
+const CACHE = "chamber-shell-v2";
+const ASSETS = ["./", "./index.html", "./manifest.json",
+  "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
   self.skipWaiting();
