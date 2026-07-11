@@ -1917,16 +1917,16 @@ function dsForm(idx=null){
   const opts=Object.values(briefs).filter(b=>b.status!=="disposed").map(b=>`<option value="${b.id}" ${e.briefId===b.id?'selected':''}>${esc(labelOf(b))}${b.diaryNo?` — Dy. ${esc(b.diaryNo)}`:''}</option>`).join("");
   openSheet(`<div class="sheet-head"><div><h3>${idx!==null?'Edit':'Add'} day-sheet matter</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      <label>Causelist type <span class="muted" style="font-weight:400">(select first — it decides which list the item is looked up in)</span></label>
+      <div class="grid2"><div><label>Date of listing <span class="muted" style="font-weight:400">(required)</span></label><input type="date" id="f_date" value="${esc(dsDate)}"></div>
+        <div><label>Time</label><input id="f_time" class="mono" list="courttimes" value="${esc(e.time??'10.30')}"></div></div>
+      <datalist id="courttimes">${COURT_TIMES.map(t=>`<option value="${t}"></option>`).join("")}</datalist>
+      <label>Causelist type <span class="muted" style="font-weight:400">(which SC list to look the item up in)</span></label>
       <select id="f_listtype"><option value="">— select —</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select>
       <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
         <div><label>Item no. <span class="muted" style="font-weight:400">(required — e.g. 30, MM, 37.1)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or 37.1"></div></div>
-      <div class="grid2"><div><label>Date of listing</label><input type="date" id="f_date" value="${esc(dsDate)}"></div>
-        <div><label>Time</label><input id="f_time" class="mono" list="courttimes" value="${esc(e.time??'10.30')}"></div></div>
-      <datalist id="courttimes">${COURT_TIMES.map(t=>`<option value="${t}"></option>`).join("")}</datalist>
       <div id="f_foundhint" style="margin-top:4px;min-height:16px"></div>
-      <p class="muted" style="font-size:11.5px;margin:4px 0 12px"><span class="ti ti-info-circle"></span> Type + court + item + date is all you need — the case name &amp; bench fill from the SC causelist (now, or automatically once that day's list is out). Everything below is optional.</p>
-      <label>Case title</label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="fills from the causelist — or type it">
+      <p class="muted" style="font-size:11.5px;margin:4px 0 12px"><span class="ti ti-info-circle"></span> Date → type → court → item is all you need — the case name &amp; bench fill from the SC causelist (now, or automatically once that day's list is out). Everything below is optional.</p>
+      <label>Case title <span class="muted" style="font-weight:400">(auto-fills from the SC list — edit freely to shorten or change; your text is kept)</span></label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="fills from the causelist — or type it">
       <label>Appearing for <span class="muted" style="font-weight:400">(bolds that party on the list)</span></label>
       <select id="f_appear"><option value="">—</option>${["Petitioner","Respondent","Applicant","Appellant","Caveator","Intervenor"].map(x=>`<option ${e.appearingFor===x?'selected':''}>${x}</option>`).join("")}</select>
       <label>Briefing counsel <span class="muted" style="font-weight:400">(pick a firm or type any AoR / advocate)</span></label>
