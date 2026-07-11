@@ -989,7 +989,7 @@ function startApp(){
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
   unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
-  unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); if(curTab==="cal")renderCal(); }));
+  unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); renderActive(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   loadCourtUpdates();
   watchDaysheet();
@@ -1059,17 +1059,37 @@ function isImminent(b){
   const d=(new Date(b.nextDate+"T00:00") - new Date(todayISO()+"T00:00"))/864e5;
   return d>=0 && d<=4;
 }
+// A matter listed within 4 days counts double (imminent) — by date.
+const _imminentDate=iso=>{ if(!iso)return false; const dd=(new Date(iso+"T00:00")-new Date(todayISO()+"T00:00"))/864e5; return dd>=0&&dd<=4; };
+// Causelist listings a colleague is marked on (day-sheet juniorUids) that AREN'T
+// already one of their assigned briefs — so the causelist counts as real work.
+// dsAll holds every day sheet (watched app-wide), so this sees all dates.
+function listingsOf(uid){
+  const mineBriefs=new Set(Object.values(briefs).filter(b=>(b.assignedTo||[]).includes(uid)).map(b=>b.id));
+  const out=[];
+  Object.entries(dsAll).forEach(([date,ds])=>{ (ds?.entries||[]).forEach((e,i)=>{
+    if(jrsOf(e).includes(uid) && !(e.briefId&&mineBriefs.has(e.briefId))) out.push({date,e,i});
+  });});
+  return out;
+}
+// upcoming, not-yet-heard listings — the ones that add to current workload
+function activeListings(uid){ const t=todayISO(); return listingsOf(uid).filter(x=>x.date>=t&&!x.e.done); }
+// Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
 function activeLoad(uid){
-  return Object.values(briefs)
+  const briefLoad=Object.values(briefs)
     .filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid))
     .reduce((s,b)=>s + weightOf(b)*(isImminent(b)?2:1), 0);
+  const listLoad=activeListings(uid).reduce((s,x)=>s+(_imminentDate(x.date)?2:1), 0);
+  return briefLoad + listLoad;
 }
 function imminentCount(uid){
-  return Object.values(briefs).filter(b=>(b.assignedTo||[]).includes(uid)&&isImminent(b)).length;
+  return Object.values(briefs).filter(b=>(b.assignedTo||[]).includes(uid)&&isImminent(b)).length
+       + activeListings(uid).filter(x=>_imminentDate(x.date)).length;
 }
 // Count of active matters (unweighted), for display.
 function activeCount(uid){
-  return Object.values(briefs).filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid)).length;
+  return Object.values(briefs).filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid)).length
+       + activeListings(uid).length;
 }
 // Lifetime total ever assigned (includes disposed) — historical fairness.
 // LIFETIME count — every matter ever assigned (disposed included), counted as
@@ -1401,13 +1421,15 @@ function renderMyWork(){
   const soon=mine.filter(isImminent);
   const withDate=mine.filter(b=>b.nextDate).sort((a,b)=>a.nextDate.localeCompare(b.nextDate));
   const list=[...withDate, ...mine.filter(b=>!b.nextDate)];
+  const myListings=activeListings(me.uid).sort((a,b)=>a.date.localeCompare(b.date));   // causelist matters
+  const soonListings=myListings.filter(x=>_imminentDate(x.date));
   const ros=effectiveRoster(), pos=ros.indexOf(me.uid), nextUpIdx=ros.length?roster.pointer%ros.length:0;
   const turns=pos>=0?((pos-nextUpIdx+ros.length)%ros.length):null;
   const av=availToday[me.uid];
   const metrics=`<div class="board-metrics">
     <div class="metric ${unacked.length?'flag':''}"><div class="lab">To acknowledge</div><div class="val">${unacked.length}</div></div>
-    <div class="metric"><div class="lab">My active matters</div><div class="val">${mine.length}</div></div>
-    <div class="metric ${soon.length?'flag':''}"><div class="lab">Coming up ≤4d</div><div class="val">${soon.length}</div></div>
+    <div class="metric"><div class="lab">My active matters</div><div class="val">${mine.length+myListings.length}</div></div>
+    <div class="metric ${(soon.length+soonListings.length)?'flag':''}"><div class="lab">Coming up ≤4d</div><div class="val">${soon.length+soonListings.length}</div></div>
     <div class="metric"><div class="lab">Roster</div><div class="val">${pos<0?'—':turns===0?'Next':'#'+(pos+1)}</div></div>
   </div>`;
   const availRow=`<div style="margin-top:18px"><div class="section-label">My status today</div>
@@ -1415,13 +1437,21 @@ function renderMyWork(){
   const unackedSec=unacked.length?`<div class="section-label" style="margin-top:22px">New — please acknowledge</div>
     ${unacked.map(b=>`<div class="mw-card new"><button class="mw-open" data-brief="${b.id}"><div class="mw-title">${esc(labelOf(b))}</div><div class="mw-meta">${esc(b.caseNo||b.diaryNo||b.matterType)}${b.nextDate?` · next ${fmtDate(b.nextDate)}`:''}</div></button>
       <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-ackm="${b.id}"><span class="ic ti ti-check"></span>Acknowledge</button><button class="btn ghost sm" data-objm="${b.id}">Object</button></div></div>`).join("")}`:"";
-  const matters=`<div class="section-label" style="margin-top:22px">My matters ${mine.length?`<span class="muted" style="font-weight:400">${mine.length}</span>`:''}</div>
-    ${list.length?list.map(b=>{const st=STATUS[b.status];return `<button class="mw-card" data-brief="${b.id}">
+  const matters= mine.length?`<div class="section-label" style="margin-top:22px">My matters <span class="muted" style="font-weight:400">${mine.length}</span></div>
+    ${list.map(b=>{const st=STATUS[b.status];return `<button class="mw-card" data-brief="${b.id}">
       <div class="mw-title">${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px"></span> ':''}${esc(labelOf(b))}${needsMyAck(b)?'<span class="new-chip">new</span>':''}</div>
       <div class="mw-meta"><span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>${b.nextDate?`<span class="${isImminent(b)?'mw-imm':'muted'}">${isImminent(b)?'<span class="ti ti-flame"></span> ':''}${fmtDateY(b.nextDate)}</span>`:'<span class="muted">no next date</span>'}${b.diaryNo?`<span class="mono muted" style="font-size:11px">Dy. ${esc(b.diaryNo)}</span>`:''}</div>
-    </button>`;}).join(""):'<div class="muted" style="font-size:13px">No matters assigned to you yet.</div>'}`;
+    </button>`;}).join("")}`:"";
+  // causelist matters the clerk has listed me on (distinct from the register)
+  const listedSec= myListings.length?`<div class="section-label" style="margin-top:22px">Listed for hearing <span class="muted" style="font-weight:400">${myListings.length}</span></div>
+    ${myListings.map(x=>{const R=resolveEntry(x.e,x.date); const imm=_imminentDate(x.date); return `<button class="mw-card" data-goday="${x.date}">
+      <div class="mw-title">${esc(R.title)}</div>
+      <div class="mw-meta"><span class="chip st-received"><span class="dot"></span>Court ${esc(x.e.courtNo||'—')} · Item ${esc(x.e.itemNo||'—')}</span><span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(x.date)}</span>${x.e.time?`<span class="mono muted" style="font-size:11px">${esc(x.e.time)}</span>`:''}</div>
+    </button>`;}).join("")}`:"";
+  const emptyState=(!mine.length&&!myListings.length)?`<div class="muted" style="font-size:13px;margin-top:22px">No matters assigned or listed for you yet.</div>`:"";
   const standing=`<div class="mw-standing muted">You're ${pos<0?'not in the roster':turns===0?'<b>next up</b>':'#'+(pos+1)+' in the rotation'+(turns!=null&&turns>0?` · next up in ${turns} turn${turns>1?'s':''}`:'')} · ${activeCount(me.uid)} active · ${lifetimeCount(me.uid)} lifetime</div>`;
-  $("tab-board").innerHTML=metrics+availRow+unackedSec+matters+standing;
+  $("tab-board").innerHTML=metrics+availRow+unackedSec+matters+listedSec+emptyState+standing;
+  document.querySelectorAll("[data-goday]").forEach(x=>x.onclick=()=>{ dsDate=x.dataset.goday; watchDaysheet(); selectTab("today"); });
   document.querySelectorAll("[data-av]").forEach(x=>x.onclick=async()=>{await db.set("availability/"+me.uid+"_"+todayISO(),{uid:me.uid,date:todayISO(),status:x.dataset.av,note:availToday[me.uid]?.note||"",at:db.now()});toast("Status updated");});
   document.querySelectorAll("[data-ackm]").forEach(x=>x.onclick=async e=>{e.stopPropagation();await acknowledge(x.dataset.ackm);});
   document.querySelectorAll("[data-objm]").forEach(x=>x.onclick=e=>{e.stopPropagation();objectForm(x.dataset.objm);});
@@ -1884,7 +1914,7 @@ function printCauseList(iso){
       }
     }
     const last = `${totLine}<div class="seq">Seq <span class="wl">&nbsp;</span></div>`;
-    return `<tr><td class="ci">${ci}</td><td class="tm">${q(e.time||"")}</td><td class="nm">${renderTitle(R.title,R.appearingFor,"html")}</td><td class="jg">${judges}</td><td class="ad">${adv}</td><td class="last">${last}</td></tr>`;
+    return `<tr><td class="ci">${ci}</td><td class="tm">${q(e.time||"")}</td><td class="nm">${q(R.title)}</td><td class="jg">${judges}</td><td class="ad">${adv}</td><td class="last">${last}</td></tr>`;
   }).join("");
   const confGroups=conferenceList(iso);
   const confHtml=confGroups.length?`<div class="confs"><div class="ch">Conferences</div>${confGroups.map(g=>`<div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(c=>`<div class="cf"><span class="t">${q(c.time||"—")}</span><span>-</span><span>${q(c.label||"")}</span></div>`).join("")}`).join("")}</div>`:"";
