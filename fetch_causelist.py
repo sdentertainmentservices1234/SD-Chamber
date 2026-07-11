@@ -48,7 +48,7 @@ OUTPUT_FILE = "court-updates.json"
 # based change-detection reuses a cached parse when the PDF is unchanged; without
 # this, a parser FIX never reaches already-cached dates (their PDFs don't change).
 # A version mismatch forces a full re-parse of every date in the window.
-PARSER_VERSION = 3
+PARSER_VERSION = 4
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; sd-chamber-causelist-bot/1.0)"}
 
 COURT_RE = re.compile(r"COURT\s*NO\.?\s*[:\-]?\s*([0-9]+)", re.I)
@@ -280,19 +280,21 @@ def build_for_date(date_str, prev_day=None, prev_sizes=None):
                 continue
             lists_found.append("{} ({})".format(human, variant))
             for court, info in parse_courts(text).items():
-                if court in merged:
-                    # a supplementary list ADDS matters to the same court — union the
-                    # items (do NOT replace, or the main list's items are wiped, e.g.
-                    # court 1's item 30 vanished behind the supp's items 46-51). Keep
-                    # the main bench; only fill coram/fresh from supp if main lacked it.
-                    ex = merged[court]
-                    ex["items"].update(info.get("items", {}))
-                    if not ex.get("coram") and info.get("coram"):
-                        ex["coram"] = info["coram"]
-                    if not ex.get("fresh") and info.get("fresh"):
-                        ex["fresh"] = info["fresh"]
-                else:
-                    merged[court] = info
+                # a supplementary list ADDS matters to the same court — union the
+                # items (do NOT replace, or the main list's items are wiped, e.g.
+                # court 1's item 30 vanished behind the supp's items 46-51). Keep
+                # the main bench; only fill coram/fresh from supp if main lacked it.
+                # Track how many of the court's matters came from main vs supp so the
+                # printout can show the breakup ("Main 50 · Supp 10").
+                ex = merged.setdefault(court, {"coram": "", "total": "", "fresh": "",
+                                               "items": {}, "main": 0, "supp": 0})
+                before = len(ex["items"])
+                ex["items"].update(info.get("items", {}))
+                ex[variant] = ex.get(variant, 0) + (len(ex["items"]) - before)
+                if not ex.get("coram") and info.get("coram"):
+                    ex["coram"] = info["coram"]
+                if not ex.get("fresh") and info.get("fresh"):
+                    ex["fresh"] = info["fresh"]
         # SC lists carry no total line — total is the merged item count
         for c in merged.values():
             c["total"] = str(len(c["items"]))
