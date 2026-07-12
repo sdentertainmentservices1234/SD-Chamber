@@ -511,12 +511,23 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 /* ---------------- bottom nav (mobile) ---------------- */
 .mobile-nav{display:none}
 .hamburger{display:none}
+html,body{overflow-x:hidden}   /* nothing may force the page wider than the phone */
 @media(max-width:860px){
   .sidebar{display:none}
   .content{margin-left:0}
   .hamburger{display:none}
-  .topbar{padding:0 18px}
-  .page{padding:20px 16px calc(74px + env(safe-area-inset-bottom,0px))}
+  .topbar{padding:0 12px;gap:6px}
+  .topbar h1{font-size:18px}
+  .topbar .sub{display:none}
+  .topbar .btn{padding:8px 12px;font-size:12.5px}
+  .page{padding:20px 12px calc(74px + env(safe-area-inset-bottom,0px))}
+  .ds-toolbar{flex-wrap:wrap;gap:8px}
+  .filters{flex-wrap:wrap;gap:8px}
+  .seg{max-width:100%;overflow-x:auto}
+  .roster-standing-banner{flex-wrap:wrap}
+  .brief-row{padding:12px 10px;gap:8px}
+  .reg-line1{overflow-wrap:anywhere}
+  .load-islands{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
   .scrim{display:none}
   .board-metrics{grid-template-columns:repeat(2,1fr);gap:10px}
   .metric{padding:12px 14px}
@@ -573,7 +584,7 @@ body.demo .topbar{top:34px}
     <div class="desig" id="authDesig">Senior Advocate</div>
     <div class="court" id="authCourt">Supreme Court of India</div>
     <label for="loginEmail">Email</label>
-    <input id="loginEmail" type="email" autocomplete="email" inputmode="email" placeholder="name@chamber.in">
+    <input id="loginEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="name@chamber.in">
     <label for="loginPass"><span id="passLabel">Password</span></label>
     <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••">
     <div style="margin-top:20px"><button class="btn" id="loginBtn">Sign in</button></div>
@@ -632,6 +643,8 @@ body.demo .topbar{top:34px}
       <div class="row" style="gap:8px;align-items:center">
         <div id="topbarAction"></div>
         <button class="tbtn icon-only" id="btnRefresh" title="Refresh — fetch the latest data and app version" aria-label="Refresh"><span class="ic ti ti-refresh"></span></button>
+        <button class="tbtn icon-only" id="btnView" title="Switch between mobile and desktop view" aria-label="Toggle view"><span class="ic ti ti-device-mobile"></span></button>
+        <button class="tbtn icon-only" id="btnSignOutTop" title="Sign out" aria-label="Sign out"><span class="ic ti ti-logout"></span></button>
       </div>
     </div>
     <div class="page">
@@ -649,9 +662,7 @@ body.demo .topbar{top:34px}
     <button data-tab="board"><span class="ic ti ti-layout-grid"></span>Board</button>
     <button data-tab="today"><span class="ic ti ti-list-check"></span>Day</button>
     <button data-tab="briefs"><span class="ic ti ti-folders"></span>Briefs</button>
-    <button data-tab="roster"><span class="ic ti ti-list-numbers"></span>Roster</button>
-    <button data-tab="leave"><span class="ic ti ti-plane-departure"></span>Leave</button>
-    <button data-tab="team"><span class="ic ti ti-users"></span>Chamber</button>
+    <button id="navMore"><span class="ic ti ti-dots-circle-horizontal"></span>More</button>
   </nav>
 </div>
 
@@ -989,7 +1000,9 @@ function paintAuthMode(){ const up=authMode==="up"; $("loginErr").textContent=""
 function toggleAuthMode(e){ e.preventDefault(); authMode=authMode==="in"?"up":"in"; paintAuthMode(); }
 $("authToggle").onclick=toggleAuthMode;
 $("loginBtn").onclick=async()=>{ $("loginErr").textContent="";
-  const email=$("loginEmail").value.trim(), pass=$("loginPass").value;
+  // emails are always lowercased — phone keyboards auto-capitalise the first
+  // letter, and the approvals/rules matching is on the lowercased address.
+  const email=$("loginEmail").value.trim().toLowerCase(), pass=$("loginPass").value;
   try{
     if(authMode==="up"){ if(pass.length<6){$("loginErr").textContent="Choose a password of at least 6 characters.";return;} await auth.signUp(email,pass); }
     else await auth.signIn(email,pass);
@@ -1022,6 +1035,33 @@ async function hardRefresh(){
   location.replace(location.pathname+"?r="+Date.now());
 }
 $("btnRefresh").onclick=hardRefresh;
+$("btnSignOutTop").onclick=()=>auth.signOut();
+// Mobile ⇄ desktop view: on a phone, "desktop" widens the viewport (the whole
+// layout, zoomed out); "mobile" is the fitted layout. Persisted per device.
+function applyViewPref(){
+  const pref=localStorage.getItem("viewPref")||"mobile";
+  const meta=document.querySelector('meta[name="viewport"]');
+  if(meta) meta.setAttribute("content", pref==="desktop" ? "width=1100" : "width=device-width, initial-scale=1, viewport-fit=cover");
+  const ic=$("btnView")?.querySelector(".ic");
+  if(ic) ic.className="ic ti "+(pref==="desktop"?"ti-device-mobile":"ti-device-desktop");
+  if($("btnView")) $("btnView").title = pref==="desktop" ? "Switch to mobile view" : "Switch to desktop view";
+}
+$("btnView").onclick=()=>{ const cur=localStorage.getItem("viewPref")||"mobile";
+  localStorage.setItem("viewPref", cur==="desktop"?"mobile":"desktop"); applyViewPref();
+  toast((localStorage.getItem("viewPref")==="desktop"?"Desktop":"Mobile")+" view","ti-device-mobile"); };
+applyViewPref();
+// "More" on the bottom bar — the remaining tabs + sign out
+if($("navMore")) $("navMore").onclick=()=>{
+  openSheet(`<div class="sheet-head"><div><h3>More</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <button class="btn ghost" data-moretab="roster" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-list-numbers"></span>Roster</button>
+      <button class="btn ghost" data-moretab="leave" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-plane-departure"></span>Leave</button>
+      <button class="btn ghost" data-moretab="team" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-users"></span>Chamber</button>
+      <button class="btn ghost" id="moreSignOut" style="width:100%;justify-content:flex-start;color:var(--danger)"><span class="ic ti ti-logout"></span>Sign out</button>
+    </div>`);
+  document.querySelectorAll("[data-moretab]").forEach(x=>x.onclick=()=>{ closeSheet(); selectTab(x.dataset.moretab); });
+  $("moreSignOut").onclick=()=>{ closeSheet(); auth.signOut(); };
+};
 if(DEMO){ $("demoBar").classList.remove("hidden"); $("demoRole").onchange=e=>window.__demoSetUser(e.target.value); }
 
 function showView(v){ ["authView","pendingView","app"].forEach(x=>$(x).classList.toggle("hidden",x!==v)); }
@@ -1060,7 +1100,7 @@ function startApp(){
   unsub.push(db.watchDoc("config/unavailable", d=>{ unavailable=d||{}; delete unavailable.id; renderActive(); }));
   unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
-  unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); if(curTab==="leave")renderLeave(); }));
+  unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); renderActive(); }));   // leave affects roster/board too
   loadCourtUpdates();
   watchDaysheet();
 }
@@ -1087,9 +1127,10 @@ const TITLES={cal:["Calendar","Court days, holidays and the chamber's diary"],
   board:["Work board","Distribution and workload across the chamber"],
   today:["Day sheet",""], briefs:["Briefs","The chamber's matter register"],
   roster:["Roster","Assignment order and rotation"], leave:["Leave","Chamber leave — logged openly for everyone"], team:["Chamber","People and availability"]};
-document.querySelectorAll("#sbNav button, #mobileNav button").forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
+document.querySelectorAll("#sbNav button, #mobileNav button").forEach(b=>{ if(b.dataset.tab) b.onclick=()=>selectTab(b.dataset.tab); });   // navMore keeps its own handler
 function selectTab(t){ curTab=t;
   document.querySelectorAll("#sbNav button, #mobileNav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
+  if($("navMore")) $("navMore").classList.toggle("active",["roster","leave","team"].includes(t));   // More holds these
   ["cal","board","today","briefs","roster","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
   $("pageTitle").textContent=TITLES[t][0]; $("pageSub").textContent=TITLES[t][1];
   if((t==="today"||t==="cal")&&me&&courtUpdatesStale()) loadCourtUpdates();
@@ -1121,13 +1162,15 @@ function closeSheet(){ sheetUnsubs.forEach(u=>u()); sheetUnsubs=[]; $("modalRoot
 // signed in (id "pending:<email>") — so work can be distributed before anyone
 // logs in. Their assignments migrate to the real uid on first login (syncRegister).
 function effectiveRoster(){ return rosterDisplay().map(m=>m.id); }
-function isOnLeave(uid){ return availToday[uid]?.status==="leave"; }
+// a logged leave (Leave tab / calendar) covering this date
+function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>l.uid===uid&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
+function isOnLeave(uid){ return availToday[uid]?.status==="leave" || leaveLogCovers(uid,todayISO()); }
 // Staff-set unavailability: active until revoked, or until an optional "until" date.
 function isUnavailable(uid){ const u=unavailable[uid]; if(!u) return false; return !u.until || u.until>=todayISO(); }
 // A colleague is skippable for a NEW assignment if on leave today or marked unavailable.
 function isSkippable(uid){ return isOnLeave(uid) || isUnavailable(uid); }
 async function setUnavailable(uid,note,until){ await db.set("config/unavailable",{[uid]: note===null?null:{note:note||"",until:until||"",by:me.uid,at:Date.now()}},true); }
-function onLeaveOn(uid,dateISO){ return availAll[uid+"_"+dateISO]?.status==="leave"; }
+function onLeaveOn(uid,dateISO){ return availAll[uid+"_"+dateISO]?.status==="leave" || leaveLogCovers(uid,dateISO); }
 
 // Weighted ACTIVE load (open matters, weighted by matter type).
 // Imminence-aware: a matter listed within the next 4 days counts DOUBLE —
@@ -1141,8 +1184,9 @@ function isImminent(b){
 const _imminentDate=iso=>{ if(!iso)return false; const dd=(new Date(iso+"T00:00")-new Date(todayISO()+"T00:00"))/864e5; return dd>=0&&dd<=4; };
 // How urgent a task's due date is: "overdue" (past), "soon" (<=3 days), else "".
 const _dueClass=iso=>{ if(!iso)return ""; const dd=(new Date(iso+"T00:00")-new Date(todayISO()+"T00:00"))/864e5; return dd<0?"overdue":dd<=3?"soon":""; };
-// open tasks (directions with a due date, not done) a colleague is carrying
-function myTasks(uid){ const out=[]; Object.values(briefs).forEach(b=>{ if((b.assignedTo||[]).includes(uid)&&b.status!=="disposed") (b.directions||[]).forEach(d=>{ if(!d.done&&d.dueDate) out.push({b,d}); }); }); return out.sort((a,z)=>a.d.dueDate.localeCompare(z.d.dueDate)); }
+// open work items a colleague is carrying — every not-done direction (from the
+// Senior, or self-noted), dated ones first by due date.
+function myTasks(uid){ const out=[]; Object.values(briefs).forEach(b=>{ if((b.assignedTo||[]).includes(uid)&&b.status!=="disposed") (b.directions||[]).forEach(d=>{ if(!d.done) out.push({b,d}); }); }); return out.sort((a,z)=>(a.d.dueDate||"9999").localeCompare(z.d.dueDate||"9999")); }
 // Causelist listings a colleague is marked on (day-sheet juniorUids) that AREN'T
 // already one of their assigned briefs — so the causelist counts as real work.
 // dsAll holds every day sheet (watched app-wide), so this sees all dates.
@@ -1202,6 +1246,10 @@ async function syncRegister(force){
   _registerSynced=true;
   const uidByEmail={}; Object.values(users).forEach(u=>{ if(u.email&&u.role!=="pending") uidByEmail[emailKey(u.email)]=u.id; });
   const mapId=x=>{ if(typeof x==="string"&&x.startsWith("pending:")){ return uidByEmail[x.slice(8)]||x; } return x; };
+  // normalise any stored email that was auto-capitalised by a phone keyboard —
+  // matching is on the lowercased address, so keep the stored field lowercase too
+  for(const u of Object.values(users)){ if(u.email&&u.email!==u.email.toLowerCase()){ try{ await db.update("users/"+u.id,{email:u.email.toLowerCase()}); }catch(_){} } }
+  for(const a of Object.values(approvals)){ if(a.email&&a.email!==a.email.toLowerCase()){ try{ await db.set("approvals/"+a.id,{...a,email:a.email.toLowerCase()}); }catch(_){} } }
   // migrate pending ids in the briefs register
   for(const b of Object.values(briefs)){
     const patch={};
@@ -1596,13 +1644,17 @@ function dayDetail(iso){
           : `<div class="row" style="gap:8px"><input id="dh_name" placeholder="Name — e.g. Holi, Ambedkar Jayanti" style="flex:1"><button class="btn sm" id="holMark">Mark holiday</button></div>
              <div class="muted" style="font-size:11.5px;margin-top:6px">Missed one? Mark a single day here, or a whole range from the calendar's “Mark holidays” button.</div>`}</div>`:''}
 
-      <div class="row" style="margin-top:22px;gap:8px">
+      ${(()=>{const onlv=rosterDisplay().filter(m=>leaveLogCovers(m.id,iso));return onlv.length?`<div class="section-label" style="margin-top:18px">On leave this day</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">${onlv.map(m=>`<span class="chip av-leave"><span class="dot"></span>${esc(m.name)}</span>`).join("")}</div>`:'';})()}
+      <div class="row" style="margin-top:22px;gap:8px;flex-wrap:wrap">
         <button class="btn ghost sm" id="dOpenSheet"><span class="ic ti ti-list-check"></span>${entries.length?'Open the day sheet':'Open day sheet for this date'}</button>
         ${entries.length?`<button class="btn ghost sm" id="dPrint"><span class="ic ti ti-printer"></span>Print causelist</button>`:''}
+        <button class="btn ghost sm" id="dMarkLeave"><span class="ic ti ti-plane-departure"></span>Mark my leave</button>
       </div>
     </div>`);
   const goSheet=()=>{ closeSheet(); dsDate=iso; watchDaysheet(); selectTab("today"); };
   if($("dPrint")) $("dPrint").onclick=()=>printCauseList(iso);
+  if($("dMarkLeave")) $("dMarkLeave").onclick=()=>leaveForm(iso);   // syncs with the Leave tab + engine
   document.querySelectorAll("[data-dsopen]").forEach(x=>x.onclick=goSheet);
   $("dOpenSheet").onclick=goSheet;
   // senior availability — immediate toggle, no separate Save
@@ -1683,11 +1735,12 @@ function renderMyWork(){
       <div class="mw-title">${esc(R.title)}</div>
       <div class="mw-meta"><span class="chip st-received"><span class="dot"></span>Court ${esc(x.e.courtNo||'—')} · Item ${esc(x.e.itemNo||'—')}</span><span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(x.date)}</span>${x.e.time?`<span class="mono muted" style="font-size:11px">${esc(x.e.time)}</span>`:''}</div>
     </button>`;}).join("")}`:"";
-  // reminders — directions from the Senior with a due date (overdue/soon flagged)
-  const tasksSec=tasks.length?`<div class="section-label" style="margin-top:22px">Tasks from the Senior <span class="muted" style="font-weight:400">${tasks.length}</span></div>
-    ${tasks.map(({b,d})=>{const dc=_dueClass(d.dueDate);return `<button class="task-card ${dc}" data-brief="${b.id}">
+  // WORK TABLE — every open direction (from the Senior or self-noted), dated
+  // ones flagged as they near; tap opens the matter to tick it done.
+  const tasksSec=tasks.length?`<div class="section-label" style="margin-top:22px">My work — directions &amp; notes <span class="muted" style="font-weight:400">${tasks.length}</span></div>
+    ${tasks.map(({b,d})=>{const dc=d.dueDate?_dueClass(d.dueDate):'';return `<button class="task-card ${dc}" data-brief="${b.id}">
       <span class="ti ti-clipboard-text" style="font-size:16px;color:var(--accent-ink);margin-top:1px"></span>
-      <div><div class="task-t">${esc(d.text)}</div><div class="task-m">${esc(labelOf(b))} · Due ${fmtDateY(d.dueDate)}${dc==='overdue'?' · <b style="color:var(--danger)">overdue</b>':dc==='soon'?' · <b style="color:var(--warn)">due soon</b>':''}</div></div>
+      <div><div class="task-t">${esc(d.text)}</div><div class="task-m">${esc(labelOf(b))}${d.dueDate?` · Due ${fmtDateY(d.dueDate)}`:' · no date'}${dc==='overdue'?' · <b style="color:var(--danger)">overdue</b>':dc==='soon'?' · <b style="color:var(--warn)">due soon</b>':''}</div></div>
     </button>`;}).join("")}`:"";
   const emptyState=(!mine.length&&!myListings.length)?`<div class="muted" style="font-size:13px;margin-top:22px">No matters assigned or listed for you yet.</div>`:"";
   const standing=`<div class="mw-standing muted">You're ${pos<0?'not in the roster':turns===0?'<b>next up</b>':'#'+(pos+1)+' in the rotation'+(turns!=null&&turns>0?` · next up in ${turns} turn${turns>1?'s':''}`:'')} · ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div>`;
@@ -2231,8 +2284,20 @@ function dsForm(idx=null){
       <label>Bench</label><input id="f_bench" value="${esc(e.bench||'')}" placeholder="fills from the causelist">
       <div id="f_benchhint" style="margin-top:6px;min-height:16px"></div>
       <label>Link to a brief <span class="muted" style="font-weight:400">(optional)</span></label><select id="f_brief"><option value="">— not in the register —</option>${opts}</select>
-      <label>Chamber colleagues on the matter</label>
-      <div id="f_jrs">${chamberColleagues().map(j=>`<label class="chk-row"><input type="checkbox" data-jr="${j.id}" ${jrsOf(e).includes(j.id)?'checked':''}><span class="mini-ava">${esc(initials(j.name))}</span>${esc(j.name)}${j.pending?' <span class="chip st-prep" style="margin-left:auto;font-size:10px">yet to sign in</span>':''}</label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
+      <label>Assignment</label>
+      <div class="seg" id="fAsgnMode" style="margin-bottom:10px">
+        <button type="button" data-fmode="manual" class="active"><span class="ti ti-user-check"></span> Choose colleagues</button>
+        <button type="button" data-fmode="auto"><span class="ti ti-wand"></span> Auto-assign</button>
+      </div>
+      <div id="fAsgnManual">
+        <div id="f_jrs">${chamberColleagues().map(j=>`<label class="chk-row"><input type="checkbox" data-jr="${j.id}" ${jrsOf(e).includes(j.id)?'checked':''}><span class="mini-ava">${esc(initials(j.name))}</span>${esc(j.name)}${j.pending?' <span class="chip st-prep" style="margin-left:auto;font-size:10px">yet to sign in</span>':''}</label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
+      </div>
+      <div id="fAsgnAuto" style="display:none">
+        <div style="background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);padding:12px 14px">
+          <div style="font-size:13px;color:var(--ink-2)"><span class="ti ti-wand" style="color:var(--accent-ink)"></span> On save, the roster picks the next colleague by turn and lightest workload:</div>
+          <div id="fAutoPick" style="margin-top:8px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px"></div>
+        </div>
+      </div>
       <label>Remarks</label><input id="f_rem" value="${esc(e.remarks||'')}" placeholder="e.g. mentioning at 10:30, pass-over likely">
       <div style="margin-top:20px"><button class="btn" id="f_save">Save matter</button></div>
     </div>`);
@@ -2240,6 +2305,17 @@ function dsForm(idx=null){
     if(b.aor&&!$("f_counsel").value)$("f_counsel").value=b.aor;
     document.querySelectorAll("#f_jrs [data-jr]").forEach(cb=>cb.checked=(b.assignedTo||[]).includes(cb.dataset.jr));}};
   const fdate=()=>$("f_date").value||dsDate;
+  // assignment mode: manual checklist or roster auto-assign (same engine as briefs)
+  let fMode="manual";
+  const fRenderPick=()=>{ const p=pickNext({declinedBy:[]}); const el=$("fAutoPick"); if(!el)return;
+    el.innerHTML=p.uid?`<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))}`:'<span class="muted" style="font-weight:400">No colleague available</span>'; };
+  if($("fAsgnMode")) $("fAsgnMode").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
+    fMode=btn.dataset.fmode;
+    $("fAsgnMode").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===btn));
+    $("fAsgnManual").style.display=fMode==="manual"?"":"none";
+    $("fAsgnAuto").style.display=fMode==="auto"?"":"none";
+    if(fMode==="auto") fRenderPick();
+  });
   // Track what WE auto-filled, so a value keeps updating as the clerk finishes
   // typing the item number (typing "3" then "30" must land on item 30's case,
   // not stay stuck on item 3's) — but a value the clerk edited is never touched.
@@ -2279,7 +2355,11 @@ function dsForm(idx=null){
   $("f_court").oninput=causeFill; $("f_item").oninput=causeFill; $("f_date").onchange=causeFill;
   $("f_listtype").onchange=()=>{auto.type="\0"; causeFill();}; causeFill();
   $("f_save").onclick=async()=>{
-    const juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
+    let juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
+    let fAutoPicked=null;
+    if(fMode==="auto"){ const p=pickNext({declinedBy:[]});
+      if(!p.uid){toast("No colleague available in the roster","ti-alert-triangle");return;}
+      juniorUids=[p.uid]; fAutoPicked=p; }
     const listDate=fdate();
     const entry={briefId:$("f_brief").value||null,caseTitle:$("f_title").value.trim(),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
       listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:toDotted($("f_conf").value),confDate:(toDotted($("f_conf").value)?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
@@ -2292,6 +2372,7 @@ function dsForm(idx=null){
       if(!entry.bench)entry.bench=cleanCoram(hit.coram); }
     // --- connect the listing to the briefs register: enrich an existing brief or
     // create one from the causelist data, so every listed case lands in the register ---
+    let notifyBrief=null;   // the connected brief, for the share/notify prompt
     if(entry.caseTitle || (entry.courtNo&&entry.itemNo)){
       const refs = hit ? refsFromCauseLine(hit.caseLine) : {caseNo:"",diaryNo:""};
       const brief = findBriefForListing(entry, refs.caseNo, refs.diaryNo);
@@ -2310,15 +2391,18 @@ function dsForm(idx=null){
         patch.nextDate=listDate;
         patch.updatedAt=db.now();
         await db.update("briefs/"+brief.id, patch);
+        notifyBrief={...brief, ...patch, id:brief.id, assignedTo:patch.assignedTo||brief.assignedTo||[]};
       } else {
         const jr=entry.juniorUids||[];
-        entry.briefId = await db.add("briefs", { caseTitle:entry.caseTitle||"(from causelist)",
+        const nb={ caseTitle:entry.caseTitle||"(from causelist)",
           caseNo:refs.caseNo, diaryNo:refs.diaryNo, matterType:guessMatterType(refs.caseNo),
           appearingFor:entry.appearingFor||"", aor:entry.counsel||"", chamberNo:"",
           assignedTo:jr.slice(), everAssigned:jr.slice(), ackBy:jr.slice(), declinedBy:[],
-          assignHistory:jr.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:"listed"})),
+          assignHistory:jr.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:fAutoPicked?"auto":"listed"})),
           status:"listed", priority:false, nextDate:listDate, detailsAwaited:!(refs.caseNo||refs.diaryNo),
-          fromListing:true, createdBy:me.uid, createdAt:db.now(), updatedAt:db.now() });
+          fromListing:true, createdBy:me.uid, createdAt:db.now(), updatedAt:db.now() };
+        entry.briefId = await db.add("briefs", nb);
+        notifyBrief={...nb, id:entry.briefId};
       }
     }
     const writeTo=(dt,entriesArr,confs)=>db.set("daysheets/"+dt,{date:dt,entries:entriesArr,conferences:confs,updatedAt:db.now(),updatedBy:me.uid},true);
@@ -2332,7 +2416,13 @@ function dsForm(idx=null){
       if(idx!==null){ const cur=[...(daysheet?.entries||[])]; cur.splice(idx,1); await writeTo(dsDate,cur,daysheet?.conferences||[]); }
       dsDate=listDate; watchDaysheet();
     }
-    closeSheet(); toast(`Saved to ${fmtDateY(listDate)}`); renderActive();
+    if(fAutoPicked && !fAutoPicked.forced) await advancePointer();   // auto-assign consumes a roster turn
+    closeSheet();
+    toast(fAutoPicked?`Saved — auto-assigned to ${nameOf(fAutoPicked.uid)}`:`Saved to ${fmtDateY(listDate)}`,
+      fAutoPicked?"ti-user-check":"ti-check");
+    renderActive();
+    // straight to the share composer so the colleague(s) can be informed at once
+    if(juniorUids.length && notifyBrief) notifyForm(notifyBrief.id, {...notifyBrief, assignedTo:juniorUids});
   };
 }
 
@@ -2517,7 +2607,11 @@ function briefForm(b=null){
 function openBrief(id){
   const b=briefs[id]; if(!b)return;
   const canStatus=canManage()||(b.assignedTo||[]).includes(me.uid);
-  const track=Object.entries(STATUS).map(([k,v])=>`<button class="status-opt ${b.status===k?'on '+v.cls:''}" ${canStatus?`data-status="${k}"`:'disabled'}>${v.label}</button>`).join("");
+  // status as a dropdown (pick any stage — also the way to undo a mis-tap),
+  // with the progression path below: every stage passed through to reach here.
+  const stKeys=Object.keys(STATUS); const stIdx=Math.max(0,stKeys.indexOf(b.status));
+  const track=`<select id="ob_status" ${canStatus?'':'disabled'} style="max-width:240px">${stKeys.map(k=>`<option value="${k}" ${b.status===k?'selected':''}>${STATUS[k].label}</option>`).join("")}</select>
+    <div class="row" style="flex-wrap:wrap;gap:4px;margin-top:8px;align-items:center">${stKeys.slice(0,stIdx+1).map((k,i)=>`${i?'<span class="ti ti-chevron-right" style="font-size:11px;color:var(--ink-3)"></span>':''}<span class="chip ${STATUS[k].cls}" style="${k===b.status?'':'opacity:.55'}"><span class="dot"></span>${STATUS[k].label}</span>`).join("")}</div>`;
   openSheet(`<div class="sheet-head">
       <div><h3>${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:16px;vertical-align:baseline"></span> ':''}${esc(labelOf(b))}</h3>
       <div class="sub">${esc([b.chamberNo?`File #${b.chamberNo}`:'',b.diaryNo?`Dy. ${b.diaryNo}`:'',b.caseNo,b.matterType].filter(Boolean).join("  ·  "))}</div></div>
@@ -2532,7 +2626,8 @@ function openBrief(id){
       </div>
       ${(()=>{const dates=listingDatesOf(id);return dates.length?`<label>Listed on <span class="muted" style="font-weight:400">${dates.length} date${dates.length>1?'s':''}</span></label>
         <div class="row" style="flex-wrap:wrap;gap:6px">${dates.map(dt=>`<span class="chip st-received"><span class="ti ti-calendar-event" style="font-size:11px"></span> ${fmtDateY(dt)}</span>`).join("")}</div>`:'';})()}
-      <label>Status</label><div class="status-track">${track}</div>
+      <label>Status <span class="muted" style="font-weight:400">(pick any stage — including an earlier one to undo)</span></label>
+      <div>${track}</div>
       <label>Assignment ${b.directed?'<span class="chip st-assigned" style="margin-left:6px;text-transform:none;letter-spacing:0"><span class="ti ti-pin" style="font-size:11px"></span>Senior\u2019s direction</span>':''}</label>
       <div class="assign-block">
         ${b.heldForClerk&&canManage()?`<div class="held-banner"><span class="ti ti-hand-stop"></span><span>The assigned colleague has objected to this directed matter — it is held for your decision. Reassign below, or keep the Senior's direction.</span><button class="btn sm" data-keepheld="${b.id}" style="flex-shrink:0">Keep as assigned</button></div>`:''}
@@ -2577,7 +2672,7 @@ function openBrief(id){
   document.querySelectorAll("[data-dirtoggle]").forEach(x=>x.onclick=async()=>{ const dirs=(b.directions||[]).map(d=>d.id===x.dataset.dirtoggle?{...d,done:!d.done}:d); await db.update("briefs/"+id,{directions:dirs,updatedAt:db.now()}); closeSheet(); openBrief(id); });
   document.querySelectorAll("[data-dirdel]").forEach(x=>x.onclick=async()=>{ const dirs=(b.directions||[]).filter(d=>d.id!==x.dataset.dirdel); await db.update("briefs/"+id,{directions:dirs,updatedAt:db.now()}); closeSheet(); openBrief(id); });
   document.querySelectorAll("[data-adddir]").forEach(x=>x.onclick=()=>dirForm(id));
-  document.querySelectorAll("[data-status]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{status:x.dataset.status,updatedAt:db.now()});closeSheet();openBrief(id);});
+  if($("ob_status"))$("ob_status").onchange=async()=>{await db.update("briefs/"+id,{status:$("ob_status").value,updatedAt:db.now()});closeSheet();openBrief(id);};
   document.querySelectorAll("[data-editbrief]").forEach(x=>x.onclick=()=>{closeSheet();briefForm(b);});
   document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{const r=await autoAssign(id);if(r)notifyForm(id,r);else{closeSheet();openBrief(id);}});
   document.querySelectorAll("[data-notify]").forEach(x=>x.onclick=()=>notifyForm(x.dataset.notify));
@@ -2656,12 +2751,12 @@ function renderLeave(){
   if($("tbAddLeave"))$("tbAddLeave").onclick=()=>leaveForm();
   document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=async()=>{ await db.remove("leaves/"+x.dataset.delleave); toast("Leave entry removed"); });
 }
-function leaveForm(){
+function leaveForm(prefillDate){
   const canPickOther=canManage(); const cols=rosterDisplay();
-  openSheet(`<div class="sheet-head"><div><h3>Add leave</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+  openSheet(`<div class="sheet-head"><div><h3>Add leave</h3>${prefillDate?`<div class="sub">${fmtDateY(prefillDate)}</div>`:''}</div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       ${canPickOther?`<label>Colleague</label><select id="lv_uid">${cols.map(m=>`<option value="${m.id}" ${m.id===me.uid?'selected':''}>${esc(m.name)}</option>`).join("")}</select>`:''}
-      <div class="grid2"><div><label>From</label><input type="date" id="lv_from" value="${todayISO()}"></div>
+      <div class="grid2"><div><label>From</label><input type="date" id="lv_from" value="${prefillDate||todayISO()}"></div>
         <div><label>To <span class="muted" style="font-weight:400">(same day if blank)</span></label><input type="date" id="lv_to"></div></div>
       <label>Reason <span class="muted" style="font-weight:400">(optional — leave blank to keep it private)</span></label>
       <input id="lv_reason" placeholder="e.g. family function, medical, personal">
@@ -2762,7 +2857,7 @@ function inviteForm(key=null){
   openSheet(`<div class="sheet-head"><div><h3>${key?'Edit member':'Add member'}</h3><div class="sub">No approval step — they sign in with this email and set their own password</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <label>Email <span class="muted" style="font-weight:400">(exactly the address they will sign in with)</span></label>
-      <input id="i_email" inputmode="email" value="${esc(a.email||'')}" placeholder="name@gmail.com" ${key?'disabled':''}>
+      <input id="i_email" inputmode="email" autocapitalize="none" spellcheck="false" value="${esc(a.email||'')}" placeholder="name@gmail.com" ${key?'disabled':''}>
       <label>Full name</label><input id="i_name" value="${esc(a.name||'')}" placeholder="e.g. Aditya Rao">
       <label>Role</label><select id="i_role">${roleOpts.map(([k,v])=>`<option value="${k}" ${a.role===k?'selected':''}>${v}</option>`).join("")}</select>
       <label>Phone <span class="muted" style="font-weight:400">(for WhatsApp nudges, 10-digit)</span></label><input id="i_phone" inputmode="tel" value="${esc(a.phone||'')}" placeholder="98220 12345">
@@ -2770,7 +2865,7 @@ function inviteForm(key=null){
       <div style="margin-top:20px"><button class="btn" id="i_save">${key?'Save member':'Add member'}</button></div>
     </div>`);
   $("i_save").onclick=async()=>{
-    const email=$("i_email").value.trim(); if(!email||!email.includes("@")){toast("Enter a valid email","ti-alert-triangle");return;}
+    const email=$("i_email").value.trim().toLowerCase(); if(!email||!email.includes("@")){toast("Enter a valid email","ti-alert-triangle");return;}
     const rec={email,name:$("i_name").value.trim()||email.split("@")[0],role:$("i_role").value,phone:$("i_phone").value.trim(),joinedOn:$("i_joined").value||null,by:me.uid,at:db.now()};
     if(Object.values(users).some(u=>emailKey(u.email)===emailKey(email))){toast("That email already has an account — edit them in People","ti-alert-triangle");return;}
     await db.set("approvals/"+emailKey(email),rec);
