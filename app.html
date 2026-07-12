@@ -1482,10 +1482,15 @@ function _ensureLdIdx(){ if(_ldIdxVer===_scanVer && _ldIdx) return;
 function listingsOf(uid){
   const key=_scanVer+"|"+uid, hit=_listingsCache.get(key); if(hit) return hit;
   if(_listingsCache.size>4000) _listingsCache.clear();
-  const mineBriefs=new Set(Object.values(briefs).filter(b=>idIn(b.assignedTo,uid)).map(b=>b.id));
   const out=[];
   Object.entries(dsAll).forEach(([date,ds])=>{ (ds?.entries||[]).forEach((e,i)=>{
-    if(idIn(jrsOf(e),uid) && !(e.briefId&&mineBriefs.has(e.briefId))) out.push({date,e,i});
+    if(!idIn(jrsOf(e),uid)) return;
+    // A listing tied to a register brief is represented BY that brief — the
+    // brief's assignedTo is the source of truth, so it's counted there (whoever
+    // is on the brief) and NOT again here. This also means a matter reassigned
+    // away drops off the old colleague even when the day-sheet name is stale.
+    if(e.briefId && briefs[e.briefId]) return;
+    out.push({date,e,i});   // a bare listing with no brief of its own
   });});
   _listingsCache.set(key,out); return out;
 }
@@ -1750,9 +1755,13 @@ function reassignForm(briefId){
 }
 async function acceptReassign(briefId){
   const b=briefs[briefId]; const rq=b?.reassignReq; if(!rq||!idIn(rq.to,me.uid)){ toast("This request is no longer open","ti-alert-triangle"); return; }
+  // Full transfer: the requester hands the matter over entirely — drop them from
+  // BOTH assignedTo and everAssigned so they keep NO share/credit, and the new
+  // colleague carries the whole point.
   const assignedTo=[...new Set([...(b.assignedTo||[]).filter(u=>u!==rq.from), me.uid])];
+  const everAssigned=[...new Set([...(b.everAssigned||[]).filter(u=>u!==rq.from), me.uid])];
   await db.update("briefs/"+briefId,{
-    assignedTo, everAssigned:[...new Set([...(b.everAssigned||[]),me.uid])],
+    assignedTo, everAssigned,
     ackBy:[...new Set([...(b.ackBy||[]).filter(u=>assignedTo.includes(u)), me.uid])],
     assignHistory:[...(b.assignHistory||[]),{uid:me.uid,at:Date.now(),mode:"transfer",from:rq.from}],
     reassignReq:null, assignedAt:Date.now(), updatedAt:db.now() });
