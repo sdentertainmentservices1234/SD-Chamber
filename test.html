@@ -2965,9 +2965,10 @@ function renderTeam(){
   const _col=pts=>pts<=_max*0.4?"ld-green":pts<=_max*0.75?"ld-yellow":"ld-red";
   const _plab=loadPeriod==="week"?"this week":loadPeriod==="year"?"this year":"this month";
   const _seg=`<div class="seg" id="loadPeriodSeg"><button type="button" data-lp="week" class="${loadPeriod==="week"?"active":""}">Weekly</button><button type="button" data-lp="month" class="${loadPeriod==="month"?"active":""}">Monthly</button><button type="button" data-lp="year" class="${loadPeriod==="year"?"active":""}">Yearly</button></div>`;
-  const loadPanel=canManage()?`<div class="panel" style="margin-bottom:16px"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload snapshot</span>${_seg}</div>
+  // visible to the whole chamber — transparency on who is carrying what
+  const loadPanel=`<div class="panel" style="margin-bottom:16px"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload snapshot</span>${_seg}</div>
     <div style="padding:14px 16px">${_disp.length?`<div class="load-islands">${_loads.map(({m,pts})=>`<div class="load-island ${_col(pts)}"><div class="li-ava">${esc(initials(m.name))}</div><div class="li-name">${esc(m.name)}</div><div class="li-load">${fmtPts(pts)}</div><div class="li-lab"><span class="li-dot"></span>${_plab}</div></div>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}
-      <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`:"";
+      <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`;
   $("tab-team").innerHTML=myAvail+loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
   document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderTeam(); });
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
