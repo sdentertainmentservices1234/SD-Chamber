@@ -1079,6 +1079,10 @@ let live={};
 // endAt,notes:[{text,by,at}],by,at} — broadcast to all so colleagues see whether a
 // conference is on, how long it may run, and the notes taken during it.
 let confStatus={};
+// bumped whenever users / briefs / daysheets change — invalidates the derived
+// caches below (listing scans) so a render never rescans stale, and repeated
+// look-ups within one render reuse the result instead of re-walking every sheet.
+let _scanVer=0;
 // calendar state: month shown, SC holidays map {dateISO:name|null}, senior
 // unavailability map {dateISO:note|null} (null = cleared), all day-sheet docs
 let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={}, vacation={ranges:[]};
@@ -1280,15 +1284,15 @@ auth.onChange(async user=>{
 
 function startApp(){
   showView("app"); paintChrome();
-  unsub.push(db.watchCollection("users", rows=>{ users={}; rows.forEach(u=>users[u.id]=u); renderActive(); paintChrome(); }));
-  unsub.push(db.watchCollection("briefs", rows=>{ briefs={}; rows.forEach(b=>briefs[b.id]=b); $("cntBriefs").textContent=Object.values(briefs).filter(b=>b.status!=="disposed").length; renderActive(); _briefsLoaded=true; maybeSyncRegister(); }, ["updatedAt","desc"]));
+  unsub.push(db.watchCollection("users", rows=>{ users={}; rows.forEach(u=>users[u.id]=u); _scanVer++; renderActive(); paintChrome(); }));
+  unsub.push(db.watchCollection("briefs", rows=>{ briefs={}; rows.forEach(b=>briefs[b.id]=b); _scanVer++; $("cntBriefs").textContent=Object.values(briefs).filter(b=>b.status!=="disposed").length; renderActive(); _briefsLoaded=true; maybeSyncRegister(); }, ["updatedAt","desc"]));
   unsub.push(db.watchCollection("availability", rows=>{ availToday={}; availAll={}; rows.forEach(a=>{ availAll[a.uid+"_"+a.date]=a; if(a.date===todayISO())availToday[a.uid]=a; }); renderActive(); }));
   unsub.push(db.watchDoc("config/roster", d=>{ roster = d || {order:[],pointer:0}; renderActive(); }));
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
   unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
   unsub.push(db.watchDoc("config/unavailable", d=>{ unavailable=d||{}; delete unavailable.id; renderActive(); }));
-  unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
+  unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); _scanVer++; renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); renderActive(); }));   // leave affects roster/board too
   unsub.push(db.watchCollection("notifs", rows=>{ notifs={}; rows.forEach(nn=>notifs[nn.id]=nn); updateBell(); }));
@@ -1328,9 +1332,15 @@ function selectTab(t){ curTab=t;
   ["cal","now","board","today","briefs","roster","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
   $("pageTitle").textContent=TITLES[t][0]; $("pageSub").textContent=TITLES[t][1];
   if((t==="today"||t==="cal")&&me&&courtUpdatesStale()) loadCourtUpdates();
-  closeSidebar(); renderActive();
+  closeSidebar(); renderActiveNow();   // paint the newly-chosen tab at once (no frame delay)
 }
-function renderActive(){ if(!me)return;
+// Coalesce renders: 13 data watchers each ask to re-render, and a burst of them
+// fires at boot and on every live change. Batch them into ONE paint per frame so
+// the active tab rebuilds once, not a dozen times.
+let _rafPending=0;
+const _raf=(typeof requestAnimationFrame==="function")?requestAnimationFrame:(f=>setTimeout(f,16));
+function renderActive(){ if(_rafPending)return; _rafPending=_raf(()=>{ _rafPending=0; renderActiveNow(); }); }
+function renderActiveNow(){ if(!me)return;
   if(curTab==="cal")renderCal(); else if(curTab==="now")renderNow(); else if(curTab==="board")renderBoard(); else if(curTab==="today")renderToday();
   else if(curTab==="briefs")renderBriefs(); else if(curTab==="roster")renderRoster(); else if(curTab==="leave")renderLeave(); else if(curTab==="team")renderTeam(); }
 
@@ -1397,18 +1407,28 @@ function myTasks(uid){ const out=[]; Object.values(briefs).forEach(b=>{ if(idIn(
 // Causelist listings a colleague is marked on (day-sheet juniorUids) that AREN'T
 // already one of their assigned briefs — so the causelist counts as real work.
 // dsAll holds every day sheet (watched app-wide), so this sees all dates.
+// Per-scan-version caches: repeated listing look-ups (activeLoad/loadInWindow are
+// called once per colleague, and loadInWindow asks for every brief's listing dates)
+// reuse one day-sheet walk instead of rescanning every sheet each time.
+const _listingsCache=new Map();     // uid -> [{date,e,i}]  (keyed by _scanVer)
+let _ldIdx=null, _ldIdxVer=-1;      // briefId -> Set(dates)
+function _ensureLdIdx(){ if(_ldIdxVer===_scanVer && _ldIdx) return;
+  _ldIdx={}; Object.entries(dsAll).forEach(([date,d])=>{ (d?.entries||[]).forEach(e=>{ if(e.briefId){ (_ldIdx[e.briefId]=_ldIdx[e.briefId]||new Set()).add(date); } }); });
+  _ldIdxVer=_scanVer; }
 function listingsOf(uid){
+  const key=_scanVer+"|"+uid, hit=_listingsCache.get(key); if(hit) return hit;
+  if(_listingsCache.size>4000) _listingsCache.clear();
   const mineBriefs=new Set(Object.values(briefs).filter(b=>idIn(b.assignedTo,uid)).map(b=>b.id));
   const out=[];
   Object.entries(dsAll).forEach(([date,ds])=>{ (ds?.entries||[]).forEach((e,i)=>{
     if(idIn(jrsOf(e),uid) && !(e.briefId&&mineBriefs.has(e.briefId))) out.push({date,e,i});
   });});
-  return out;
+  _listingsCache.set(key,out); return out;
 }
 // upcoming, not-yet-heard listings — the ones that add to current workload
 function activeListings(uid){ const t=todayISO(); return listingsOf(uid).filter(x=>x.date>=t&&!x.e.done); }
 // every date a brief appears on a day sheet (its listing history)
-function listingDatesOf(briefId){ const out=[]; Object.entries(dsAll).forEach(([date,d])=>{ if((d?.entries||[]).some(e=>e.briefId===briefId)) out.push(date); }); return [...new Set(out)].sort(); }
+function listingDatesOf(briefId){ _ensureLdIdx(); const s=_ldIdx[briefId]; return s?[...s].sort():[]; }
 // case / diary number pulled out of a causelist item line ("SLP(C) No. 18036/2026 …")
 function refsFromCauseLine(s){
   s=String(s||"");
