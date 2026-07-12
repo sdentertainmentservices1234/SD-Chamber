@@ -652,12 +652,31 @@ body.demo .topbar{top:34px}
 .conf-card.paused{background:var(--surface-2)}
 .conf-paused{display:inline-flex;align-items:center;gap:6px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:20px}
 .conf-paused .ic{font-size:14px}
-/* Start / Pause / End control group */
-.conf-ctrls{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.conf-ctrls .tbtn{border:1px solid var(--line-2);font-weight:600}
-.conf-ctrls [data-confpause]:not([disabled]){color:var(--warn);border-color:var(--warn)}
-.conf-ctrls [data-confend]:not([disabled]){color:var(--danger);border-color:var(--danger)}
-.conf-ctrls .tbtn[disabled]{opacity:.35;cursor:default;pointer-events:none}
+/* compact Start/Pause/End control column beside the name */
+.conf-ctrlcol{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:94px}
+.conf-ctrlcol .conf-elapsed{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:700;color:var(--ink)}
+.conf-ctrlcol .conf-elapsed.is-paused{color:var(--warn)}
+.conf-btns{display:flex;gap:5px}
+.cbtn{width:31px;height:31px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:.1s}
+.cbtn:hover{border-color:var(--accent);color:var(--accent)}
+.cbtn.play:not([disabled]){color:#2a7d47;border-color:rgba(63,174,99,.55)}
+.cbtn.stop:not([disabled]){color:var(--danger);border-color:rgba(154,74,74,.5)}
+.cbtn[disabled]{opacity:.3;cursor:default;pointer-events:none}
+.conf-dur{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:700;color:var(--ink)}
+.conf-mini{font-size:9.5px;color:var(--warn);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+/* prominent status / question pop-ups next to the name */
+.conf-pop{position:relative;display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:8px 11px;border-radius:10px;border:1px solid;box-shadow:0 3px 9px rgba(20,23,25,.12)}
+.conf-pop>.ic{font-size:16px;flex-shrink:0;margin-top:1px}
+.conf-pop.status{background:var(--s-conf-bg);border-color:var(--s-conf)}
+.conf-pop.status>.ic{color:var(--s-conf)}
+.conf-pop.ask{background:var(--warn-bg);border-color:var(--warn)}
+.conf-pop.ask>.ic{color:var(--warn)}
+.conf-pop::before{content:"";position:absolute;top:-6px;left:18px;width:10px;height:10px;background:inherit;border-left:1px solid;border-top:1px solid;border-color:inherit;transform:rotate(45deg)}
+.conf-pop-b{min-width:0;flex:1}
+.conf-pop-t{color:var(--ink);font-weight:600;font-size:13px;line-height:1.4}
+.conf-pop-by{color:var(--muted);font-size:10.5px;font-weight:400;margin-top:2px;display:block}
+.conf-pop-q{color:var(--ink);font-size:12.5px;line-height:1.45;padding:1px 0}
+.conf-pop-q .conf-pop-by{display:inline;margin:0 0 0 5px}
 /* status / estimate message bubble that pops next to the conference */
 .conf-msg{display:flex;align-items:center;gap:7px;background:var(--s-conf-bg);border-radius:8px;padding:6px 10px;margin-top:7px;font-size:12.5px}
 .conf-msg .ic{color:var(--s-conf);font-size:15px;flex-shrink:0}
@@ -1887,15 +1906,21 @@ function confSectionHtml(){
     // other colleague sees it live and may ASK for a status.
     const canEdit=idIn(c.jrs,me.uid)||canManage();
     const whoNames=(c.jrs||[]).map(nameOf).filter(n=>n&&n!=="—");
-    // right-hand status: live stopwatch, paused, concluded duration, or "likely now"
-    const status = running
-        ? `<span class="conf-live"><span class="now-dot"></span>Running <b class="conf-elapsed" data-since="${st.runningSince||0}" data-accum="${st.accumMs||0}">${esc(fmtElapsed(elapsed))}</b></span>`
-      : paused ? `<span class="conf-paused"><span class="ic ti ti-player-pause"></span>Paused ${esc(fmtElapsed(elapsed))}</span>`
-      : ended ? `<span class="conf-ended"><span class="ic ti ti-circle-check"></span>Ran ${esc(fmtDur(elapsed))}</span>`
-      : infer ? `<span class="conf-tag maybe">likely now</span>` : "";
-    // the estimate/status message the attending colleague posted — pops up next to the conference
-    const bubble = smsg&&smsg.text ? `<div class="conf-msg"><span class="ic ti ti-message-2"></span><span class="conf-msg-t">${esc(smsg.text)}</span><span class="conf-msg-by">${esc(nameOf(smsg.by))} · ${esc(timeAgo(smsg.at))}</span></div>` : "";
-    const asking = asks.length ? `<span class="conf-asking"><span class="ic ti ti-hand-finger"></span>${asks.length} asking</span>` : "";
+    const idle=state==="idle";
+    // Compact control column beside the name: Start / Pause / End while it runs,
+    // and just the bare run-time (no prefix/suffix) once it has ended.
+    let ctrlCol;
+    if(ended){ ctrlCol=`<span class="conf-dur">${esc(fmtElapsed(elapsed))}</span>`; }
+    else if(canEdit){ ctrlCol=`${(running||paused)?`<b class="conf-elapsed${paused?" is-paused":""}" ${running?`data-since="${st.runningSince||0}" data-accum="${st.accumMs||0}"`:""}>${esc(fmtElapsed(elapsed))}</b>`:""}
+      <div class="conf-btns">
+        <button class="cbtn play" data-confstart="${esc(c.key)}" ${running?"disabled":""} title="${paused?"Resume":"Start"}" aria-label="${paused?"Resume":"Start"}"><span class="ic ti ti-player-play"></span></button>
+        <button class="cbtn" data-confpause="${esc(c.key)}" ${running?"":"disabled"} title="Pause" aria-label="Pause"><span class="ic ti ti-player-pause"></span></button>
+        <button class="cbtn stop" data-confend="${esc(c.key)}" ${live?"":"disabled"} title="End" aria-label="End"><span class="ic ti ti-player-stop"></span></button>
+      </div>`; }
+    else { ctrlCol=(running||paused)?`<b class="conf-elapsed${paused?" is-paused":""}" ${running?`data-since="${st.runningSince||0}" data-accum="${st.accumMs||0}"`:""}>${esc(fmtElapsed(elapsed))}</b>${paused?`<span class="conf-mini">paused</span>`:""}`:""; }
+    // prominent pop-ups next to the name so a status or a question is noticed
+    const statusPop = smsg&&smsg.text ? `<div class="conf-pop status"><span class="ic ti ti-message-2"></span><div class="conf-pop-b"><div class="conf-pop-t">${esc(smsg.text)}</div><div class="conf-pop-by">${esc(nameOf(smsg.by))} · ${esc(timeAgo(smsg.at))}</div></div></div>` : "";
+    const asksPop = asks.length ? `<div class="conf-pop ask"><span class="ic ti ti-hand-finger"></span><div class="conf-pop-b">${asks.map(a=>`<div class="conf-pop-q"><b>${esc(nameOf(a.by))}</b>${a.text?`: ${esc(a.text)}`:" — asking for an update"}<span class="conf-pop-by">${esc(timeAgo(a.at))}</span></div>`).join("")}</div></div>` : "";
     const noteList=notes.length?notes.map((nn,ni)=>{
       const mine=canEdit&&(nn.by===me.uid||canManage());
       if(mine&&_editNote===`${c.key}|${ni}`)
@@ -1906,26 +1931,19 @@ function confSectionHtml(){
       <div class="conf-top" data-conftoggle="${esc(c.key)}">
         <span class="conf-sn">${i+1}</span>
         <div class="conf-main">
-          <div class="conf-line1"><span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span><span class="conf-name">${esc(c.label||"—")}</span></div>
+          <div class="conf-line1"><span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span><span class="conf-name">${esc(c.label||"—")}</span>${(infer&&idle)?`<span class="conf-tag maybe">likely now</span>`:""}</div>
           ${c.title?`<div class="conf-sub">${esc(c.title)}</div>`:""}
-          ${(status||asking)?`<div class="conf-statusrow">${status}${asking}</div>`:""}
-          ${bubble}
+          ${statusPop}${asksPop}
         </div>
+        <div class="conf-ctrlcol">${ctrlCol}</div>
         <span class="ic ti ti-chevron-${open?"up":"down"} conf-chev"></span>
       </div>
       <div class="conf-body${open?"":" hidden"}">
         ${whoNames.length?`<div class="conf-who"><span class="ic ti ti-user"></span>${esc(whoNames.join(", "))}</div>`:(c.isManual?`<div class="conf-who"><span class="ic ti ti-user"></span>Chamber conference</div>`:"")}
-        ${started?`<div class="conf-times"><span class="ic ti ti-clock-play"></span>Started ${esc(fmtClock(started))}${ended?` · ended ${esc(fmtClock(st.endedAt))} · <b>ran ${esc(fmtDur(elapsed))}</b>`:` · <b class="conf-elapsed" ${running?`data-since="${st.runningSince||0}" data-accum="${st.accumMs||0}"`:""}>${esc(fmtElapsed(elapsed))}</b> so far${paused?" (paused)":""}`}</div>`:""}
-        ${canEdit?`<div class="conf-ctrls">
-          <button class="tbtn sm ${running?"":"go"}" data-confstart="${esc(c.key)}" ${running?"disabled":""}><span class="ic ti ti-player-play"></span>${paused?"Resume":"Start"}</button>
-          <button class="tbtn sm" data-confpause="${esc(c.key)}" ${running?"":"disabled"}><span class="ic ti ti-player-pause"></span>Pause</button>
-          <button class="tbtn sm" data-confend="${esc(c.key)}" ${live?"":"disabled"}><span class="ic ti ti-player-stop"></span>End</button>
-        </div>`:""}
+        ${started?`<div class="conf-times"><span class="ic ti ti-clock-play"></span>Started ${esc(fmtClock(started))}${ended?` · ended ${esc(fmtClock(st.endedAt))}`:paused?" · paused":""}</div>`:""}
         <div class="conf-updates">
-          <div class="conf-updates-h">Status &amp; requests</div>
-          ${asks.length?`<div class="conf-asks">${asks.map(a=>`<div class="conf-ask"><span class="ic ti ti-hand-finger"></span><span>${esc(nameOf(a.by))}${a.text?`: ${esc(a.text)}`:" asked for an update"}</span><span class="conf-ask-at">${esc(timeAgo(a.at))}</span></div>`).join("")}</div>`:""}
-          ${canEdit?`<div class="conf-inrow"><input type="text" placeholder="Post an update or estimate… (e.g. ~20 min more)" data-statusin="${esc(c.key)}"><button class="tbtn sm go" data-statusbtn="${esc(c.key)}">Post</button></div>`
-                   :`<div class="conf-inrow"><input type="text" placeholder="Ask the attending colleague for a status…" data-askin="${esc(c.key)}"><button class="tbtn sm" data-askbtn="${esc(c.key)}">Ask</button></div>`}
+          <div class="conf-updates-h">${canEdit?"Post an update or estimate":"Ask for a status"}</div>
+          <div class="conf-inrow">${canEdit?`<input type="text" placeholder="e.g. ~20 min more" data-statusin="${esc(c.key)}"><button class="tbtn sm go" data-statusbtn="${esc(c.key)}">Post</button>`:`<input type="text" placeholder="Ask the attending colleague…" data-askin="${esc(c.key)}"><button class="tbtn sm" data-askbtn="${esc(c.key)}">Ask</button>`}</div>
         </div>
         <div class="conf-notes">
           <div class="conf-notes-h"><span>Notes from the conference${c.briefId?`<span class="conf-savedhint">saved to the brief</span>`:""}</span>${notes.length?`<button class="tbtn sm" data-noteexport="${esc(c.key)}"><span class="ic ti ti-file-type-doc"></span>Export to Word</button>`:""}</div>
