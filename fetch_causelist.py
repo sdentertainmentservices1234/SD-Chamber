@@ -42,7 +42,10 @@ LIST_TYPES = {
     "Curative & Review":  [("M_CC_1", "main")],
 }
 
-WINDOW_DAYS = 8
+# Fetch every published list for a full week+ of upcoming sitting days, so a
+# matter listed several days out (e.g. a call today for a hearing next Tuesday)
+# already resolves its cause title the moment the SC publishes that day's list.
+WINDOW_DAYS = 12
 OUTPUT_FILE = "court-updates.json"
 # Bump whenever parse_courts changes how items/benches are extracted. The size-
 # based change-detection reuses a cached parse when the PDF is unchanged; without

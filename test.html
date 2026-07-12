@@ -830,6 +830,9 @@ function seedDemo(db){
    APP STATE + BOOT
    ============================================================ */
 let me=null, users={}, briefs={}, daysheet={entries:[]}, availToday={}, availAll={}, dsDate=todayISO();
+// staff-set unavailability {colleagueId:{note,until,by,at}} — the colleague is
+// skipped for assignment until Staff revoke it (works for pending ids too).
+let unavailable={};
 // calendar state: month shown, SC holidays map {dateISO:name|null}, senior
 // unavailability map {dateISO:note|null} (null = cleared), all day-sheet docs
 let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={}, vacation={ranges:[]};
@@ -991,6 +994,7 @@ function startApp(){
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
   unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
+  unsub.push(db.watchDoc("config/unavailable", d=>{ unavailable=d||{}; delete unavailable.id; renderActive(); }));
   unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   loadCourtUpdates();
@@ -1054,6 +1058,11 @@ function closeSheet(){ sheetUnsubs.forEach(u=>u()); sheetUnsubs=[]; $("modalRoot
 // logs in. Their assignments migrate to the real uid on first login (syncRegister).
 function effectiveRoster(){ return rosterDisplay().map(m=>m.id); }
 function isOnLeave(uid){ return availToday[uid]?.status==="leave"; }
+// Staff-set unavailability: active until revoked, or until an optional "until" date.
+function isUnavailable(uid){ const u=unavailable[uid]; if(!u) return false; return !u.until || u.until>=todayISO(); }
+// A colleague is skippable for a NEW assignment if on leave today or marked unavailable.
+function isSkippable(uid){ return isOnLeave(uid) || isUnavailable(uid); }
+async function setUnavailable(uid,note,until){ await db.set("config/unavailable",{[uid]: note===null?null:{note:note||"",until:until||"",by:me.uid,at:Date.now()}},true); }
 function onLeaveOn(uid,dateISO){ return availAll[uid+"_"+dateISO]?.status==="leave"; }
 
 // Weighted ACTIVE load (open matters, weighted by matter type).
@@ -1162,28 +1171,31 @@ async function syncRegister(force){
   if(curTab==="briefs"||curTab==="roster") renderActive();
 }
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
+// A matter shared by N colleagues counts 1/N per colleague (owner's decision) —
+// so two colleagues on one brief each carry half its point / half its load.
+const _share=arr=>{ const n=(arr||[]).length; return n>1?1/n:1; };
+const fmtPts=n=>{ n=Math.round(n*10)/10; return Number.isInteger(n)?String(n):n.toFixed(1); };  // tidy fractional display
 function activeLoad(uid){
   const briefLoad=Object.values(briefs)
     .filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid))
-    .reduce((s,b)=>s + weightOf(b)*(isImminent(b)?2:1), 0);
-  const listLoad=activeListings(uid).reduce((s,x)=>s+(_imminentDate(x.date)?2:1), 0);
+    .reduce((s,b)=>s + weightOf(b)*(isImminent(b)?2:1)*_share(b.assignedTo), 0);
+  const listLoad=activeListings(uid).reduce((s,x)=>s+(_imminentDate(x.date)?2:1)*_share(jrsOf(x.e)), 0);
   return briefLoad + listLoad;
 }
 function imminentCount(uid){
   return Object.values(briefs).filter(b=>(b.assignedTo||[]).includes(uid)&&isImminent(b)).length
        + activeListings(uid).filter(x=>_imminentDate(x.date)).length;
 }
-// Count of active matters (unweighted), for display.
+// Count of active matters on a colleague's plate (headcount, not points).
 function activeCount(uid){
   return Object.values(briefs).filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid)).length
        + activeListings(uid).length;
 }
-// Lifetime total ever assigned (includes disposed) — historical fairness.
-// LIFETIME count — every matter ever assigned (disposed included), counted as
-// 1 each (NO weightage; owner's decision). This is the career-fairness "clock".
-// Weightage applies ONLY to activeLoad, for immediate distribution.
+// LIFETIME points — every matter ever assigned (disposed included), each counted
+// as its SHARE (1/N when co-assigned). The career-fairness "clock"; day-to-day
+// weightage/imminence applies only to activeLoad.
 function lifetimeCount(uid){
-  return Object.values(briefs).filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid)).length;
+  return Object.values(briefs).filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid)).reduce((s,b)=>s+_share(b.everAssigned||b.assignedTo),0);
 }
 
 // Pick the next junior for a brief.
@@ -1193,8 +1205,8 @@ function pickNext(brief, exclude=[]){
   const ros = effectiveRoster();
   if(!ros.length) return {uid:null};
   const declined = new Set([...(brief.declinedBy||[]).map(d=>d.uid), ...exclude]);
-  // eligible = in roster, not declined, not on leave
-  const eligible = ros.filter(id=>!declined.has(id) && !isOnLeave(id));
+  // eligible = in roster, not declined, not on leave, not marked unavailable by Staff
+  const eligible = ros.filter(id=>!declined.has(id) && !isSkippable(id));
   if(eligible.length){
     // Equitable ranking (owner's decision): lightest ACTIVE load first —
     // day-to-day capacity decides; ties broken by lowest TOTAL (lifetime)
@@ -1208,8 +1220,8 @@ function pickNext(brief, exclude=[]){
       .sort((a,b)=> a.load-b.load || a.life-b.life || a.turn-b.turn);
     return {uid:ranked[0].id, reason:"rotation"};
   }
-  // Everyone eligible has declined or is on leave -> force-assign to lightest active load
-  const pool = ros.filter(id=>!isOnLeave(id));
+  // Everyone eligible has declined or is unavailable -> force-assign to lightest active load
+  const pool = ros.filter(id=>!isSkippable(id));
   const fallback = (pool.length?pool:ros)
     .map(id=>({id,load:activeLoad(id)})).sort((a,b)=>a.load-b.load)[0];
   return {uid:fallback?fallback.id:null, forced:true};
@@ -1235,6 +1247,7 @@ async function autoAssign(briefId){
   });
   await advancePointer();
   toast(pick.forced?`Force-assigned to ${nameOf(pick.uid)} (all others unavailable)`:`Assigned to ${nameOf(pick.uid)}`, pick.forced?"ti-alert-triangle":"ti-user-check");
+  return {...b, assignedTo:[pick.uid], id:briefId};   // caller can hand this to notifyForm
 }
 
 // Junior objects to their assignment.
@@ -1297,6 +1310,50 @@ function waLink(uid, b){
   return isMobile
     ? `https://wa.me/${num}?text=${text}`
     : `https://web.whatsapp.com/send?phone=${num}&text=${text}`;
+}
+// phone for a colleague — logged-in (users) or not-yet (approvals)
+function phoneOf(uid){ if(uid&&uid.startsWith&&uid.startsWith("pending:")) return approvals[uid.slice(8)]?.phone||""; return users[uid]?.phone||""; }
+function waTo(phone,text){ const raw=String(phone||"").replace(/\D/g,""); if(!raw) return null; const num=raw.length===10?"91"+raw:raw; const t=encodeURIComponent(text); return /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)?`https://wa.me/${num}?text=${t}`:`https://web.whatsapp.com/send?phone=${num}&text=${t}`; }
+// the soonest upcoming day-sheet listing for a brief (for court/item in the message)
+function soonestListing(briefId){ let best=null; Object.entries(dsAll).forEach(([date,d])=>{ (d?.entries||[]).forEach(e=>{ if(e.briefId===briefId && date>=todayISO() && (!best||date<best.date)) best={date,...e}; }); }); return best; }
+// a full assignment message for one colleague, with case + briefing-counsel details
+function assignMsg(b, uid){
+  const first=(nameOf(uid).split(/\s+/)[0])||"there";
+  const le=soonestListing(b.id);
+  const nd=b.nextDate||le?.date;
+  const L=[`Hi ${first},`, `You've been assigned a matter in ${CHAMBER.seniorName}'s chambers:`, `• ${labelOf(b)}`];
+  const nums=[b.chamberNo?`File #${b.chamberNo}`:"", b.caseNo, b.diaryNo?`Dy. ${b.diaryNo}`:""].filter(Boolean).join("  ·  ");
+  if(nums) L.push(`• ${nums}`);
+  if(nd) L.push(`• Next date: ${fmtDateY(nd)}`);
+  if(le&&le.courtNo) L.push(`• Court ${le.courtNo}${le.itemNo?`, Item ${le.itemNo}`:""}`);
+  if(b.appearingFor) L.push(`• Appearing for: ${b.appearingFor}`);
+  if(b.aor||b.aorPhone) L.push(`• Briefing counsel: ${[b.aor,b.aorPhone].filter(Boolean).join(", ")}`);
+  if(b.contactPerson||b.contactPhone) L.push(`• Contact person: ${[b.contactPerson,b.contactPhone].filter(Boolean).join(", ")}`);
+  L.push(`Please open the chamber app to acknowledge.`);
+  return L.join("\n");
+}
+// Composer to inform the assigned colleague(s) — prefilled WhatsApp / copy / email.
+function notifyForm(id, bOverride){
+  const b=bOverride||briefs[id]; if(!b) return;
+  const assignees=(b.assignedTo||[]);
+  if(!assignees.length){ toast("No colleague assigned to notify","ti-alert-triangle"); return; }
+  const cards=assignees.map(uid=>{ const msg=assignMsg(b,uid); const ph=phoneOf(uid); const wa=waTo(ph,msg);
+    return `<div style="border:1px solid var(--line-2);border-radius:var(--r);padding:12px;margin-bottom:12px">
+      <div class="row" style="justify-content:space-between;align-items:center"><b>${esc(nameOf(uid))}</b>${ph?`<span class="mono muted" style="font-size:12px">${esc(ph)}</span>`:'<span class="muted" style="font-size:11.5px">no phone saved</span>'}</div>
+      <textarea class="notify-msg" data-msgfor="${uid}" rows="8" style="width:100%;font-family:inherit;font-size:12.5px;margin-top:8px;border:1px solid var(--line);border-radius:var(--r);padding:8px;resize:vertical">${esc(msg)}</textarea>
+      <div class="row" style="gap:8px;margin-top:6px">
+        ${wa?`<a class="btn sm" href="${wa}" target="_blank" rel="noopener"><span class="ic ti ti-brand-whatsapp"></span>WhatsApp</a>`:''}
+        <button class="btn ghost sm" data-copynotify="${uid}"><span class="ic ti ti-copy"></span>Copy</button>
+        <a class="btn ghost sm" href="mailto:?subject=${encodeURIComponent('New assignment — '+labelOf(b))}&body=${encodeURIComponent(msg)}"><span class="ic ti ti-mail"></span>Email</a>
+      </div>
+    </div>`;
+  }).join("");
+  openSheet(`<div class="sheet-head"><div><h3>Inform colleague${assignees.length>1?'s':''}</h3><div class="sub">${esc(labelOf(b))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <p class="muted" style="font-size:12.5px">Prefilled with the case details${(b.aor||b.aorPhone||b.contactPerson)?' and briefing-counsel contact':''}. Edit if needed, then send by WhatsApp, copy, or email.</p>
+      ${cards}
+    </div>`);
+  document.querySelectorAll("[data-copynotify]").forEach(x=>x.onclick=()=>{ const ta=document.querySelector(`.notify-msg[data-msgfor="${CSS.escape(x.dataset.copynotify)}"]`); navigator.clipboard?.writeText(ta.value); toast("Message copied — paste anywhere","ti-copy"); });
 }
 
 /* ============================================================
@@ -1536,7 +1593,7 @@ function renderMyWork(){
       <div class="mw-meta"><span class="chip st-received"><span class="dot"></span>Court ${esc(x.e.courtNo||'—')} · Item ${esc(x.e.itemNo||'—')}</span><span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(x.date)}</span>${x.e.time?`<span class="mono muted" style="font-size:11px">${esc(x.e.time)}</span>`:''}</div>
     </button>`;}).join("")}`:"";
   const emptyState=(!mine.length&&!myListings.length)?`<div class="muted" style="font-size:13px;margin-top:22px">No matters assigned or listed for you yet.</div>`:"";
-  const standing=`<div class="mw-standing muted">You're ${pos<0?'not in the roster':turns===0?'<b>next up</b>':'#'+(pos+1)+' in the rotation'+(turns!=null&&turns>0?` · next up in ${turns} turn${turns>1?'s':''}`:'')} · ${activeCount(me.uid)} active · ${lifetimeCount(me.uid)} lifetime</div>`;
+  const standing=`<div class="mw-standing muted">You're ${pos<0?'not in the roster':turns===0?'<b>next up</b>':'#'+(pos+1)+' in the rotation'+(turns!=null&&turns>0?` · next up in ${turns} turn${turns>1?'s':''}`:'')} · ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div>`;
   $("tab-board").innerHTML=metrics+availRow+unackedSec+matters+listedSec+emptyState+standing;
   document.querySelectorAll("[data-goday]").forEach(x=>x.onclick=()=>{ dsDate=x.dataset.goday; watchDaysheet(); selectTab("today"); });
   document.querySelectorAll("[data-av]").forEach(x=>x.onclick=async()=>{await db.set("availability/"+me.uid+"_"+todayISO(),{uid:me.uid,date:todayISO(),status:x.dataset.av,note:availToday[me.uid]?.note||"",at:db.now()});toast("Status updated");});
@@ -1600,11 +1657,11 @@ function renderBoard(){
         return `<div class="bal-row" data-brief="" >
           <div class="bal-name">${esc(l.j.name)}${av&&av.status==='leave'?' <span class="muted" style="font-size:11px">· on leave</span>':''}${imm?` <span class="crunch" title="${imm} matter(s) listed within 4 days — load doubled"><span class="ti ti-flame"></span>${imm}</span>`:''}</div>
           <div class="bal-track"><div class="bal-fill" style="width:${Math.round(l.load/maxLoad*100)}%"></div></div>
-          <div class="bal-nums"><span class="bal-load" title="Weighted active load">${l.load}</span><span class="bal-sub">${l.count} active · ${l.life} lifetime</span></div>
+          <div class="bal-nums"><span class="bal-load" title="Weighted active load">${fmtPts(l.load)}</span><span class="bal-sub">${l.count} active · ${fmtPts(l.life)} lifetime</span></div>
         </div>`;
       }).join("")}
     </div>
-    <div class="balance-foot muted">Active load is weighted for immediate distribution (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). Lifetime counts every matter ever assigned as 1 — no weightage.</div>
+    <div class="balance-foot muted">Active load is weighted for immediate distribution (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). A matter shared by two colleagues counts as half a point each. Lifetime counts every matter ever assigned the same way (½ each when shared).</div>
     </div>
   </div>`:"";
 
@@ -1641,7 +1698,7 @@ function renderBoard(){
       </div>
       <div class="jcard-load">
         <div class="load-pill"><div class="n">${mine.length}</div><div class="l">Active</div></div>
-        <div class="load-pill"><div class="n">${activeLoad(j.id)}</div><div class="l">Load</div></div>
+        <div class="load-pill"><div class="n">${fmtPts(activeLoad(j.id))}</div><div class="l">Load</div></div>
         <div class="load-pill"><div class="n">${lifetimeCount(j.id)}</div><div class="l">Lifetime</div></div>
         <div class="load-pill ${listed?'hot':''}"><div class="n">${listed}</div><div class="l">Listed</div></div>
       </div>
@@ -1657,7 +1714,7 @@ function renderBoard(){
     for(const b of q){ await autoAssign(b.id); }
     toast(`Auto-assigned ${q.length} matter${q.length!==1?'s':''}`,"ti-wand");
   };
-  document.querySelectorAll("[data-autoassign]").forEach(x=>x.onclick=e=>{e.stopPropagation();autoAssign(x.dataset.autoassign);});
+  document.querySelectorAll("[data-autoassign]").forEach(x=>x.onclick=async e=>{e.stopPropagation();const r=await autoAssign(x.dataset.autoassign);if(r)notifyForm(x.dataset.autoassign,r);});
   if($("balToggle"))$("balToggle").onclick=()=>{uiExp.balance=!uiExp.balance;renderBoard();};
   document.querySelectorAll("[data-jtoggle]").forEach(x=>x.onclick=e=>{
     if(e.target.closest("[data-brief]"))return;
@@ -2275,6 +2332,9 @@ function briefForm(b=null){
       <div class="grid2"><div><label>Matter type</label><select id="b_type">${MATTER_TYPES.map(t=>`<option ${b?.matterType===t?'selected':''}>${t}</option>`).join("")}</select></div>
         <div><label>Appearing for</label><input id="b_for" value="${esc(b?.appearingFor||'')}" placeholder="Petitioner / Respondent"></div></div>
       <label>Instructing AoR / counsel</label><input id="b_aor" value="${esc(b?.aor||'')}">
+      <div class="grid2"><div><label>Counsel phone</label><input id="b_aorph" class="mono" inputmode="tel" value="${esc(b?.aorPhone||'')}" placeholder="98xxx xxxxx"></div>
+        <div><label>Contact person <span class="muted" style="font-weight:400">(for a firm)</span></label><input id="b_cperson" value="${esc(b?.contactPerson||'')}" placeholder="person at the firm"></div></div>
+      <label>Contact person's phone <span class="muted" style="font-weight:400">(if a firm)</span></label><input id="b_cphone" class="mono" inputmode="tel" value="${esc(b?.contactPhone||'')}" placeholder="98xxx xxxxx">
       <div class="grid2"><div><label>Conference on</label><input type="date" id="b_conf" value="${esc(b?.conferenceAt||'')}"></div>
         <div><label>Next date</label><input type="date" id="b_next" value="${esc(b?.nextDate||'')}"></div></div>
       <label>Weight <span class="muted" style="font-weight:400">(optional — how heavy this matter is in a colleague's load; leave blank for normal)</span></label>
@@ -2325,7 +2385,7 @@ function briefForm(b=null){
     }
     const directed = asgnMode==="manual" && $("b_directed") && $("b_directed").checked && assigned.length>0;
     const asgHistMode = autoPick ? (autoPick.forced?"forced":"auto") : (directed?"directed":"manual");
-    const data={caseTitle:$("b_title").value.trim(),chamberNo:$("b_chno").value.trim(),diaryNo:$("b_dy").value.trim(),caseNo:$("b_cn").value.trim(),matterType:$("b_type").value,appearingFor:$("b_for").value.trim(),aor:$("b_aor").value.trim(),conferenceAt:$("b_conf").value||null,nextDate:$("b_next").value||null,weight:Number($("b_weight").value)||null,assignedTo:assigned,priority:$("b_prio").checked,directed,updatedAt:db.now()};
+    const data={caseTitle:$("b_title").value.trim(),chamberNo:$("b_chno").value.trim(),diaryNo:$("b_dy").value.trim(),caseNo:$("b_cn").value.trim(),matterType:$("b_type").value,appearingFor:$("b_for").value.trim(),aor:$("b_aor").value.trim(),aorPhone:$("b_aorph").value.trim(),contactPerson:$("b_cperson").value.trim(),contactPhone:$("b_cphone").value.trim(),conferenceAt:$("b_conf").value||null,nextDate:$("b_next").value||null,weight:Number($("b_weight").value)||null,assignedTo:assigned,priority:$("b_prio").checked,directed,updatedAt:db.now()};
     if(!data.caseTitle){toast("A case title is needed","ti-alert-triangle");return;}
     data.detailsAwaited = !data.diaryNo && !data.caseNo;
     // acknowledgment: keep acks only from juniors still assigned; new assignees must acknowledge
@@ -2333,6 +2393,7 @@ function briefForm(b=null){
     const newAssignees=assigned.filter(u=>!(b?.assignedTo||[]).includes(u));
     data.ackBy=prevAck;
     if(newAssignees.length) data.assignedAt=Date.now();
+    let savedId=b?b.id:null;
     if(b){ if(assigned.length&&b.status==="received")data.status="assigned";
       if(!assigned.length&&["assigned"].includes(b.status))data.status="received";
       const hist=[...(b.assignHistory||[])];
@@ -2343,13 +2404,15 @@ function briefForm(b=null){
     else { data.status=assigned.length?"assigned":"received"; data.createdBy=me.uid; data.createdAt=db.now();
       data.everAssigned=assigned.slice(); data.declinedBy=[];
       data.assignHistory=assigned.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:asgHistMode}));
-      await db.add("briefs",data); }
+      savedId=await db.add("briefs",data); }
     // an auto-assignment consumes a roster turn, just like the standalone auto-assign
     if(autoPick && !autoPick.forced) await advancePointer();
     closeSheet();
     toast(autoPick?`Brief saved — auto-assigned to ${nameOf(autoPick.uid)}`
       :(data.detailsAwaited?"Brief saved — details awaited":"Brief saved"),
       autoPick?"ti-user-check":"ti-check");
+    // offer to inform any newly-assigned colleague(s)
+    if(newAssignees.length && savedId) notifyForm(savedId, {...(b||{}), ...data, id:savedId});
   };
   if(b)$("b_disp").onclick=async()=>{ await db.update("briefs/"+b.id,{status:"disposed",updatedAt:db.now()}); closeSheet(); toast("Brief marked disposed"); };
 }
@@ -2385,6 +2448,7 @@ function openBrief(id){
         <div class="row" style="gap:6px;margin-top:10px">
           ${needsMyAck(b)?`<button class="btn sm" data-ack="${b.id}"><span class="ic ti ti-check"></span>Acknowledge assignment</button>`:''}
           ${canManage()&&!(b.assignedTo||[]).length?`<button class="btn sm" data-autoassign2="${b.id}"><span class="ic ti ti-wand"></span>Auto-assign next</button>`:''}
+          ${canManage()&&(b.assignedTo||[]).length?`<button class="tbtn" data-notify="${b.id}"><span class="ic ti ti-send"></span>Inform colleague${(b.assignedTo||[]).length>1?'s':''}</button>`:''}
           ${canManage()?`<button class="tbtn" data-editbrief="${b.id}"><span class="ic ti ti-pencil"></span>Reassign manually</button>`:''}
           ${(!canManage()&&(b.assignedTo||[]).includes(me.uid)&&b.status!=='disposed')?`<button class="tbtn" style="color:var(--danger)" data-object="${b.id}"><span class="ic ti ti-hand-stop"></span>Object to this assignment</button>`:''}
         </div>
@@ -2396,7 +2460,8 @@ function openBrief(id){
     </div>`);
   document.querySelectorAll("[data-status]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{status:x.dataset.status,updatedAt:db.now()});closeSheet();openBrief(id);});
   document.querySelectorAll("[data-editbrief]").forEach(x=>x.onclick=()=>{closeSheet();briefForm(b);});
-  document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{await autoAssign(id);closeSheet();openBrief(id);});
+  document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{const r=await autoAssign(id);if(r)notifyForm(id,r);else{closeSheet();openBrief(id);}});
+  document.querySelectorAll("[data-notify]").forEach(x=>x.onclick=()=>notifyForm(x.dataset.notify));
   document.querySelectorAll("[data-object]").forEach(x=>x.onclick=()=>objectForm(id));
   document.querySelectorAll("[data-ack]").forEach(x=>x.onclick=async()=>{await acknowledge(id);closeSheet();openBrief(id);});
   document.querySelectorAll("[data-keepheld]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{heldForClerk:false,updatedAt:db.now()});toast("Senior's direction upheld — assignment stands");closeSheet();openBrief(id);});
@@ -2548,7 +2613,7 @@ function renderRoster(){
       <span class="chev ti ti-chevron-down"></span>
     </div>
     <div class="clps-body ${uiExp.rosterInfo?'open':''}" style="margin-top:8px">
-    <p>The roster runs in <b>chamber seniority</b> — date of joining, senior-most first (set each colleague's date from the Chamber tab). A new matter goes to whoever carries the <b>lightest active load</b> (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). Ties go to the lower <b>lifetime count</b> — total matters ever assigned, counted 1 each (no weightage), so career fairness corrects drift — and any remaining tie to whoever is <b>next up</b> in the rotation. Colleagues on leave are skipped; objections pass the matter to the next eligible colleague; if everyone is unavailable it force-assigns to the lightest-loaded and flags you.</p>
+    <p>The roster runs in <b>chamber seniority</b> — date of joining, senior-most first (set each colleague's date from the Chamber tab). A new matter goes to whoever carries the <b>lightest active load</b> (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). A matter shared by two colleagues counts as <b>half a point</b> each. Ties go to the lower <b>lifetime count</b> — total matters ever assigned (½ each when shared), so career fairness corrects drift — and any remaining tie to whoever is <b>next up</b> in the rotation. Colleagues on leave are skipped; objections pass the matter to the next eligible colleague; if everyone is unavailable it force-assigns to the lightest-loaded and flags you.</p>
     </div>
   </div>`;
   let list;
@@ -2563,18 +2628,19 @@ function renderRoster(){
         const turns=(myPos-nextIdx+ros.length)%ros.length;
         const where = turns===0 ? `<span class="big">You're next up</span> — the next new matter comes to you`
           : `You're <span class="big">#${myPos+1}</span> in the rotation · next up in <span class="big">${turns}</span> turn${turns>1?'s':''}`;
-        standingBanner=`<div class="roster-standing-banner"><span class="ti ti-user-star" style="color:var(--accent-ink);font-size:18px"></span><div>${where} · carrying ${activeCount(me.uid)} active · ${lifetimeCount(me.uid)} lifetime</div></div>`;
+        standingBanner=`<div class="roster-standing-banner"><span class="ti ti-user-star" style="color:var(--accent-ink);font-size:18px"></span><div>${where} · carrying ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div></div>`;
       }
     }
     list=standingBanner+`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates in the Chamber tab</span></div>
       ${disp.map((m,i)=>{
         const isNext=m.real&&m.id===nextUid; const av=m.real?availToday[m.id]:null; const onLeave=av?.status==="leave";
-        const isMe=m.real&&m.id===me.uid;
-        return `<div class="roster-row ${isNext?'is-next':''} ${isMe?'is-me':''} ${onLeave?'is-leave':''}" ${m.real?'':'style="opacity:.72"'}>
+        const isMe=m.real&&m.id===me.uid; const unav=isUnavailable(m.id); const uNote=unavailable[m.id]?.note; const uUntil=unavailable[m.id]?.until;
+        return `<div class="roster-row ${isNext&&!unav?'is-next':''} ${isMe?'is-me':''} ${onLeave||unav?'is-leave':''}">
           <div class="roster-pos">${i+1}</div>
           <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
-          <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
-            <div class="roster-load muted">${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${activeLoad(m.id)} · ${activeCount(m.id)} live · ${lifetimeCount(m.id)} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
+          <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext&&!unav?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}${unav?`<span class="chip av-leave" style="margin-left:8px"><span class="ti ti-user-off" style="font-size:11px"></span> Unavailable${uUntil?` till ${fmtDate(uUntil)}`:''}</span>`:''}</div>
+            <div class="roster-load muted">${unav&&uNote?`<span style="color:var(--warn)">${esc(uNote)}</span> · `:''}${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${fmtPts(activeLoad(m.id))} · ${activeCount(m.id)} live · ${fmtPts(lifetimeCount(m.id))} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
+          ${canManage()?`<button class="tbtn sm" data-unav="${m.id}" style="margin-left:auto;flex-shrink:0" title="${unav?'Bring back into the roster':'Skip for new assignments'}">${unav?'<span class="ic ti ti-user-check"></span>Make available':'<span class="ic ti ti-user-off"></span>Unavailable'}</button>`:''}
         </div>`;
       }).join("")}</div>
       ${canManage()?`<div class="row" style="margin-top:14px"><button class="btn ghost sm" id="rReset"><span class="ic ti ti-refresh"></span>Reset “next up” to top</button></div>`:''}`;
@@ -2582,6 +2648,25 @@ function renderRoster(){
   $("tab-roster").innerHTML=explain+list;
   if($("reToggle"))$("reToggle").onclick=()=>{uiExp.rosterInfo=!uiExp.rosterInfo;renderRoster();};
   if($("rReset"))$("rReset").onclick=async()=>{await db.set("config/roster",{pointer:0},true);toast("Rotation reset to the top");};
+  document.querySelectorAll("[data-unav]").forEach(x=>x.onclick=async()=>{ const id=x.dataset.unav;
+    if(isUnavailable(id)){ await setUnavailable(id,null); toast(nameOf(id)+" is back in the roster","ti-user-check"); }
+    else unavailForm(id); });
+}
+// Staff mark a colleague unavailable for new assignments (with a reason and an
+// optional auto-return date). They stay off the roster until revoked / the date passes.
+function unavailForm(id){
+  const nm=nameOf(id);
+  openSheet(`<div class="sheet-head"><div><h3>Mark unavailable</h3><div class="sub">${esc(nm)}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <p class="muted" style="font-size:13px"><b>${esc(nm)}</b> will be skipped by auto-assign and the rotation until you make them available again. Matters already with them are untouched.</p>
+      <label>Reason <span class="muted" style="font-weight:400">(optional)</span></label>
+      <input id="ua_note" value="${esc(unavailable[id]?.note||'')}" placeholder="e.g. on leave, exams, out of Delhi">
+      <label>Until <span class="muted" style="font-weight:400">(optional — comes back automatically after this date; blank = until you revoke)</span></label>
+      <input type="date" id="ua_until" min="${todayISO()}" value="${esc(unavailable[id]?.until||'')}">
+      <div class="row" style="margin-top:18px"><button class="btn" id="ua_save"><span class="ic ti ti-user-off"></span>Mark unavailable</button><button class="btn ghost" id="ua_cancel">Cancel</button></div>
+    </div>`);
+  $("ua_cancel").onclick=()=>closeSheet();
+  $("ua_save").onclick=async()=>{ await setUnavailable(id,$("ua_note").value.trim(),$("ua_until").value||""); closeSheet(); toast(nm+" marked unavailable","ti-user-off"); };
 }
 
 /* ============================================================
