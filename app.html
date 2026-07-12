@@ -1603,16 +1603,29 @@ async function syncRegister(force){
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
 // A matter shared by N colleagues counts 1/N per colleague (owner's decision) —
 // so two colleagues on one brief each carry half its point / half its load.
-const _share=arr=>{ const n=(arr||[]).length; return n>1?1/n:1; };
-// Share of a BRIEF for one colleague, honouring a full-credit claim: if someone
-// has claimed the whole matter, they carry 1 and everyone else 0.
-function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[]; if(b.creditClaim&&b.creditClaim.uid) return aliasIds(uid).includes(b.creditClaim.uid)?1:0; return arr.length>1?1/arr.length:1; }
+// A matter shared by N colleagues splits 1/N — BUT a co-assignee who is ON LEAVE
+// on the matter's date earns NO credit for it (owner's rule Jul 2026); their
+// share redistributes to whoever is actually present that day. So if two are
+// marked and one is on leave, the present colleague carries the whole point.
+function presentSharers(arr, date){ return date ? (arr||[]).filter(u=>!onLeaveOn(u,date)) : (arr||[]); }
+function shareForDate(arr, uid, date){
+  arr=arr||[]; if(!arr.length) return 0;
+  if(date && onLeaveOn(uid,date)) return 0;               // on leave that day → no credit
+  const present=presentSharers(arr,date);
+  return idIn(present,uid) ? 1/present.length : (idIn(arr,uid)?1/arr.length:0);
+}
+// Share of a BRIEF for one colleague: a full-credit claim overrides; otherwise
+// split among co-assignees present on the brief's date (its next hearing).
+function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[];
+  if(b.creditClaim&&b.creditClaim.uid) return aliasIds(uid).includes(b.creditClaim.uid)?1:0;
+  return shareForDate(arr, uid, b.nextDate||b.conferenceAt||null);
+}
 const fmtPts=n=>{ n=Math.round(n*10)/10; return Number.isInteger(n)?String(n):n.toFixed(1); };  // tidy fractional display
 function activeLoad(uid){
   const briefLoad=Object.values(briefs)
     .filter(b=>b.status!=="disposed" && idIn(b.assignedTo,uid))
     .reduce((s,b)=>s + weightOf(b)*(isImminent(b)?2:1)*shareFor(b,uid,b.assignedTo), 0);
-  const listLoad=activeListings(uid).reduce((s,x)=>s+(_imminentDate(x.date)?2:1)*_share(jrsOf(x.e)), 0);
+  const listLoad=activeListings(uid).reduce((s,x)=>s+(_imminentDate(x.date)?2:1)*shareForDate(jrsOf(x.e),uid,x.date), 0);
   return briefLoad + listLoad;
 }
 function imminentCount(uid){
@@ -1660,7 +1673,7 @@ function loadInWindow(uid, days){
     // count if any date falls in the window, OR it's active work with no date yet
     if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.everAssigned||b.assignedTo);
   }});
-  listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=_share(jrsOf(x.e)); });
+  listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=shareForDate(jrsOf(x.e),uid,x.date); });
   return Math.round(pts*10)/10;
 }
 
