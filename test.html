@@ -622,7 +622,40 @@ body.demo .topbar{top:34px}
 .conf-tag.now .dot{width:6px;height:6px;border-radius:50%;background:#fff}
 .conf-tag.maybe{background:var(--warn-bg);color:var(--warn)}
 .now-note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px}
-@media(max-width:860px){.now-grid{grid-template-columns:repeat(5,1fr)}.now-live{font-size:22px}}
+/* Now sub-tabs */
+.now-seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line-2);border-radius:11px;padding:3px;margin-bottom:16px;gap:2px}
+.now-seg button{display:inline-flex;align-items:center;gap:7px;border:none;background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;padding:8px 18px;border-radius:8px;cursor:pointer}
+.now-seg button .ic{font-size:16px}
+.now-seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+/* conference cards */
+.conf-card{border-bottom:1px solid var(--line)}
+.conf-card:last-child{border-bottom:none}
+.conf-card.on{background:var(--s-conf-bg)}
+.conf-card.infer{background:var(--surface-2)}
+.conf-top{display:flex;align-items:center;gap:13px;padding:13px 18px;cursor:pointer}
+.conf-chev{color:var(--muted);font-size:16px;margin-left:auto}
+.conf-body{padding:0 18px 16px 63px}
+.conf-actions{margin-bottom:12px}
+.tbtn.go{background:var(--sidebar);color:#fff;border-color:var(--sidebar)}
+.tbtn.go:hover{background:#1c2229}
+.conf-est{margin-bottom:14px}
+.conf-est-h{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.est-cur{color:var(--ink);font-weight:600}
+.est-cur.dim{color:var(--muted);font-weight:400}
+.est-chips{display:flex;flex-wrap:wrap;gap:7px}
+.est-chip{border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:500;padding:5px 12px;border-radius:20px;cursor:pointer}
+.est-chip:hover{border-color:var(--accent)}
+.est-chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.est-chip.clear{color:var(--muted)}
+.conf-notes-h{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.cnote{padding:8px 0;border-top:1px solid var(--line)}
+.cnote-t{font-size:13.5px;color:var(--ink);line-height:1.45}
+.cnote-m{font-size:11px;color:var(--muted);margin-top:3px}
+.cnote-x{border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;padding:0;text-decoration:underline}
+.cnote-empty{font-size:12.5px;color:var(--muted);padding:4px 0}
+.cnote-add{display:flex;gap:8px;margin-top:10px}
+.cnote-add input{flex:1}
+@media(max-width:860px){.now-grid{grid-template-columns:repeat(5,1fr)}.now-live{font-size:22px}.conf-body{padding-left:18px}}
 </style>
 </head>
 <body>
@@ -976,10 +1009,13 @@ let leaves={};
 // in-app notifications: notifs/{id}={uid,text,kind,briefId,at,by} — each doc is
 // FOR one person (uid); the bell shows only mine, so no one wades through others'.
 let notifs={};
-// live tracker (config/live): {court:{court,at,by,note}|null, conf:{label,time,at,by}|null}
-// One shared doc broadcast to everyone. Court = one-tap live only (no inference);
-// conf = the confirmed "on now" conference (schedule inference is computed at render).
+// live tracker (config/live): {court:{court,at,by,note}|null}
+// One shared doc broadcast to everyone. Court = one-tap live only (no inference).
 let live={};
+// per-conference live status: confstatus/{confKey}={date,time,label,onNow,endEst,
+// endAt,notes:[{text,by,at}],by,at} — broadcast to all so colleagues see whether a
+// conference is on, how long it may run, and the notes taken during it.
+let confStatus={};
 // calendar state: month shown, SC holidays map {dateISO:name|null}, senior
 // unavailability map {dateISO:note|null} (null = cleared), all day-sheet docs
 let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={}, vacation={ranges:[]};
@@ -1194,6 +1230,7 @@ function startApp(){
   unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); renderActive(); }));   // leave affects roster/board too
   unsub.push(db.watchCollection("notifs", rows=>{ notifs={}; rows.forEach(nn=>notifs[nn.id]=nn); updateBell(); }));
   unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; updateLivePill(); renderActive(); }));
+  unsub.push(db.watchCollection("confstatus", rows=>{ confStatus={}; rows.forEach(s=>confStatus[s.id]=s); if(curTab==="now")renderNow(); }));
   loadCourtUpdates();
   watchDaysheet();
 }
@@ -1646,63 +1683,129 @@ function updateLivePill(){
   if(dot) dot.classList.toggle("hidden",!c);
 }
 const COURT_SPECIALS=["Chamber","Registrar","Away"];
+const CONF_DUR=[{lab:"~5 min",min:5},{lab:"~15 min",min:15},{lab:"~30 min",min:30},{lab:"~1 hr",min:60},{lab:"Long",min:0}];
+const fmtClock=ms=>{ try{ return new Date(ms).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"}); }catch(e){ return ""; } };
+// stable per-conference id: date + time + label, sanitised for a Firestore doc id
+const confKey=c=>{ const t=String(c.time||"").replace(/[^\dapm]/gi,""); const l=String(c.label||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,48); return `${c.date||"x"}_${t||"x"}_${l||"x"}`; };
+// ALL conferences whose date is dateISO, scanned across every day sheet (a
+// conference can sit on a matter listed for another hearing day) — fixes the
+// "scheduled today but not showing" gap of reading only today's sheet.
+function conferencesOn(dateISO){
+  const raw=[];
+  Object.values(dsAll||{}).forEach(ds=>{ const dt=ds.date||ds.id;
+    (ds.entries||[]).forEach(e=>{ const cd=e.confDate||dt; if((e.confTime||e.confDate)&&cd===dateISO)
+      raw.push({date:cd,time:e.confTime||"",counsel:(e.counsel||"").trim(),title:resolveEntry(e,dt).title,kind:"matter"}); });
+    (ds.conferences||[]).forEach(c=>{ const cd=c.date||dt; if(cd===dateISO)
+      raw.push({date:cd,time:c.time||"",counsel:c.name||"",title:"",kind:"manual",isManual:true}); });
+  });
+  const counts={}; raw.forEach(r=>{ if(!r.isManual&&r.counsel){const k=r.counsel.toLowerCase(); counts[k]=(counts[k]||0)+1;} });
+  raw.forEach(r=>{ const dup=!r.isManual&&r.counsel&&counts[r.counsel.toLowerCase()]>1; const first=(r.title||"").split(/\s+/)[0]||""; r.label=(r.counsel||"—")+((dup&&first)?` (${first})`:""); });
+  const seen=new Set(), out=[]; raw.forEach(r=>{ const k=confKey(r); if(seen.has(k))return; seen.add(k); r.key=k; out.push(r); });
+  out.sort((a,b)=>(confMins(a.time)??9999)-(confMins(b.time)??9999));
+  return out;
+}
+
+let nowSub="conf";                 // which sub-tab: "conf" | "court"
+const nowConfOpen=new Set();        // expanded conference cards (session)
 function renderNow(){
+  const seg=`<div class="now-seg">
+    <button data-nowsub="conf" class="${nowSub==="conf"?"on":""}"><span class="ic ti ti-users-group"></span>Conference</button>
+    <button data-nowsub="court" class="${nowSub==="court"?"on":""}"><span class="ic ti ti-map-pin"></span>Court</button></div>`;
+  $("tab-now").innerHTML=`<div class="now-wrap">${seg}${nowSub==="court"?courtSectionHtml():confSectionHtml()}</div>`;
+  document.querySelectorAll("#tab-now [data-nowsub]").forEach(b=>b.onclick=()=>{ nowSub=b.dataset.nowsub; renderNow(); });
+  if(nowSub==="court") wireCourt(); else wireConf();
+}
+function courtSectionHtml(){
   const lc=live?.court||null, hasCourt=!!(lc&&lc.court);
   const courts=Array.from({length:17},(_,i)=>String(i+1));
   const courtBtn=c=>`<button class="now-court${String(lc?.court)===String(c)?" on":""}" data-setcourt="${esc(c)}">${esc(c)}</button>`;
-  const courtPanel=`<div class="ncard">
+  return `<div class="ncard">
     <div class="ncard-h"><span class="ic ti ti-map-pin"></span>Senior in court</div>
     <div class="ncard-b">
       ${hasCourt
         ? `<div class="now-live"><span class="now-dot"></span>${esc(courtLabel(lc.court))}</div>
-           <div class="now-meta">Marked by ${esc(nameOf(lc.by))} · <span data-ago="${lc.at||0}">${esc(timeAgo(lc.at))}</span></div>`
+           <div class="now-meta">Marked by ${esc(nameOf(lc.by))} · ${esc(timeAgo(lc.at))}</div>`
         : `<div class="now-blank">Not marked yet. Whoever is with the Senior — tap the court he's in and everyone sees it live.</div>`}
       <div class="now-grid">${courts.map(courtBtn).join("")}</div>
       <div class="now-grid now-grid-sp">${COURT_SPECIALS.map(courtBtn).join("")}</div>
       ${hasCourt?`<button class="tbtn sm now-clear" id="nowClear"><span class="ic ti ti-x"></span>Clear</button>`:""}
-    </div></div>`;
-
-  // conferences scheduled for today (from the day sheet), with auto-highlight of
-  // whichever slot contains "now" — confirmed one (one-tap) always wins.
-  const grp=conferenceList(todayISO()).find(g=>g.iso===todayISO());
-  const confs=grp?grp.items:[];
-  const d=new Date(), nowMin=d.getHours()*60+d.getMinutes();
-  const withMin=confs.map((c,i)=>({c,i,m:confMins(c.time)})).filter(x=>x.m!=null).sort((a,b)=>a.m-b.m);
-  let inferIdx=-1; withMin.forEach(x=>{ if(x.m<=nowMin && (nowMin-x.m)<=120) inferIdx=x.i; });
-  const cf=live?.conf||null;
-  const isConfirmed=c=>cf&&cf.time===c.time&&cf.label===c.label;
-  const confRow=(c,i)=>{ const conf=isConfirmed(c), infer=!cf&&i===inferIdx;
-    return `<div class="conf-row${conf?" on":infer?" infer":""}">
-      <span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span>
-      <span class="conf-l">${esc(c.label||"—")}${c.title?`<span class="conf-sub">${esc(c.title)}</span>`:""}
-        ${conf?`<span class="conf-tag now"><span class="dot"></span>On now</span>`:infer?`<span class="conf-tag maybe">likely now</span>`:""}</span>
-      ${conf?`<button class="tbtn sm" data-confdone="1"><span class="ic ti ti-check"></span>Done</button>`
-             :`<button class="tbtn sm" data-confon="${i}">Mark on now</button>`}
-    </div>`; };
-  const confPanel=`<div class="ncard">
-    <div class="ncard-h"><span class="ic ti ti-users-group"></span>Conferences today
-      ${confs.length?`<span class="ncard-hs">${esc(confDateHeading(todayISO()))}</span>`:""}</div>
-    <div class="ncard-b np">
-      ${confs.length?confs.map(confRow).join("")
-        :`<div class="now-blank" style="margin:8px 12px">No conferences scheduled for today.</div>`}
-    </div></div>`;
-
-  $("tab-now").innerHTML=`<div class="now-wrap">${courtPanel}${confPanel}
-    <div class="now-note">Live to the whole chamber. Nothing is inferred from a sensor — it shows exactly what someone last tapped.</div></div>`;
-
+    </div></div>
+    <div class="now-note">Live to the whole chamber. Nothing is inferred — it shows exactly what someone last tapped.</div>`;
+}
+function wireCourt(){
+  const lc=live?.court||null;
   document.querySelectorAll("#tab-now [data-setcourt]").forEach(x=>x.onclick=async()=>{
     const c=x.dataset.setcourt;
     if(String(lc?.court)===String(c)){ await db.set("config/live",{court:null},true); toast("Cleared"); return; }
     await db.set("config/live",{court:{court:c,at:Date.now(),by:me.uid}},true); toast(courtLabel(c)+" — live to everyone","ti-broadcast");
   });
   if($("nowClear")) $("nowClear").onclick=async()=>{ await db.set("config/live",{court:null},true); toast("Cleared"); };
-  document.querySelectorAll("#tab-now [data-confon]").forEach(x=>x.onclick=async()=>{
-    const c=confs[+x.dataset.confon]; if(!c)return;
-    await db.set("config/live",{conf:{label:c.label||"",time:c.time||"",at:Date.now(),by:me.uid}},true); toast("Marked on now","ti-broadcast");
-  });
-  document.querySelectorAll("#tab-now [data-confdone]").forEach(x=>x.onclick=async()=>{
-    await db.set("config/live",{conf:null},true); toast("Conference ended");
-  });
+}
+function confSectionHtml(){
+  const confs=conferencesOn(todayISO());
+  const d=new Date(), nowMin=d.getHours()*60+d.getMinutes();
+  let inferIdx=-1; confs.forEach((c,i)=>{ const m=confMins(c.time); if(m!=null&&m<=nowMin&&(nowMin-m)<=150) inferIdx=i; });
+  const anyOn=confs.some(c=>confStatus[c.key]?.onNow);
+  const cards=confs.map((c,i)=>{
+    const st=confStatus[c.key]||{}, onNow=!!st.onNow, infer=!anyOn&&i===inferIdx, open=onNow||nowConfOpen.has(c.key);
+    const notes=st.notes||[];
+    let estLine;
+    if(st.endAt){ const left=Math.round((st.endAt-Date.now())/60000);
+      estLine=`<span class="est-cur">${left>0?`ends ~${esc(fmtClock(st.endAt))} · in ${left} min`:`past estimate (~${esc(fmtClock(st.endAt))})`}</span>`; }
+    else if(st.endEst) estLine=`<span class="est-cur">${esc(st.endEst)}</span>`;
+    else estLine=`<span class="est-cur dim">not set</span>`;
+    const durBtns=CONF_DUR.map(dd=>`<button class="est-chip${st.endEst===dd.lab?" on":""}" data-est="${esc(c.key)}|${dd.min}|${esc(dd.lab)}">${esc(dd.lab)}</button>`).join("")
+      +((st.endEst||st.endAt)?`<button class="est-chip clear" data-est="${esc(c.key)}||">Clear</button>`:"");
+    const noteList=notes.length?notes.map((nn,ni)=>`<div class="cnote"><div class="cnote-t">${esc(nn.text)}</div><div class="cnote-m">${esc(nameOf(nn.by))} · ${esc(timeAgo(nn.at))}${(nn.by===me.uid||canManage())?` · <button class="cnote-x" data-notedel="${esc(c.key)}|${ni}">remove</button>`:""}</div></div>`).join(""):`<div class="cnote-empty">No notes yet.</div>`;
+    return `<div class="conf-card${onNow?" on":infer?" infer":""}">
+      <div class="conf-top" data-conftoggle="${esc(c.key)}">
+        <span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span>
+        <span class="conf-l">${esc(c.label||"—")}${c.title?`<span class="conf-sub">${esc(c.title)}</span>`:""}
+          ${onNow?`<span class="conf-tag now"><span class="dot"></span>On now</span>`:infer?`<span class="conf-tag maybe">likely now</span>`:""}</span>
+        <span class="ic ti ti-chevron-${open?"up":"down"} conf-chev"></span>
+      </div>
+      <div class="conf-body${open?"":" hidden"}">
+        <div class="conf-actions">
+          ${onNow?`<button class="tbtn sm" data-confdone="${esc(c.key)}"><span class="ic ti ti-check"></span>Mark ended</button>`
+                 :`<button class="tbtn sm go" data-confon="${esc(c.key)}"><span class="ic ti ti-player-play"></span>Mark on now</button>`}
+        </div>
+        <div class="conf-est">
+          <div class="conf-est-h">Likely to run · <span class="est-line">${estLine}</span></div>
+          <div class="est-chips">${durBtns}</div>
+        </div>
+        <div class="conf-notes">
+          <div class="conf-notes-h">Notes from the conference</div>
+          <div class="cnote-list">${noteList}</div>
+          <div class="cnote-add"><input type="text" placeholder="Add a note…" data-noteinput="${esc(c.key)}"><button class="tbtn sm" data-noteadd="${esc(c.key)}">Add</button></div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="ncard">
+    <div class="ncard-h"><span class="ic ti ti-users-group"></span>Conferences today
+      ${confs.length?`<span class="ncard-hs">${esc(confDateHeading(todayISO()))}</span>`:""}</div>
+    <div class="ncard-b np">
+      ${confs.length?cards:`<div class="now-blank" style="margin:8px 14px">No conferences scheduled for today.</div>`}
+    </div></div>
+    <div class="now-note">Estimates and notes are live to the whole chamber — colleagues see whether a conference is on, how long it may run, and what came out of it.</div>`;
+}
+function wireConf(){
+  const T=sel=>document.querySelectorAll("#tab-now "+sel);
+  const findC=k=>conferencesOn(todayISO()).find(z=>z.key===k);
+  const base=c=>({date:todayISO(),time:c?.time||"",label:c?.label||""});
+  T("[data-conftoggle]").forEach(x=>x.onclick=e=>{ if(e.target.closest("button,input"))return; const k=x.dataset.conftoggle; nowConfOpen.has(k)?nowConfOpen.delete(k):nowConfOpen.add(k); renderNow(); });
+  T("[data-confon]").forEach(x=>x.onclick=async()=>{ const k=x.dataset.confon; nowConfOpen.add(k);
+    await db.set("confstatus/"+k,{...base(findC(k)),onNow:true,by:me.uid,at:Date.now()},true); toast("Marked on now","ti-broadcast"); });
+  T("[data-confdone]").forEach(x=>x.onclick=async()=>{ await db.set("confstatus/"+x.dataset.confdone,{onNow:false},true); toast("Conference ended"); });
+  T("[data-est]").forEach(x=>x.onclick=async()=>{ const [k,min,lab]=x.dataset.est.split("|");
+    if(!lab&&!min){ await db.set("confstatus/"+k,{endEst:null,endAt:null},true); return; }
+    const m=parseInt(min,10)||0;
+    await db.set("confstatus/"+k,{...base(findC(k)),endEst:lab,endAt:m>0?Date.now()+m*60000:null,onNow:true,by:me.uid,at:Date.now()},true); });
+  T("[data-noteadd]").forEach(x=>x.onclick=async()=>{ const k=x.dataset.noteadd; const inp=document.querySelector(`#tab-now [data-noteinput="${k}"]`);
+    const txt=(inp?.value||"").trim(); if(!txt)return; const cur=confStatus[k]?.notes||[];
+    await db.set("confstatus/"+k,{...base(findC(k)),notes:[...cur,{text:txt,by:me.uid,at:Date.now()}]},true); if(inp)inp.value=""; });
+  T("[data-noteinput]").forEach(inp=>inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); document.querySelector(`#tab-now [data-noteadd="${inp.dataset.noteinput}"]`)?.click(); } });
+  T("[data-notedel]").forEach(x=>x.onclick=async()=>{ const [k,ni]=x.dataset.notedel.split("|"); const cur=(confStatus[k]?.notes||[]).slice(); cur.splice(+ni,1); await db.set("confstatus/"+k,{notes:cur},true); });
 }
 function notifSheet(){
   const list=myNotifs();
