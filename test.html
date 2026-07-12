@@ -106,7 +106,9 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .sb-foot .signout:hover{color:var(--sidebar-ink)}
 
 .content{flex:1;margin-left:var(--sb-w);min-width:0}
-.topbar{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:10}
+.topbar{min-height:64px;display:flex;align-items:center;gap:10px;padding:0 32px;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:10}
+.topbar-action{order:2;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.topbar-icons{order:3;display:flex;gap:8px;align-items:center;flex-shrink:0}
 .topbar h1{font-family:var(--serif);font-size:22px;font-weight:450;color:var(--ink);letter-spacing:-.01em}
 .topbar .sub{font-size:12.5px;color:var(--ink-3);margin-top:1px}
 .page{padding:28px 32px 60px;max-width:1120px}
@@ -393,6 +395,8 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .li-name{font-size:12.5px;font-weight:500;color:var(--ink);line-height:1.22;min-height:31px;display:flex;align-items:center;justify-content:center}
 .li-load{font-family:var(--serif);font-size:27px;font-weight:450;color:var(--ink);margin-top:6px;line-height:1}
 .li-lab{font-size:10px;color:var(--ink-3);margin-top:3px}
+.leave-island{cursor:default}
+.li-year{font-size:11px;color:var(--muted);margin-top:5px;padding-top:5px;border-top:1px solid var(--line)}
 .li-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .leave-bar{height:5px;background:var(--surface-2);border-radius:3px;margin-top:6px;max-width:200px;overflow:hidden}
 .leave-bar span{display:block;height:100%;background:var(--accent-ink);border-radius:3px}
@@ -552,8 +556,14 @@ html,body{overflow-x:hidden}   /* nothing may force the page wider than the phon
   .sidebar{display:none}
   .content{margin-left:0}
   .hamburger{display:none}
-  .topbar{padding:0 12px;gap:6px}
+  /* keep the topbar clear of the phone status bar / notch, and let the page
+     action buttons wrap to their own line so nothing overflows the width */
+  .topbar{flex-wrap:wrap;min-height:0;padding:calc(env(safe-area-inset-top,0px) + 9px) 12px 9px;gap:8px;row-gap:8px}
   .topbar h1{font-size:18px}
+  .topbar-icons{order:2}
+  .topbar-action{order:3;flex-basis:100%}
+  .topbar-action:empty{display:none}
+  .topbar-action .btn{flex:1;justify-content:center}
   .topbar .sub{display:none}
   .topbar .btn{padding:8px 12px;font-size:12.5px}
   .page{padding:20px 12px calc(74px + env(safe-area-inset-bottom,0px))}
@@ -580,7 +590,7 @@ html,body{overflow-x:hidden}   /* nothing may force the page wider than the phon
   .sheet-body{padding:16px 16px 20px}
   .sheet-head{padding:16px 16px 13px}
 }
-.topbar-left{display:flex;align-items:center;min-width:0}
+.topbar-left{order:1;flex:1;display:flex;align-items:center;min-width:0}
 
 /* ---------------- demo bar ---------------- */
 #demoBar{position:fixed;top:0;left:0;right:0;height:34px;background:#cbb682;color:#3a2f14;display:flex;align-items:center;justify-content:center;gap:14px;font-size:12px;font-weight:500;z-index:80;padding:0 16px}
@@ -823,8 +833,8 @@ body.demo .topbar{top:34px}
         <button class="hamburger" id="hamburger" aria-label="Menu"><span class="ti ti-menu-2"></span></button>
         <div><h1 id="pageTitle">Calendar</h1><div class="sub" id="pageSub"></div></div>
       </div>
-      <div class="row" style="gap:8px;align-items:center">
-        <div id="topbarAction"></div>
+      <div id="topbarAction" class="topbar-action"></div>
+      <div class="topbar-icons">
         <button class="live-pill hidden" id="livePill" title="Where the Senior is now"></button>
         <button class="tbtn icon-only" id="btnBell" title="Notifications" aria-label="Notifications" style="position:relative"><span class="ic ti ti-bell"></span><span id="bellCount" class="bell-badge hidden"></span></button>
         <button class="tbtn icon-only" id="btnRefresh" title="Refresh — fetch the latest data and app version" aria-label="Refresh"><span class="ic ti ti-refresh"></span></button>
@@ -2563,6 +2573,22 @@ function cleanCoram(raw){
   }
   return raw.replace(/\s+/g," ").trim();  // registrar / other
 }
+// Shorten a judge's name to fit the causelist column: first/middle names become
+// initials, the surname stays full ("Prashant Kumar Mishra" → "P.K. Mishra").
+function abbrevJudge(name){
+  name=String(name||"").trim(); if(!name) return name;
+  if(/^C\.?J\.?I\.?$/i.test(name)) return "C.J.I.";
+  const words=name.split(/\s+/); if(words.length<2) return name;   // single word — nothing to shorten
+  const surname=words[words.length-1];
+  const inits=words.slice(0,-1).map(w=>{
+    if(/^[A-Za-z](\.[A-Za-z])*\.?$/.test(w)) return (w.endsWith(".")?w:w+".").toUpperCase();   // already an initial
+    return w[0].toUpperCase()+".";
+  }).join("");
+  return inits+" "+surname;
+}
+// Only shorten LONG names automatically; short two-word names stay full.
+const shortJudge=name=>{ const t=String(name||"").trim(); const w=t.split(/\s+/); return (w.length>=3||t.length>16)?abbrevJudge(t):t; };
+const shortBench=bench=>String(bench||"").split(/\s*,\s*/).map(s=>shortJudge(s.trim())).filter(Boolean).join(", ");
 const causeListReady = () => !!(courtUpdates && courtUpdates.by_date && Object.keys(courtUpdates.by_date).length);
 // Given just court + item (+ date), find the matter across ALL list types.
 // Returns {listType, caseLine, coram} or null. Item-number ranges differ by
@@ -2693,7 +2719,7 @@ function renderToday(){
             ${b?.priority?'<span class="chip urgent-tag"><span class="dot"></span>Urgent</span>':''}
           </div>
           <div class="rail-case">${renderTitle(R.title,R.appearingFor,"html")}</div>
-          ${R.bench?`<div class="rail-meta" style="margin-top:2px"><span class="muted">Bench:</span><span>${esc(R.bench)}</span></div>`:''}
+          ${R.bench?`<div class="rail-meta" style="margin-top:2px"><span class="muted">Bench:</span><span>${esc(shortBench(R.bench))}</span></div>`:''}
           <div class="rail-meta">
             ${e.counsel?`<span>${esc(e.counsel)}</span><span>·</span>`:''}
             ${jrsOf(e).length?jrsOf(e).map(u=>`<span class="rail-jr"><span class="mini-ava">${esc(initials(nameOf(u)))}</span>${esc(nameOf(u))}${onLeaveOn(u,dsDate)?' <span class="chip av-leave" style="margin-left:4px"><span class="dot"></span>On leave this day</span>':''}</span>`).join(""):'<span class="muted">No colleague marked</span>'}
@@ -2722,7 +2748,7 @@ function renderToday(){
         <td class="num">${e.done?'<span class="ti ti-check"></span>':i+1}</td>
         <td class="mono ctitem">Ct-${esc(e.courtNo||'?')}#${esc(e.itemNo||'?')}${R.listType?`<div class="muted" style="font-size:10.5px;font-family:Inter,sans-serif">${esc(R.listType)}</div>`:''}</td>
         <td class="mono time">${esc(e.time||'')}</td>
-        <td><div class="tcase">${renderTitle(R.title,R.appearingFor,"html")}${b?.priority?' <span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px"></span>':''}</div>${R.bench?`<div class="tbench muted">${esc(R.bench)}</div>`:''}</td>
+        <td><div class="tcase">${renderTitle(R.title,R.appearingFor,"html")}${b?.priority?' <span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px"></span>':''}</div>${R.bench?`<div class="tbench muted">${esc(shortBench(R.bench))}</div>`:''}</td>
         <td>${e.counsel?`<div>${esc(e.counsel)}</div>`:''}<div class="${e.counsel?'muted':''}">${jrs.length?jrs.map(u=>esc(nameOf(u))+(onLeaveOn(u,dsDate)?' <span class="ti ti-plane-departure" style="color:var(--warn)" title="On leave this day"></span>':'')).join(" / "):'<span class="muted">no colleague marked</span>'}</div></td>
         <td class="muted" style="font-size:12.5px">${esc(e.remarks||'')}</td>
         <td class="tact">${(canManage()||isSenior())?`<button class="tbtn icon-only" data-dsdone="${i}" title="${e.done?'Undo':'Mark done'}"><span class="ic ti ${e.done?'ti-arrow-back-up':'ti-circle-check'}"></span></button>`:''}${b?`<button class="tbtn icon-only" data-brief="${b.id}" title="Open brief"><span class="ic ti ti-folder"></span></button>`:''}${canManage()?`<button class="tbtn icon-only" data-dsedit="${i}" title="Edit"><span class="ic ti ti-pencil"></span></button><button class="tbtn icon-only" data-dsdel="${i}" title="Remove"><span class="ic ti ti-trash"></span></button>`:''}</td>
@@ -2843,7 +2869,7 @@ function printCauseList(iso){
   const rows=entries.map((e,i)=>{
     const R=resolveEntry(e,iso);
     const ci=`${q(e.courtNo||"?")} #${q(e.itemNo||"?")}`;
-    const judges=String(R.bench||"").split(/\s*,\s*/).filter(Boolean).map(q).join("<br>");   // one judge per line
+    const judges=String(R.bench||"").split(/\s*,\s*/).filter(Boolean).map(j=>q(shortJudge(j))).join("<br>");   // one judge per line
     // (P)/(R) = which side we appear for; a short own line so the advocate names
     // keep their exact width/height. Respondent -> (R), any other side -> (P).
     const side = R.appearingFor ? (/resp/i.test(R.appearingFor) ? "(R)" : "(P)") : "";
@@ -2931,7 +2957,7 @@ async function buildCauselistPdf(iso){
   const cw=doc.getTextWidth(ch); doc.setLineWidth(0.7); doc.line((W-cw)/2,77,(W+cw)/2,77);
   const body=entries.map(e=>{
     const R=resolveEntry(e,iso);
-    const judges=String(R.bench||"").split(/\s*,\s*/).filter(Boolean).join("\n");
+    const judges=String(R.bench||"").split(/\s*,\s*/).filter(Boolean).map(shortJudge).join("\n");
     const side=R.appearingFor?(/resp/i.test(R.appearingFor)?"(R)":"(P)"):"";
     const adv=[side,e.counsel,...jrsOf(e).map(u=>nameOf(u))].filter(Boolean).join("\n");
     let last="";
@@ -3522,13 +3548,15 @@ function renderLeave(){
   const all=Object.values(leaves); const cols=rosterDisplay();
   const mDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,mStart,mEnd),0);
   const yDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
-  const maxY=Math.max(1,...cols.map(m=>yDays(m.id)));
-  const counters=`<div class="panel"><div class="panel-head">Leave taken <span class="muted" style="font-weight:400;font-size:12px">this month &amp; this year</span></div>
-    ${cols.map(m=>{const md=mDays(m.id),yd=yDays(m.id);return `<div class="trow">
-      <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
-      <div class="info" style="flex:1;min-width:0"><div class="nm">${esc(m.name)}</div><div class="leave-bar"><span style="width:${Math.round(yd/maxY*100)}%"></span></div></div>
-      <div style="text-align:right;flex-shrink:0"><div style="font-family:var(--serif);font-size:17px;line-height:1">${md}<span class="muted" style="font-size:11px;font-family:Inter,sans-serif"> this month</span></div><div class="muted" style="font-size:12px;margin-top:2px">${yd} day${yd!==1?'s':''} this year</div></div>
-    </div>`;}).join("")}</div>`;
+  const counters=`<div class="panel"><div class="panel-head">Leave taken <span class="muted" style="font-weight:400;font-size:12px">this month · this year</span></div>
+    <div style="padding:14px 12px"><div class="load-islands">${cols.map(m=>{const md=mDays(m.id),yd=yDays(m.id);
+      return `<div class="load-island leave-island">
+        <div class="li-ava">${esc(initials(m.name))}</div>
+        <div class="li-name">${esc(m.name)}</div>
+        <div class="li-load">${md}</div>
+        <div class="li-lab">day${md!==1?'s':''} this month</div>
+        <div class="li-year">${yd} day${yd!==1?'s':''} this year</div>
+      </div>`;}).join("")||'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}</div></div></div>`;
   const log=all.slice().sort((a,b)=>(b.from||"").localeCompare(a.from||""));
   const logPanel=`<div class="panel" style="margin-top:16px"><div class="panel-head">Leave log</div>
     ${log.length?log.map(l=>`<div class="trow">
