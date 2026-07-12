@@ -694,6 +694,9 @@ body.demo .topbar{top:34px}
 .cnote-t{font-size:13.5px;color:var(--ink);line-height:1.45}
 .cnote-m{font-size:11px;color:var(--muted);margin-top:3px}
 .cnote-x{border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;padding:0;text-decoration:underline}
+.cnote-x.edit{color:var(--accent)}
+.cnote.editing{padding:10px 0}
+.cnote-editbar{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
 .cnote-empty{font-size:12.5px;color:var(--muted);padding:4px 0}
 .cnote-add{margin-top:12px}
 .cnote-ta{width:100%;min-height:96px;resize:vertical;font-family:var(--sans);font-size:14px;line-height:1.55;padding:11px 13px;border-radius:10px}
@@ -1829,6 +1832,7 @@ function conferencesOn(dateISO){
 
 let nowSub="conf";                 // which sub-tab: "conf" | "court"
 const nowConfOpen=new Set();        // expanded conference cards (session)
+let _editNote=null;                 // "confKey|index" of the note being edited inline
 function renderNow(){
   stopConfTimer();   // re-established below if a conference is running
   const seg=`<div class="now-seg">
@@ -1892,7 +1896,12 @@ function confSectionHtml(){
     // the estimate/status message the attending colleague posted — pops up next to the conference
     const bubble = smsg&&smsg.text ? `<div class="conf-msg"><span class="ic ti ti-message-2"></span><span class="conf-msg-t">${esc(smsg.text)}</span><span class="conf-msg-by">${esc(nameOf(smsg.by))} · ${esc(timeAgo(smsg.at))}</span></div>` : "";
     const asking = asks.length ? `<span class="conf-asking"><span class="ic ti ti-hand-finger"></span>${asks.length} asking</span>` : "";
-    const noteList=notes.length?notes.map((nn,ni)=>`<div class="cnote"><div class="cnote-t">${esc(nn.text)}</div><div class="cnote-m">${esc(nameOf(nn.by))} · ${esc(timeAgo(nn.at))}${(canEdit&&(nn.by===me.uid||canManage()))?` · <button class="cnote-x" data-notedel="${esc(c.key)}|${ni}">remove</button>`:""}</div></div>`).join(""):`<div class="cnote-empty">No notes yet.</div>`;
+    const noteList=notes.length?notes.map((nn,ni)=>{
+      const mine=canEdit&&(nn.by===me.uid||canManage());
+      if(mine&&_editNote===`${c.key}|${ni}`)
+        return `<div class="cnote editing"><textarea class="cnote-ta" data-noteeditta="${esc(c.key)}|${ni}">${esc(nn.text)}</textarea><div class="cnote-editbar"><button class="tbtn sm" data-noteeditcancel="1">Cancel</button><button class="tbtn sm go" data-noteeditsave="${esc(c.key)}|${ni}"><span class="ic ti ti-check"></span>Save</button></div></div>`;
+      return `<div class="cnote"><div class="cnote-t">${esc(nn.text)}</div><div class="cnote-m">${esc(nameOf(nn.by))} · ${esc(timeAgo(nn.at))}${nn.edited?" · edited":""}${mine?` · <button class="cnote-x edit" data-noteedit="${esc(c.key)}|${ni}">edit</button> · <button class="cnote-x" data-notedel="${esc(c.key)}|${ni}">remove</button>`:""}</div></div>`;
+    }).join(""):`<div class="cnote-empty">No notes yet.</div>`;
     return `<div class="conf-card${running?" on":paused?" paused":ended?" ended":infer?" infer":""}">
       <div class="conf-top" data-conftoggle="${esc(c.key)}">
         <span class="conf-sn">${i+1}</span>
@@ -1971,6 +1980,16 @@ function wireConf(){
   T("[data-noteinput]").forEach(inp=>inp.onkeydown=e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); document.querySelector(`#tab-now [data-noteadd="${inp.dataset.noteinput}"]`)?.click(); } });
   T("[data-notedel]").forEach(x=>x.onclick=async()=>{ const [k,ni]=x.dataset.notedel.split("|"); const c0=(confStatus[k]?.notes||[]).slice(); const removed=c0.splice(+ni,1)[0]; await db.set("confstatus/"+k,{notes:c0},true);
     const c=findC(k); if(c?.briefId&&briefs[c.briefId]&&removed?.id){ try{ await db.update("briefs/"+c.briefId,{confNotes:(briefs[c.briefId].confNotes||[]).filter(n=>n.id!==removed.id),updatedAt:db.now()}); }catch(_){} } });
+  T("[data-noteedit]").forEach(x=>x.onclick=()=>{ _editNote=x.dataset.noteedit; renderNow(); const ta=document.querySelector(`#tab-now [data-noteeditta="${x.dataset.noteedit}"]`); if(ta){ ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); } });
+  T("[data-noteeditcancel]").forEach(x=>x.onclick=()=>{ _editNote=null; renderNow(); });
+  T("[data-noteeditsave]").forEach(x=>x.onclick=async()=>{ const key=x.dataset.noteeditsave, [k,ni]=key.split("|"), idx=+ni;
+    const ta=document.querySelector(`#tab-now [data-noteeditta="${key}"]`), txt=(ta?.value||"").trim();
+    const arr=(confStatus[k]?.notes||[]).slice(), old=arr[idx]; _editNote=null;
+    if(!old||!txt){ renderNow(); return; }
+    arr[idx]={...old,text:txt,edited:true,editedAt:Date.now()};
+    await db.set("confstatus/"+k,{notes:arr},true);
+    const c=findC(k); if(c?.briefId&&briefs[c.briefId]&&old.id){ try{ await db.update("briefs/"+c.briefId,{confNotes:(briefs[c.briefId].confNotes||[]).map(n=>n.id===old.id?{...n,text:txt,edited:true,editedAt:Date.now()}:n),updatedAt:db.now()}); }catch(_){} }
+    toast("Note updated","ti-check"); });
   T("[data-noteexport]").forEach(x=>x.onclick=()=>{ const k=x.dataset.noteexport, c=findC(k);
     exportNotesDoc(c?.title||c?.label||"Conference", `${c?.label||""} · ${confDateHeading(todayISO())}`, confStatus[k]?.notes||[], "Conference notes - "+(c?.label||"conference")); });
 }
