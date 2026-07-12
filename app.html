@@ -585,6 +585,44 @@ body.demo #app,body.demo .auth-wrap{margin-top:34px}
 body.demo .sidebar{top:34px}
 body.demo .topbar{top:34px}
 @media(max-width:520px){#demoBar .tag{display:none}}
+
+/* ---- Now / live tracker ---- */
+.now-nav-dot{width:7px;height:7px;border-radius:50%;background:#3fae63;margin-left:auto;box-shadow:0 0 0 3px rgba(63,174,99,.25)}
+.live-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;border-radius:20px;background:rgba(63,174,99,.12);border:1px solid rgba(63,174,99,.42);color:#256b3c;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.live-pill:hover{background:rgba(63,174,99,.18)}
+.now-wrap{max-width:760px}
+.ncard{background:var(--surface);border:1px solid var(--line-2);border-radius:14px;margin-bottom:16px;overflow:hidden}
+.ncard-h{display:flex;align-items:center;gap:9px;padding:14px 18px;font-family:var(--serif);font-size:17px;font-weight:450;color:var(--ink);border-bottom:1px solid var(--line);background:var(--surface-2)}
+.ncard-h .ic{color:var(--accent);font-size:18px}
+.ncard-hs{margin-left:auto;font-family:var(--sans);font-size:12px;font-weight:400;color:var(--muted)}
+.ncard-b{padding:18px}
+.ncard-b.np{padding:6px 0}
+.now-live{display:flex;align-items:center;gap:12px;font-family:var(--serif);font-size:26px;font-weight:450;color:var(--ink)}
+.now-meta{font-size:12.5px;color:var(--muted);margin-top:5px}
+.now-blank{font-size:13.5px;color:var(--muted);line-height:1.55}
+.now-dot{width:11px;height:11px;border-radius:50%;background:#3fae63;box-shadow:0 0 0 0 rgba(63,174,99,.5);animation:nowpulse 1.8s infinite}
+.live-pill .now-dot{width:8px;height:8px}
+@keyframes nowpulse{0%{box-shadow:0 0 0 0 rgba(63,174,99,.45)}70%{box-shadow:0 0 0 8px rgba(63,174,99,0)}100%{box-shadow:0 0 0 0 rgba(63,174,99,0)}}
+.now-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-top:16px}
+.now-grid-sp{grid-template-columns:repeat(3,1fr);margin-top:9px}
+.now-court{aspect-ratio:1;min-height:46px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface);font-family:var(--serif);font-size:19px;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s}
+.now-grid-sp .now-court{aspect-ratio:auto;font-size:14px;font-family:var(--sans);font-weight:600}
+.now-court:hover{border-color:var(--accent);color:var(--accent)}
+.now-court.on{background:var(--sidebar);color:#fff;border-color:var(--sidebar);box-shadow:0 0 0 3px rgba(63,174,99,.22)}
+.now-clear{margin-top:14px}
+.conf-row{display:flex;align-items:center;gap:13px;padding:12px 18px;border-bottom:1px solid var(--line);font-size:14px}
+.conf-row:last-child{border-bottom:none}
+.conf-row.on{background:var(--s-conf-bg)}
+.conf-row.infer{background:var(--surface-2)}
+.conf-t{min-width:52px;color:var(--muted);font-size:13px}
+.conf-l{flex:1;display:flex;flex-direction:column;gap:2px}
+.conf-sub{font-size:12px;color:var(--muted)}
+.conf-tag{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;margin-top:2px}
+.conf-tag.now{background:var(--s-conf);color:#fff}
+.conf-tag.now .dot{width:6px;height:6px;border-radius:50%;background:#fff}
+.conf-tag.maybe{background:var(--warn-bg);color:var(--warn)}
+.now-note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px}
+@media(max-width:860px){.now-grid{grid-template-columns:repeat(5,1fr)}.now-live{font-size:22px}}
 </style>
 </head>
 <body>
@@ -651,6 +689,7 @@ body.demo .topbar{top:34px}
     </div>
     <nav class="sb-nav" id="sbNav">
       <button data-tab="cal" class="active"><span class="ic ti ti-calendar-month"></span>Calendar</button>
+      <button data-tab="now"><span class="ic ti ti-broadcast"></span>Now<span class="now-nav-dot hidden" id="navNowDot"></span></button>
       <button data-tab="board"><span class="ic ti ti-layout-grid"></span>Work board</button>
       <button data-tab="today"><span class="ic ti ti-list-check"></span>Day sheet</button>
       <button data-tab="briefs"><span class="ic ti ti-folders"></span>Briefs<span class="count" id="cntBriefs"></span></button>
@@ -675,6 +714,7 @@ body.demo .topbar{top:34px}
       </div>
       <div class="row" style="gap:8px;align-items:center">
         <div id="topbarAction"></div>
+        <button class="live-pill hidden" id="livePill" title="Where the Senior is now"></button>
         <button class="tbtn icon-only" id="btnBell" title="Notifications" aria-label="Notifications" style="position:relative"><span class="ic ti ti-bell"></span><span id="bellCount" class="bell-badge hidden"></span></button>
         <button class="tbtn icon-only" id="btnRefresh" title="Refresh — fetch the latest data and app version" aria-label="Refresh"><span class="ic ti ti-refresh"></span></button>
         <button class="tbtn icon-only" id="btnView" title="Switch between mobile and desktop view" aria-label="Toggle view"><span class="ic ti ti-device-mobile"></span></button>
@@ -683,6 +723,7 @@ body.demo .topbar{top:34px}
     </div>
     <div class="page">
       <section id="tab-cal"></section>
+      <section id="tab-now" class="hidden"></section>
       <section id="tab-board" class="hidden"></section>
       <section id="tab-today" class="hidden"></section>
       <section id="tab-briefs" class="hidden"></section>
@@ -989,6 +1030,10 @@ let leaves={};
 // in-app notifications: notifs/{id}={uid,text,kind,briefId,at,by} — each doc is
 // FOR one person (uid); the bell shows only mine, so no one wades through others'.
 let notifs={};
+// live tracker (config/live): {court:{court,at,by,note}|null, conf:{label,time,at,by}|null}
+// One shared doc broadcast to everyone. Court = one-tap live only (no inference);
+// conf = the confirmed "on now" conference (schedule inference is computed at render).
+let live={};
 // calendar state: month shown, SC holidays map {dateISO:name|null}, senior
 // unavailability map {dateISO:note|null} (null = cleared), all day-sheet docs
 let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={}, vacation={ranges:[]};
@@ -1153,6 +1198,7 @@ applyViewPref();
 if($("navMore")) $("navMore").onclick=()=>{
   openSheet(`<div class="sheet-head"><div><h3>More</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
+      <button class="btn ghost" data-moretab="now" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-broadcast"></span>Now — live tracker</button>
       <button class="btn ghost" data-moretab="roster" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-list-numbers"></span>Roster</button>
       <button class="btn ghost" data-moretab="leave" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-plane-departure"></span>Leave</button>
       <button class="btn ghost" data-moretab="team" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-users"></span>Chamber</button>
@@ -1201,6 +1247,7 @@ function startApp(){
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); renderActive(); }));   // leave affects roster/board too
   unsub.push(db.watchCollection("notifs", rows=>{ notifs={}; rows.forEach(nn=>notifs[nn.id]=nn); updateBell(); }));
+  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; updateLivePill(); renderActive(); }));
   loadCourtUpdates();
   watchDaysheet();
 }
@@ -1224,20 +1271,21 @@ let curTab="cal";
 // ones a user collapses for the session.
 const uiExp={ balance:true, rosterInfo:false, cardsClosed:new Set() };
 const TITLES={cal:["Calendar","Court days, holidays and the chamber's diary"],
+  now:["Now","Live — where the Senior is and what's on"],
   board:["Work board","Distribution and workload across the chamber"],
   today:["Day sheet",""], briefs:["Briefs","The chamber's matter register"],
   roster:["Roster","Assignment order and rotation"], leave:["Leave","Chamber leave — logged openly for everyone"], team:["Chamber","People and availability"]};
 document.querySelectorAll("#sbNav button, #mobileNav button").forEach(b=>{ if(b.dataset.tab) b.onclick=()=>selectTab(b.dataset.tab); });   // navMore keeps its own handler
 function selectTab(t){ curTab=t;
   document.querySelectorAll("#sbNav button, #mobileNav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
-  if($("navMore")) $("navMore").classList.toggle("active",["roster","leave","team"].includes(t));   // More holds these
-  ["cal","board","today","briefs","roster","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
+  if($("navMore")) $("navMore").classList.toggle("active",["now","roster","leave","team"].includes(t));   // More holds these (mobile)
+  ["cal","now","board","today","briefs","roster","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
   $("pageTitle").textContent=TITLES[t][0]; $("pageSub").textContent=TITLES[t][1];
   if((t==="today"||t==="cal")&&me&&courtUpdatesStale()) loadCourtUpdates();
   closeSidebar(); renderActive();
 }
 function renderActive(){ if(!me)return;
-  if(curTab==="cal")renderCal(); else if(curTab==="board")renderBoard(); else if(curTab==="today")renderToday();
+  if(curTab==="cal")renderCal(); else if(curTab==="now")renderNow(); else if(curTab==="board")renderBoard(); else if(curTab==="today")renderToday();
   else if(curTab==="briefs")renderBriefs(); else if(curTab==="roster")renderRoster(); else if(curTab==="leave")renderLeave(); else if(curTab==="team")renderTeam(); }
 
 /* ---- mobile sidebar ---- */
@@ -1632,6 +1680,83 @@ async function pushNotif(uids,text,kind,briefId){
   for(const u of [...new Set(uids||[])]){ if(!u||u===me.uid) continue;
     try{ await db.add("notifs",{uid:u,text,kind:kind||"assign",briefId:briefId||null,at:Date.now(),by:me.uid}); }catch(_){}
   }
+}
+
+/* ---- Live "Now" tracker (config/live) ------------------------------------
+   Court location = one-tap live only: blank until someone with the Senior
+   taps the current court; broadcast to everyone; no guessing. Conference =
+   the schedule auto-highlights whichever slot contains "now", and one tap
+   confirms which one is actually on. Both are one shared doc, live to all. */
+const courtLabel=c=>{ c=String(c||"").trim(); return /^\d+$/.test(c)?("Court "+c):c; };
+const confMins=t=>{ const c=toClock(t); const m=String(c).match(/^(\d{1,2}):(\d{2})/); return m?(+m[1]*60 + +m[2]):null; };
+function timeAgo(ms){ if(!ms) return ""; const s=Math.max(0,Math.floor((Date.now()-ms)/1000));
+  if(s<45) return "just now"; if(s<3600) return Math.floor(s/60)+" min ago";
+  if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; }
+// topbar pill + sidebar dot — glanceable "where the Senior is" from any tab
+function updateLivePill(){
+  const c=live?.court?.court, p=$("livePill"), dot=$("navNowDot");
+  if(p){ if(c){ p.classList.remove("hidden"); p.innerHTML=`<span class="now-dot"></span>${esc(courtLabel(c))}`; p.onclick=()=>selectTab("now"); }
+         else p.classList.add("hidden"); }
+  if(dot) dot.classList.toggle("hidden",!c);
+}
+const COURT_SPECIALS=["Chamber","Registrar","Away"];
+function renderNow(){
+  const lc=live?.court||null, hasCourt=!!(lc&&lc.court);
+  const courts=Array.from({length:17},(_,i)=>String(i+1));
+  const courtBtn=c=>`<button class="now-court${String(lc?.court)===String(c)?" on":""}" data-setcourt="${esc(c)}">${esc(c)}</button>`;
+  const courtPanel=`<div class="ncard">
+    <div class="ncard-h"><span class="ic ti ti-map-pin"></span>Senior in court</div>
+    <div class="ncard-b">
+      ${hasCourt
+        ? `<div class="now-live"><span class="now-dot"></span>${esc(courtLabel(lc.court))}</div>
+           <div class="now-meta">Marked by ${esc(nameOf(lc.by))} · <span data-ago="${lc.at||0}">${esc(timeAgo(lc.at))}</span></div>`
+        : `<div class="now-blank">Not marked yet. Whoever is with the Senior — tap the court he's in and everyone sees it live.</div>`}
+      <div class="now-grid">${courts.map(courtBtn).join("")}</div>
+      <div class="now-grid now-grid-sp">${COURT_SPECIALS.map(courtBtn).join("")}</div>
+      ${hasCourt?`<button class="tbtn sm now-clear" id="nowClear"><span class="ic ti ti-x"></span>Clear</button>`:""}
+    </div></div>`;
+
+  // conferences scheduled for today (from the day sheet), with auto-highlight of
+  // whichever slot contains "now" — confirmed one (one-tap) always wins.
+  const grp=conferenceList(todayISO()).find(g=>g.iso===todayISO());
+  const confs=grp?grp.items:[];
+  const d=new Date(), nowMin=d.getHours()*60+d.getMinutes();
+  const withMin=confs.map((c,i)=>({c,i,m:confMins(c.time)})).filter(x=>x.m!=null).sort((a,b)=>a.m-b.m);
+  let inferIdx=-1; withMin.forEach(x=>{ if(x.m<=nowMin && (nowMin-x.m)<=120) inferIdx=x.i; });
+  const cf=live?.conf||null;
+  const isConfirmed=c=>cf&&cf.time===c.time&&cf.label===c.label;
+  const confRow=(c,i)=>{ const conf=isConfirmed(c), infer=!cf&&i===inferIdx;
+    return `<div class="conf-row${conf?" on":infer?" infer":""}">
+      <span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span>
+      <span class="conf-l">${esc(c.label||"—")}${c.title?`<span class="conf-sub">${esc(c.title)}</span>`:""}
+        ${conf?`<span class="conf-tag now"><span class="dot"></span>On now</span>`:infer?`<span class="conf-tag maybe">likely now</span>`:""}</span>
+      ${conf?`<button class="tbtn sm" data-confdone="1"><span class="ic ti ti-check"></span>Done</button>`
+             :`<button class="tbtn sm" data-confon="${i}">Mark on now</button>`}
+    </div>`; };
+  const confPanel=`<div class="ncard">
+    <div class="ncard-h"><span class="ic ti ti-users-group"></span>Conferences today
+      ${confs.length?`<span class="ncard-hs">${esc(confDateHeading(todayISO()))}</span>`:""}</div>
+    <div class="ncard-b np">
+      ${confs.length?confs.map(confRow).join("")
+        :`<div class="now-blank" style="margin:8px 12px">No conferences scheduled for today.</div>`}
+    </div></div>`;
+
+  $("tab-now").innerHTML=`<div class="now-wrap">${courtPanel}${confPanel}
+    <div class="now-note">Live to the whole chamber. Nothing is inferred from a sensor — it shows exactly what someone last tapped.</div></div>`;
+
+  document.querySelectorAll("#tab-now [data-setcourt]").forEach(x=>x.onclick=async()=>{
+    const c=x.dataset.setcourt;
+    if(String(lc?.court)===String(c)){ await db.set("config/live",{court:null},true); toast("Cleared"); return; }
+    await db.set("config/live",{court:{court:c,at:Date.now(),by:me.uid}},true); toast(courtLabel(c)+" — live to everyone","ti-broadcast");
+  });
+  if($("nowClear")) $("nowClear").onclick=async()=>{ await db.set("config/live",{court:null},true); toast("Cleared"); };
+  document.querySelectorAll("#tab-now [data-confon]").forEach(x=>x.onclick=async()=>{
+    const c=confs[+x.dataset.confon]; if(!c)return;
+    await db.set("config/live",{conf:{label:c.label||"",time:c.time||"",at:Date.now(),by:me.uid}},true); toast("Marked on now","ti-broadcast");
+  });
+  document.querySelectorAll("#tab-now [data-confdone]").forEach(x=>x.onclick=async()=>{
+    await db.set("config/live",{conf:null},true); toast("Conference ended");
+  });
 }
 function notifSheet(){
   const list=myNotifs();

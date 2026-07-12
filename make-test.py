@@ -63,6 +63,8 @@ SEED = '''function seedDemo(db){
   // senior-away day, so the demo shows the actual shading (no fake clutter).
   db.set("config/vacation",{ranges:[["2026-06-01","2026-07-12","Summer vacation — partial court working days"]]});
   db.set("config/senioravail",{"2026-07-15":"Travelling (sample)"});
+  // live "Now" tracker — Senior currently in Court 6 (marked a few minutes ago)
+  db.set("config/live",{court:{court:"6",at:Date.now()-7*60000,by:"u_yash"},conf:null});
   // a couple of sample leave-log entries (this month, so the counters show)
   db.set("leaves/lv1",{uid:"u_yash",from:"2026-07-04",to:"2026-07-06",reason:"Family function",by:"u_admin",at:n()});
   db.set("leaves/lv2",{uid:"u_ankur",from:"2026-07-09",to:"2026-07-09",reason:"",by:"u_admin",at:n()});
@@ -75,7 +77,8 @@ SEED = '''function seedDemo(db){
   const entries=M.map(([id,title,bench,court,item,counsel,af,jrs,ct])=>({briefId:id,caseTitle:title,
     courtNo:court,itemNo:item,listType:"Miscellaneous",appearingFor:af||"Petitioner",time:"10.30",confTime:ct,confDate:D,bench,counsel,juniorUids:jrs.slice(),juniorUid:jrs[0],remarks:"",done:false}));
   [D,todayISO()].forEach(dt=>db.set("daysheets/"+dt,{date:dt,updatedAt:n(),updatedBy:"u_clerk",
-    entries:entries.map(e=>({...e})),conferences:[]}));
+    // today's copy carries the conferences dated TODAY so the Now tracker has live conferences
+    entries:entries.map(e=>({...e, confDate:dt})),conferences:[]}));
 }
 '''
 
