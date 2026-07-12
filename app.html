@@ -897,8 +897,6 @@ const STATUS = {
   conf:{label:"Conference done",cls:"st-conf"}, listed:{label:"Listed",cls:"st-listed"},
   disposed:{label:"Disposed",cls:"st-disposed"}
 };
-const AVAIL = {available:{label:"Available",cls:"av-available"},incourt:{label:"In court",cls:"av-incourt"},half:{label:"Half day",cls:"av-half"},leave:{label:"On leave",cls:"av-leave"}};
-const AVAIL_DOT = {available:"var(--ok)",incourt:"var(--s-assigned)",half:"var(--warn)",leave:"var(--danger)"};
 const ROLES = {admin:"Admin",senior:"Senior",clerk:"Staff",pa:"PA",junior:"Chamber Colleague"};
 // Approvals are keyed by the lowercased email so security rules can recompute
 // the key from request.auth.token.email.lower() and verify the claimed role.
@@ -1114,13 +1112,6 @@ function seedDemo(db){
     assignHistory:[],declinedBy:[],ackBy:[],status:"received",priority:false,nextDate:null,conferenceAt:null,
     detailsAwaited:true,createdAt:n(),updatedAt:{_t:Date.now()}});
 
-  // a couple of files + comments on an active brief (find first non-disposed assigned)
-
-  const av=[["u_j1","incourt","Court 5 — item 12 onwards"],["u_j2","available",""],["u_j3","half","Conference prep till lunch"],
-    ["u_j4","available",""],["u_j5","leave","On leave — personal"],["u_j6","incourt","Court 11"],
-    ["u_j7","available",""],["u_j8","available",""],["u_j9","available",""]];
-  av.forEach(([uid,st,note])=>db.set("availability/"+uid+"_"+todayISO(),{uid,date:todayISO(),status:st,note,at:n()}));
-
   db.set("daysheets/"+todayISO(),{date:todayISO(),updatedAt:n(),updatedBy:"u_clerk",entries:[
     {briefId:"b23",caseTitle:P[22][0],courtNo:"7",itemNo:"14",time:"10.30",bench:"Dipankar Datta, Sheel Nagu",counsel:"Karanjawala & Co.",juniorUids:["u_j1"],juniorUid:"u_j1",remarks:"Mentioning at 10:30",done:false},
     {briefId:"b27",caseTitle:P[26][0],courtNo:"7",itemNo:"15",time:"10.30",bench:"Dipankar Datta, Sheel Nagu",counsel:"Wadia Ghandy",juniorUids:["u_j6","u_j8"],juniorUid:"u_j6",remarks:"Tagged with the Kavale matter",done:false},
@@ -1135,7 +1126,7 @@ function seedDemo(db){
 /* ============================================================
    APP STATE + BOOT
    ============================================================ */
-let me=null, users={}, briefs={}, daysheet={entries:[]}, availToday={}, availAll={}, dsDate=todayISO();
+let me=null, users={}, briefs={}, daysheet={entries:[]}, dsDate=todayISO();
 // staff-set unavailability {colleagueId:{note,until,by,at}} — the colleague is
 // skipped for assignment until Staff revoke it (works for pending ids too).
 let unavailable={};
@@ -1357,7 +1348,6 @@ function startApp(){
   showView("app"); paintChrome();
   unsub.push(db.watchCollection("users", rows=>{ users={}; rows.forEach(u=>users[u.id]=u); _scanVer++; renderActive(); paintChrome(); }));
   unsub.push(db.watchCollection("briefs", rows=>{ briefs={}; rows.forEach(b=>briefs[b.id]=b); _scanVer++; $("cntBriefs").textContent=Object.values(briefs).filter(b=>b.status!=="disposed").length; renderActive(); _briefsLoaded=true; maybeSyncRegister(); }, ["updatedAt","desc"]));
-  unsub.push(db.watchCollection("availability", rows=>{ availToday={}; availAll={}; rows.forEach(a=>{ availAll[a.uid+"_"+a.date]=a; if(a.date===todayISO())availToday[a.uid]=a; }); renderActive(); }));
   unsub.push(db.watchDoc("config/roster", d=>{ roster = d || {order:[],pointer:0}; renderActive(); }));
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
   unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
@@ -1453,13 +1443,15 @@ function confirmAsk({title,body,confirmLabel,danger,onYes}){
 function effectiveRoster(){ return rosterDisplay().map(m=>m.id); }
 // a logged leave (Leave tab / calendar) covering this date
 function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>l.uid===uid&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
-function isOnLeave(uid){ return availToday[uid]?.status==="leave" || leaveLogCovers(uid,todayISO()); }
+// A colleague is "available" whenever they are NOT on leave — there is no other
+// status to mark (owner's call Jul 2026). Leave is the leave log alone.
+function isOnLeave(uid){ return leaveLogCovers(uid,todayISO()); }
 // Staff-set unavailability: active until revoked, or until an optional "until" date.
 function isUnavailable(uid){ const u=unavailable[uid]; if(!u) return false; return !u.until || u.until>=todayISO(); }
 // A colleague is skippable for a NEW assignment if on leave today or marked unavailable.
 function isSkippable(uid){ return isOnLeave(uid) || isUnavailable(uid); }
 async function setUnavailable(uid,note,until){ await db.set("config/unavailable",{[uid]: note===null?null:{note:note||"",until:until||"",by:me.uid,at:Date.now()}},true); }
-function onLeaveOn(uid,dateISO){ return availAll[uid+"_"+dateISO]?.status==="leave" || leaveLogCovers(uid,dateISO); }
+function onLeaveOn(uid,dateISO){ return leaveLogCovers(uid,dateISO); }
 
 // Weighted ACTIVE load (open matters, weighted by matter type).
 // Imminence-aware: a matter listed within the next 4 days counts DOUBLE —
@@ -2372,15 +2364,12 @@ function renderMyWork(){
   const tasks=myTasks(me.uid);   // open directions from the Senior, with due dates
   const ros=effectiveRoster(), pos=ros.indexOf(me.uid), nextUpIdx=ros.length?roster.pointer%ros.length:0;
   const turns=pos>=0?((pos-nextUpIdx+ros.length)%ros.length):null;
-  const av=availToday[me.uid];
   const metrics=`<div class="board-metrics">
     <div class="metric ${unacked.length?'flag':''}"><div class="lab">To acknowledge</div><div class="val">${unacked.length}</div></div>
     <div class="metric"><div class="lab">My active matters</div><div class="val">${mine.length+myListings.length}</div></div>
     <div class="metric ${(soon.length+soonListings.length)?'flag':''}"><div class="lab">Coming up ≤4d</div><div class="val">${soon.length+soonListings.length}</div></div>
     <div class="metric"><div class="lab">Roster</div><div class="val">${pos<0?'—':turns===0?'Next':'#'+(pos+1)}</div></div>
   </div>`;
-  const availRow=`<div style="margin-top:18px"><div class="section-label">My status today</div>
-    <div class="av-quick">${Object.entries(AVAIL).map(([k,v])=>`<button class="av-btn ${av?.status===k?'on':''}" data-av="${k}">${v.label}</button>`).join("")}</div></div>`;
   // takeover requests from colleagues — accept moves the matter to me
   const rreqs=Object.values(briefs).filter(b=>b.status!=="disposed"&&b.reassignReq&&idIn(b.reassignReq.to,me.uid));
   const rreqSec=rreqs.length?`<div class="section-label" style="margin-top:22px">Takeover requests</div>
@@ -2417,11 +2406,10 @@ function renderMyWork(){
     </button>`;}).join("")}`:"";
   const emptyState=(!mine.length&&!myListings.length&&!myOld.length)?`<div class="muted" style="font-size:13px;margin-top:22px">No matters assigned or listed for you yet.</div>`:"";
   const standing=`<div class="mw-standing muted">You're ${pos<0?'not in the roster':turns===0?'<b>next up</b>':'#'+(pos+1)+' in the rotation'+(turns!=null&&turns>0?` · next up in ${turns} turn${turns>1?'s':''}`:'')} · ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div>`;
-  $("tab-board").innerHTML=metrics+availRow+rreqSec+unackedSec+tasksSec+matters+oldSec+listedSec+emptyState+standing;
+  $("tab-board").innerHTML=metrics+rreqSec+unackedSec+tasksSec+matters+oldSec+listedSec+emptyState+standing;
   document.querySelectorAll("[data-rraccept]").forEach(x=>x.onclick=async e=>{e.stopPropagation();await acceptReassign(x.dataset.rraccept);});
   document.querySelectorAll("[data-rrdecline]").forEach(x=>x.onclick=async e=>{e.stopPropagation();await declineReassign(x.dataset.rrdecline);});
   document.querySelectorAll("[data-goday]").forEach(x=>x.onclick=()=>{ dsDate=x.dataset.goday; watchDaysheet(); selectTab("today"); });
-  document.querySelectorAll("[data-av]").forEach(x=>x.onclick=async()=>{await db.set("availability/"+me.uid+"_"+todayISO(),{uid:me.uid,date:todayISO(),status:x.dataset.av,note:availToday[me.uid]?.note||"",at:db.now()});toast("Status updated");});
   document.querySelectorAll("[data-ackm]").forEach(x=>x.onclick=async e=>{e.stopPropagation();await acknowledge(x.dataset.ackm);});
   document.querySelectorAll("[data-objm]").forEach(x=>x.onclick=e=>{e.stopPropagation();objectForm(x.dataset.objm);});
   bindClicks($("tab-board"));
@@ -2432,7 +2420,7 @@ function renderBoard(){
   const unassigned=active.filter(b=>!(b.assignedTo||[]).length);
   const listedToday=active.filter(b=>b.status==="listed");
   const js=juniors();
-  const avail=js.filter(j=>availToday[j.id]?.status==="available").length;
+  const avail=js.filter(j=>!onLeaveOn(j.id,todayISO())).length;   // available = not on leave
 
   // load balance stats
   const loads = js.map(j=>({j, load:activeLoad(j.id), count:activeCount(j.id), life:lifetimeCount(j.id)}));
@@ -2477,10 +2465,9 @@ function renderBoard(){
     <div class="clps-body ${uiExp.balance?'open':''}" style="margin-top:14px">
     <div class="balance-bars">
       ${loads.slice().sort((a,b)=>b.load-a.load).map(l=>{
-        const av=availToday[l.j.id];
         const imm=imminentCount(l.j.id);
         return `<div class="bal-row" data-brief="" >
-          <div class="bal-name">${esc(l.j.name)}${av&&av.status==='leave'?' <span class="muted" style="font-size:11px">· on leave</span>':''}${imm?` <span class="crunch" title="${imm} matter(s) listed within 4 days — load doubled"><span class="ti ti-flame"></span>${imm}</span>`:''}</div>
+          <div class="bal-name">${esc(l.j.name)}${onLeaveOn(l.j.id,todayISO())?' <span class="muted" style="font-size:11px">· on leave</span>':''}${imm?` <span class="crunch" title="${imm} matter(s) listed within 4 days — load doubled"><span class="ti ti-flame"></span>${imm}</span>`:''}</div>
           <div class="bal-track"><div class="bal-fill" style="width:${Math.round(l.load/maxLoad*100)}%"></div></div>
           <div class="bal-nums"><span class="bal-load" title="Weighted active load">${fmtPts(l.load)}</span><span class="bal-sub">${l.count} active · ${fmtPts(l.life)} lifetime</span></div>
         </div>`;
@@ -2510,7 +2497,7 @@ function renderBoard(){
   const cards = js.map(j=>{
     const mine=active.filter(b=>(b.assignedTo||[]).includes(j.id));
     const listed=mine.filter(b=>b.status==="listed").length;
-    const av=availToday[j.id];
+    const onLeave = onLeaveOn(j.id,todayISO());
     const isNext = j.id===nextUp;
     const open = !uiExp.cardsClosed.has(j.id);
     const unseen = mine.filter(b=>unackedBy(b).length).length;
@@ -2518,7 +2505,7 @@ function renderBoard(){
       <div class="jcard-head" data-jtoggle="${j.id}">
         <div class="jcard-ava">${esc(initials(j.name))}</div>
         <div class="jcard-id"><div class="jcard-name">${esc(j.name)}${isNext?'<span class="next-tag">Next up</span>':''}</div>
-        <div class="jcard-sub">${av?`<span class="chip ${AVAIL[av.status].cls}"><span class="dot"></span>${AVAIL[av.status].label}</span>`:'<span class="muted">No status set</span>'} <span class="muted" style="font-size:11px">· ${mine.length} matter${mine.length!==1?'s':''}${canManage()&&unseen?` · <span style="color:var(--warn)">${unseen} unseen</span>`:''}</span></div></div>
+        <div class="jcard-sub">${onLeave?'<span class="chip av-leave"><span class="dot"></span>On leave</span>':'<span class="chip av-available"><span class="dot"></span>Available</span>'} <span class="muted" style="font-size:11px">· ${mine.length} matter${mine.length!==1?'s':''}${canManage()&&unseen?` · <span style="color:var(--warn)">${unseen} unseen</span>`:''}</span></div></div>
         <span class="chev ti ti-chevron-down"></span>
       </div>
       <div class="jcard-load">
@@ -3654,22 +3641,11 @@ function renderSnapshotBody(){
   const pending=Object.values(users).filter(u=>u.role==="pending");
   const invited=Object.values(approvals).filter(a=>!Object.values(users).some(u=>emailKey(u.email)===a.id));
 
-  const myAvail = (isSenior()||isAdmin())? "" : `<div class="my-avail">
-    <div class="section-label">My status today</div>
-    <div class="row">
-      <select id="myAv" style="width:auto">${Object.entries(AVAIL).map(([k,v])=>`<option value="${k}" ${availToday[me.uid]?.status===k?'selected':''}>${v.label}</option>`).join("")}</select>
-      <input id="myAvNote" placeholder="Note — e.g. Court 5 till lunch" value="${esc(availToday[me.uid]?.note||'')}" style="flex:1;min-width:180px">
-      <span class="muted" style="font-size:12px;white-space:nowrap">until</span>
-      <input type="date" id="myAvUntil" style="width:auto" min="${todayISO()}" title="Optional — extend this status through a date (e.g. leave for a week)">
-      <button class="btn" id="myAvSave">Save</button>
-    </div>
-    <div class="muted" style="font-size:11.5px;margin-top:8px">Leave an “until” date to apply the status across a range — e.g. On leave until Friday. The engine will skip you for new assignments on leave days.</div></div>`;
-
   const teamPanel=`<div class="panel"><div class="panel-head">People</div>
-    ${members.map(u=>{const av=availToday[u.id];
+    ${members.map(u=>{const onLeave=u.role==="junior"&&onLeaveOn(u.id,todayISO());
       return `<div class="trow"><div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(u.name))}</div>
-        <div class="info"><div class="nm">${esc(u.name)}</div><div class="rl">${ROLES[u.role]}${u.role==="junior"?(u.joinedOn?` · joined ${fmtDateY(u.joinedOn)}`:' · <span style="color:var(--warn)">joining date not set</span>'):''}${u.phone?` · ${esc(u.phone)}`:''}</div>${av?.note?`<div class="note">${esc(av.note)}</div>`:''}</div>
-        <div class="row" style="gap:8px">${u.role==="senior"||u.role==="admin"?'':av?`<span class="chip ${AVAIL[av.status].cls}"><span class="dot"></span>${AVAIL[av.status].label}</span>`:'<span class="muted" style="font-size:12px">Not set</span>'}
+        <div class="info"><div class="nm">${esc(u.name)}</div><div class="rl">${ROLES[u.role]}${u.role==="junior"?(u.joinedOn?` · joined ${fmtDateY(u.joinedOn)}`:' · <span style="color:var(--warn)">joining date not set</span>'):''}${u.phone?` · ${esc(u.phone)}`:''}</div></div>
+        <div class="row" style="gap:8px">${onLeave?'<span class="chip av-leave"><span class="dot"></span>On leave</span>':''}
         ${canAdmin()?`<button class="tbtn" data-role="${u.id}"><span class="ic ti ti-settings"></span></button>`:''}</div>
       </div>`;}).join("")}</div>`;
 
@@ -3679,11 +3655,12 @@ function renderSnapshotBody(){
       <div class="row" style="gap:6px">${DEMO?`<button class="tbtn" data-siminvite="${a.id}" title="Demo only: simulate this person signing in for the first time"><span class="ic ti ti-login"></span>Simulate sign-in</button>`:''}<button class="tbtn" data-editinvite="${a.id}"><span class="ic ti ti-pencil"></span></button><button class="tbtn" data-delinvite="${a.id}"><span class="ic ti ti-trash"></span></button></div></div>`).join("")
       : `<div class="trow"><div class="info muted" style="font-size:13px">No one waiting to sign in. Use “Add member” to add a colleague by email — they get access the moment they first sign in.</div></div>`}</div>`:"";
 
-  const availPanel=`<div class="panel"><div class="panel-head">Availability today <span class="muted" style="font-weight:400;font-size:12px">${fmtDateY(todayISO())}</span></div>
-    ${juniors().map(j=>{const av=availToday[j.id];
-      return `<div class="trow"><span class="dotu" style="width:8px;height:8px;background:${av?AVAIL_DOT[av.status]:'var(--line-2)'}"></span>
-        <div class="info"><div class="nm">${esc(j.name)}</div>${av?.note?`<div class="note">${esc(av.note)}</div>`:''}</div>
-        ${av?`<span class="chip ${AVAIL[av.status].cls}">${AVAIL[av.status].label}</span>`:'<span class="muted" style="font-size:12px">Not set</span>'}</div>`;}).join("")}</div>`;
+  const _onLeaveToday=juniors().filter(j=>onLeaveOn(j.id,todayISO()));
+  const availPanel=`<div class="panel"><div class="panel-head">On leave today <span class="muted" style="font-weight:400;font-size:12px">${fmtDateY(todayISO())}</span></div>
+    ${_onLeaveToday.length? _onLeaveToday.map(j=>`<div class="trow"><span class="dotu" style="width:8px;height:8px;background:var(--danger)"></span>
+        <div class="info"><div class="nm">${esc(j.name)}</div></div>
+        <span class="chip av-leave"><span class="dot"></span>On leave</span></div>`).join("")
+      : `<div class="trow"><div class="info muted" style="font-size:13px">Everyone is available — no one is on leave today.</div></div>`}</div>`;
 
   const pendingPanel = (pending.length&&canAdmin())? `<div class="panel" style="margin-top:16px"><div class="panel-head">Signed in without an invite <span class="chip st-prep">${pending.length}</span></div>
     ${pending.map(u=>`<div class="trow"><div class="sb-ava" style="background:var(--surface-2);color:var(--ink-3)">${esc(initials(u.name))}</div><div class="info"><div class="nm">${esc(u.name)}</div><div class="rl">${esc(u.email||'')}</div></div><button class="btn sm" data-role="${u.id}">Set role</button></div>`).join("")}</div>` : "";
@@ -3700,7 +3677,7 @@ function renderSnapshotBody(){
   const loadPanel=`<div class="panel" style="margin-bottom:16px"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload snapshot</span>${_seg}</div>
     <div style="padding:14px 16px">${_disp.length?`<div class="load-islands">${_loads.map(({m,pts})=>`<button type="button" class="load-island ${_col(pts)}" data-island="${m.id}" title="See ${esc(m.name.split(' ')[0])}'s matters"><div class="li-ava">${esc(initials(m.name))}</div><div class="li-name">${esc(m.name)}</div><div class="li-load">${fmtPts(pts)}</div><div class="li-lab"><span class="li-dot"></span>${_plab}</div></button>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}
       <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`;
-  $("teamBody").innerHTML=myAvail+loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
+  $("teamBody").innerHTML=loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
   document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderSnapshotBody(); });
   document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,_days,_plab));
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
@@ -3709,19 +3686,6 @@ function renderSnapshotBody(){
   document.querySelectorAll("[data-siminvite]").forEach(x=>x.onclick=async()=>{ const a=approvals[x.dataset.siminvite]; if(!a)return;
     const uid="u_"+a.id; await db.set("users/"+uid,{name:a.name,email:a.email,role:a.role,phone:a.phone||"",joinedOn:a.joinedOn||null,active:true,createdAt:db.now()});
     await db.remove("approvals/"+a.id); toast(`${a.name} signed in — now a ${ROLES[a.role]}`,"ti-user-check"); });
-  if($("myAvSave"))$("myAvSave").onclick=async()=>{
-    const status=$("myAv").value, note=$("myAvNote").value.trim();
-    const until=$("myAvUntil").value;
-    const dates=[todayISO()];
-    if(until && until>todayISO()){
-      let d=new Date(todayISO()+"T00:00");
-      const end=new Date(until+"T00:00");
-      let guard=0;
-      while(d<end && guard++<30){ d.setDate(d.getDate()+1); dates.push(d.toLocaleDateString('en-CA')); }
-    }
-    for(const dt of dates) await db.set("availability/"+me.uid+"_"+dt,{uid:me.uid,date:dt,status,note,at:db.now()});
-    toast(dates.length>1?`Status saved through ${fmtDateY(dates[dates.length-1])}`:"Status saved");
-  };
   document.querySelectorAll("[data-role]").forEach(x=>x.onclick=()=>roleForm(x.dataset.role));
 }
 
@@ -3806,7 +3770,7 @@ function renderRosterBody(){
     }
     list=standingBanner+`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates on the Workload snapshot</span></div>
       ${disp.map((m,i)=>{
-        const isNext=m.real&&m.id===nextUid; const av=m.real?availToday[m.id]:null; const onLeave=av?.status==="leave";
+        const isNext=m.real&&m.id===nextUid; const onLeave=m.real&&onLeaveOn(m.id,todayISO());
         const isMe=m.real&&m.id===me.uid; const unav=isUnavailable(m.id); const uNote=unavailable[m.id]?.note; const uUntil=unavailable[m.id]?.until;
         return `<div class="roster-row ${isNext&&!unav?'is-next':''} ${isMe?'is-me':''} ${onLeave||unav?'is-leave':''}">
           <div class="roster-pos">${i+1}</div>

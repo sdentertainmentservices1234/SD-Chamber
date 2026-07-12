@@ -69,10 +69,6 @@ SEED = '''function seedDemo(db){
   db.set("leaves/lv1",{uid:"u_yash",from:"2026-07-04",to:"2026-07-06",reason:"Family function",by:"u_admin",at:n()});
   db.set("leaves/lv2",{uid:"u_ankur",from:"2026-07-09",to:"2026-07-09",reason:"",by:"u_admin",at:n()});
   db.set("leaves/lv3",{uid:"u_yash",from:"2026-02-11",to:"2026-02-14",reason:"Medical",by:"u_admin",at:n()});
-
-  // everyone available today and on the 13th
-  ["u_adith","u_ankur","u_yash","u_shaishir","u_anshula","u_rongong","u_rishit"].forEach(u=>
-    [D,todayISO()].forEach(dt=>db.set("availability/"+u+"_"+dt,{uid:u,date:dt,status:"available",note:"",at:n()})));
   // the paper itself: one day-sheet doc for Monday, mirrored onto today so the tab isn't empty on open
   const entries=M.map(([id,title,bench,court,item,counsel,af,jrs,ct])=>({briefId:id,caseTitle:title,
     courtNo:court,itemNo:item,listType:"Miscellaneous",appearingFor:af||"Petitioner",time:"10.30",confTime:ct,confDate:D,bench,counsel,juniorUids:jrs.slice(),juniorUid:jrs[0],remarks:"",done:false}));
