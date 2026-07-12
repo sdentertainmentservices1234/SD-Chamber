@@ -622,11 +622,11 @@ body.demo .topbar{top:34px}
 .conf-tag.now .dot{width:6px;height:6px;border-radius:50%;background:#fff}
 .conf-tag.maybe{background:var(--warn-bg);color:var(--warn)}
 .now-note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px}
-/* Now sub-tabs */
-.now-seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line-2);border-radius:11px;padding:3px;margin-bottom:16px;gap:2px}
-.now-seg button{display:inline-flex;align-items:center;gap:7px;border:none;background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;padding:8px 18px;border-radius:8px;cursor:pointer}
-.now-seg button .ic{font-size:16px}
-.now-seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+/* Now / Chamber sub-tabs */
+.now-seg,.team-subseg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line-2);border-radius:11px;padding:3px;margin-bottom:16px;gap:2px}
+.now-seg button,.team-subseg button{display:inline-flex;align-items:center;gap:7px;border:none;background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;padding:8px 18px;border-radius:8px;cursor:pointer}
+.now-seg button .ic,.team-subseg button .ic{font-size:16px}
+.now-seg button.on,.team-subseg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
 /* conference cards (Now tab) */
 .conf-card{border-bottom:1px solid var(--line)}
 .conf-card:last-child{border-bottom:none}
@@ -799,7 +799,6 @@ body.demo .topbar{top:34px}
       <button data-tab="board"><span class="ic ti ti-layout-grid"></span>Work board</button>
       <button data-tab="today"><span class="ic ti ti-list-check"></span>Day sheet</button>
       <button data-tab="briefs"><span class="ic ti ti-folders"></span>Briefs<span class="count" id="cntBriefs"></span></button>
-      <button data-tab="roster"><span class="ic ti ti-list-numbers"></span>Roster</button>
       <button data-tab="leave"><span class="ic ti ti-plane-departure"></span>Leave</button>
       <button data-tab="team"><span class="ic ti ti-users"></span>Chamber</button>
     </nav>
@@ -833,7 +832,6 @@ body.demo .topbar{top:34px}
       <section id="tab-board" class="hidden"></section>
       <section id="tab-today" class="hidden"></section>
       <section id="tab-briefs" class="hidden"></section>
-      <section id="tab-roster" class="hidden"></section>
       <section id="tab-leave" class="hidden"></section>
       <section id="tab-team" class="hidden"></section>
     </div>
@@ -1261,7 +1259,6 @@ if($("navMore")) $("navMore").onclick=()=>{
   openSheet(`<div class="sheet-head"><div><h3>More</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <button class="btn ghost" data-moretab="now" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-broadcast"></span>Now — live tracker</button>
-      <button class="btn ghost" data-moretab="roster" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-list-numbers"></span>Roster</button>
       <button class="btn ghost" data-moretab="leave" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-plane-departure"></span>Leave</button>
       <button class="btn ghost" data-moretab="team" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-users"></span>Chamber</button>
       <button class="btn ghost" id="moreSignOut" style="width:100%;justify-content:flex-start;color:var(--danger)"><span class="ic ti ti-logout"></span>Sign out</button>
@@ -1337,12 +1334,12 @@ const TITLES={cal:["Calendar","Court days, holidays and the chamber's diary"],
   now:["Now","Live — where the Senior is and what's on"],
   board:["Work board","Distribution and workload across the chamber"],
   today:["Day sheet",""], briefs:["Briefs","The chamber's matter register"],
-  roster:["Roster","Assignment order and rotation"], leave:["Leave","Chamber leave — logged openly for everyone"], team:["Chamber","People and availability"]};
+  leave:["Leave","Chamber leave — logged openly for everyone"], team:["Chamber","Workload, roster, people and availability"]};
 document.querySelectorAll("#sbNav button, #mobileNav button").forEach(b=>{ if(b.dataset.tab) b.onclick=()=>selectTab(b.dataset.tab); });   // navMore keeps its own handler
 function selectTab(t){ curTab=t;
   document.querySelectorAll("#sbNav button, #mobileNav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
-  if($("navMore")) $("navMore").classList.toggle("active",["now","roster","leave","team"].includes(t));   // More holds these (mobile)
-  ["cal","now","board","today","briefs","roster","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
+  if($("navMore")) $("navMore").classList.toggle("active",["now","leave","team"].includes(t));   // More holds these (mobile)
+  ["cal","now","board","today","briefs","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
   $("pageTitle").textContent=TITLES[t][0]; $("pageSub").textContent=TITLES[t][1];
   if((t==="today"||t==="cal")&&me&&courtUpdatesStale()) loadCourtUpdates();
   if(t!=="now") stopConfTimer();
@@ -1356,7 +1353,7 @@ const _raf=(typeof requestAnimationFrame==="function")?requestAnimationFrame:(f=
 function renderActive(){ if(_rafPending)return; _rafPending=_raf(()=>{ _rafPending=0; renderActiveNow(); }); }
 function renderActiveNow(){ if(!me)return;
   if(curTab==="cal")renderCal(); else if(curTab==="now")renderNow(); else if(curTab==="board")renderBoard(); else if(curTab==="today")renderToday();
-  else if(curTab==="briefs")renderBriefs(); else if(curTab==="roster")renderRoster(); else if(curTab==="leave")renderLeave(); else if(curTab==="team")renderTeam(); }
+  else if(curTab==="briefs")renderBriefs(); else if(curTab==="leave")renderLeave(); else if(curTab==="team")renderTeam(); }
 
 /* ---- mobile sidebar ---- */
 $("hamburger").onclick=()=>{ $("sidebar").classList.add("open"); $("scrim").classList.add("show"); };
@@ -1544,7 +1541,7 @@ async function syncRegister(force){
     }
     if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
   }
-  if(curTab==="briefs"||curTab==="roster") renderActive();
+  if(curTab==="briefs"||curTab==="team") renderActive();
 }
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
 // A matter shared by N colleagues counts 1/N per colleague (owner's decision) —
@@ -3545,7 +3542,17 @@ function islandSheet(uid, days, plab){
     </div>`);
   bindClicks($("modalRoot"));
 }
+// Chamber tab = two sub-tabs: Workload snapshot + Roster (owner's Jul 2026 merge).
+let teamSub="snapshot";   // "snapshot" | "roster"
 function renderTeam(){
+  const seg=`<div class="team-subseg">
+    <button data-teamsub="snapshot" class="${teamSub==="snapshot"?"on":""}"><span class="ic ti ti-chart-histogram"></span>Workload snapshot</button>
+    <button data-teamsub="roster" class="${teamSub==="roster"?"on":""}"><span class="ic ti ti-list-numbers"></span>Roster</button></div>`;
+  $("tab-team").innerHTML=seg+`<div id="teamBody"></div>`;
+  document.querySelectorAll("#tab-team [data-teamsub]").forEach(b=>b.onclick=()=>{ teamSub=b.dataset.teamsub; renderTeam(); });
+  if(teamSub==="roster"){ $("topbarAction").innerHTML=""; renderRosterBody(); } else renderSnapshotBody();
+}
+function renderSnapshotBody(){
   $("topbarAction").innerHTML= canAdmin()? `<button class="btn" id="tbInvite"><span class="ic ti ti-user-plus"></span>Add member</button>`:"";
   const order={admin:0,senior:1,clerk:2,pa:3,junior:4};
   const members=Object.values(users).filter(u=>u.role!=="pending"&&u.active!==false).sort((a,b)=>order[a.role]-order[b.role]||(a.name||"").localeCompare(b.name||""));
@@ -3598,8 +3605,8 @@ function renderTeam(){
   const loadPanel=`<div class="panel" style="margin-bottom:16px"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload snapshot</span>${_seg}</div>
     <div style="padding:14px 16px">${_disp.length?`<div class="load-islands">${_loads.map(({m,pts})=>`<button type="button" class="load-island ${_col(pts)}" data-island="${m.id}" title="See ${esc(m.name.split(' ')[0])}'s matters"><div class="li-ava">${esc(initials(m.name))}</div><div class="li-name">${esc(m.name)}</div><div class="li-load">${fmtPts(pts)}</div><div class="li-lab"><span class="li-dot"></span>${_plab}</div></button>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}
       <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`;
-  $("tab-team").innerHTML=myAvail+loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
-  document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderTeam(); });
+  $("teamBody").innerHTML=myAvail+loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
+  document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderSnapshotBody(); });
   document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,_days,_plab));
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
   document.querySelectorAll("[data-editinvite]").forEach(x=>x.onclick=()=>inviteForm(x.dataset.editinvite));
@@ -3673,8 +3680,7 @@ function rosterDisplay(){
     .map(a=>({id:"pending:"+a.id,name:a.name||a.email,joinedOn:a.joinedOn,real:false}));
   return [...real,...pending].sort((a,b)=>(a.joinedOn||"9999-99-99").localeCompare(b.joinedOn||"9999-99-99")||(a.name||"").localeCompare(b.name||""));
 }
-function renderRoster(){
-  $("topbarAction").innerHTML="";
+function renderRosterBody(){
   const ros=effectiveRoster();
   const nextIdx=ros.length? roster.pointer%ros.length : 0;
   const nextUid=ros.length? ros[nextIdx] : null;
@@ -3685,12 +3691,12 @@ function renderRoster(){
       <span class="chev ti ti-chevron-down"></span>
     </div>
     <div class="clps-body ${uiExp.rosterInfo?'open':''}" style="margin-top:8px">
-    <p>The roster runs in <b>chamber seniority</b> — date of joining, senior-most first (set each colleague's date from the Chamber tab). A new matter goes to whoever carries the <b>lightest active load</b> (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). A matter shared by two colleagues counts as <b>half a point</b> each. Ties go to the lower <b>lifetime count</b> — total matters ever assigned (½ each when shared), so career fairness corrects drift — and any remaining tie to whoever is <b>next up</b> in the rotation. Colleagues on leave are skipped; objections pass the matter to the next eligible colleague; if everyone is unavailable it force-assigns to the lightest-loaded and flags you.</p>
+    <p>The roster runs in <b>chamber seniority</b> — date of joining, senior-most first (set each colleague's date on the Workload snapshot). A new matter goes to whoever carries the <b>lightest active load</b> (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). A matter shared by two colleagues counts as <b>half a point</b> each. Ties go to the lower <b>lifetime count</b> — total matters ever assigned (½ each when shared), so career fairness corrects drift — and any remaining tie to whoever is <b>next up</b> in the rotation. Colleagues on leave are skipped; objections pass the matter to the next eligible colleague; if everyone is unavailable it force-assigns to the lightest-loaded and flags you.</p>
     </div>
   </div>`;
   let list;
   if(!disp.length){
-    list=`<div class="empty"><span class="ic ti ti-users"></span>No colleagues yet. Add them from the Chamber tab.</div>`;
+    list=`<div class="empty"><span class="ic ti ti-users"></span>No colleagues yet. Use “Add member” on the Workload snapshot.</div>`;
   } else {
     // colleague standing banner — "where am I in the queue?" answered up front
     let standingBanner="";
@@ -3703,7 +3709,7 @@ function renderRoster(){
         standingBanner=`<div class="roster-standing-banner"><span class="ti ti-user-star" style="color:var(--accent-ink);font-size:18px"></span><div>${where} · carrying ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div></div>`;
       }
     }
-    list=standingBanner+`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates in the Chamber tab</span></div>
+    list=standingBanner+`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates on the Workload snapshot</span></div>
       ${disp.map((m,i)=>{
         const isNext=m.real&&m.id===nextUid; const av=m.real?availToday[m.id]:null; const onLeave=av?.status==="leave";
         const isMe=m.real&&m.id===me.uid; const unav=isUnavailable(m.id); const uNote=unavailable[m.id]?.note; const uUntil=unavailable[m.id]?.until;
@@ -3717,8 +3723,8 @@ function renderRoster(){
       }).join("")}</div>
       ${canManage()?`<div class="row" style="margin-top:14px"><button class="btn ghost sm" id="rReset"><span class="ic ti ti-refresh"></span>Reset “next up” to top</button></div>`:''}`;
   }
-  $("tab-roster").innerHTML=explain+list;
-  if($("reToggle"))$("reToggle").onclick=()=>{uiExp.rosterInfo=!uiExp.rosterInfo;renderRoster();};
+  $("teamBody").innerHTML=explain+list;
+  if($("reToggle"))$("reToggle").onclick=()=>{uiExp.rosterInfo=!uiExp.rosterInfo;renderRosterBody();};
   if($("rReset"))$("rReset").onclick=async()=>{await db.set("config/roster",{pointer:0},true);toast("Rotation reset to the top");};
   document.querySelectorAll("[data-unav]").forEach(x=>x.onclick=async()=>{ const id=x.dataset.unav;
     if(isUnavailable(id)){ await setUnavailable(id,null); toast(nameOf(id)+" is back in the roster","ti-user-check"); }
