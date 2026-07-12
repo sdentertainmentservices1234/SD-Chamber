@@ -378,7 +378,8 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 @media(max-width:720px){.team-grid{grid-template-columns:1fr}}
 /* workload snapshot islands (Chamber tab) */
 .load-islands{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:11px;padding:2px}
-.load-island{border-radius:var(--r-lg);padding:14px 10px;text-align:center;border:1px solid var(--line-2);background:var(--surface);transition:transform .1s}
+.load-island{border-radius:var(--r-lg);padding:14px 10px;text-align:center;border:1px solid var(--line-2);background:var(--surface);transition:transform .1s;width:100%;font-family:inherit;cursor:pointer}
+.load-island:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(16,20,24,.07)}
 .load-island.ld-green{background:rgba(46,160,80,.10);border-color:rgba(46,160,80,.38)}
 .load-island.ld-yellow{background:rgba(224,168,32,.14);border-color:rgba(224,168,32,.46)}
 .load-island.ld-red{background:rgba(210,64,64,.10);border-color:rgba(210,64,64,.40)}
@@ -1435,6 +1436,20 @@ function lifetimeCount(uid){
 // Workload a colleague carried over the last `days` days — share-split points from
 // briefs (assigned / heard / listed in the window) plus bare causelist listings.
 let loadPeriod="month";   // week | month | year — the Chamber-tab snapshot toggle
+// the actual matters counted in a colleague's window load (for the island drill-down)
+function casesInWindow(uid, days){
+  const now=todayISO();
+  const b0=new Date(now+"T00:00"); b0.setDate(b0.getDate()-days); const start=b0.toLocaleDateString("en-CA");
+  const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
+  const inWin=d=>d&&d>=start&&d<=end;
+  const out=[];
+  Object.values(briefs).forEach(b=>{ if(idIn(b.everAssigned||b.assignedTo,uid)){
+    const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
+    const ld=listingDatesOf(b.id); const hasDate=ad||b.nextDate||ld.length;
+    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) out.push(b);
+  }});
+  return out.sort((a,b)=>(b.nextDate||"").localeCompare(a.nextDate||"")||(a.caseTitle||"").localeCompare(b.caseTitle||""));
+}
 function loadInWindow(uid, days){
   const now=todayISO();
   const b0=new Date(now+"T00:00"); b0.setDate(b0.getDate()-days); const start=b0.toLocaleDateString("en-CA");
@@ -1832,12 +1847,14 @@ function dayDetail(iso){
         <div class="row" style="flex-wrap:wrap;gap:6px">${onlv.map(m=>`<span class="chip av-leave"><span class="dot"></span>${esc(m.name)}</span>`).join("")}</div>`:'';})()}
       <div class="row" style="margin-top:22px;gap:8px;flex-wrap:wrap">
         <button class="btn ghost sm" id="dOpenSheet"><span class="ic ti ti-list-check"></span>${entries.length?'Open the day sheet':'Open day sheet for this date'}</button>
-        ${entries.length?`<button class="btn ghost sm" id="dPrint"><span class="ic ti ti-printer"></span>Print causelist</button>`:''}
+        ${entries.length?`<button class="btn ghost sm" id="dPrint"><span class="ic ti ti-printer"></span>Print</button>`:''}
+        ${entries.length?`<button class="btn ghost sm" id="dSharePdf"><span class="ic ti ti-file-type-pdf"></span>Share PDF</button>`:''}
         <button class="btn ghost sm" id="dMarkLeave"><span class="ic ti ti-plane-departure"></span>Mark my leave</button>
       </div>
     </div>`);
   const goSheet=()=>{ closeSheet(); dsDate=iso; watchDaysheet(); selectTab("today"); };
   if($("dPrint")) $("dPrint").onclick=()=>printCauseList(iso);
+  if($("dSharePdf")) $("dSharePdf").onclick=()=>shareCauselistPdf(iso);
   if($("dMarkLeave")) $("dMarkLeave").onclick=()=>leaveForm(iso);   // syncs with the Leave tab + engine
   document.querySelectorAll("[data-dsopen]").forEach(x=>x.onclick=goSheet);
   $("dOpenSheet").onclick=goSheet;
@@ -2364,15 +2381,18 @@ function shareText(){
   return lines.join("\n").trim();
 }
 function shareDaySheet(){
-  openSheet(`<div class="sheet-head"><div><h3>Share day sheet</h3><div class="sub">Check the list, then send it on WhatsApp or email</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+  openSheet(`<div class="sheet-head"><div><h3>Share cause list</h3><div class="sub">${fmtDateY(dsDate)}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      <textarea id="sh_text" rows="14" class="mono" style="font-size:12.5px">${esc(shareText())}</textarea>
-      <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
-        <button class="btn" id="sh_copy"><span class="ic ti ti-copy"></span>Copy</button>
+      <button class="btn" id="sh_pdf" style="width:100%;justify-content:center"><span class="ic ti ti-file-type-pdf"></span>Share the causelist PDF (WhatsApp / Email)</button>
+      <div class="muted" style="font-size:11.5px;text-align:center;margin:14px 0 8px">— or send it as plain text —</div>
+      <textarea id="sh_text" rows="12" class="mono" style="font-size:12.5px">${esc(shareText())}</textarea>
+      <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn ghost" id="sh_copy"><span class="ic ti ti-copy"></span>Copy</button>
         <button class="btn ghost" id="sh_wa"><span class="ic ti ti-brand-whatsapp"></span>WhatsApp</button>
         <button class="btn ghost" id="sh_mail"><span class="ic ti ti-mail"></span>Email</button>
       </div>
     </div>`);
+  $("sh_pdf").onclick=()=>{ closeSheet(); shareCauselistPdf(dsDate); };
   const cur=()=>$("sh_text").value;
   $("sh_copy").onclick=()=>{navigator.clipboard?.writeText(cur());toast("Day sheet copied — paste it anywhere","ti-copy");};
   $("sh_wa").onclick=()=>{const isMobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
@@ -2454,6 +2474,71 @@ ${confHtml}
   const doPrint=()=>{ try{ w.print(); }catch(e){} };
   try{ (w.document.fonts&&w.document.fonts.ready?w.document.fonts.ready:Promise.resolve()).then(()=>setTimeout(doPrint,200)); }
   catch(e){ setTimeout(doPrint,600); }
+}
+
+// ---- Share the cause list as a real PDF (WhatsApp / email via the native share
+// sheet on phones; downloads on desktop). jsPDF + autotable loaded on demand. ----
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.async=true; s.onload=res; s.onerror=()=>rej(new Error("load "+src)); document.head.appendChild(s); }); }
+let _pdfLibP=null;
+function ensurePdfLib(){ if(window.jspdf&&window.jspdf.jsPDF) return Promise.resolve();
+  if(!_pdfLibP) _pdfLibP=loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js")
+    .then(()=>loadScript("https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"));
+  return _pdfLibP;
+}
+async function buildCauselistPdf(iso){
+  iso=(typeof iso==="string"&&iso)?iso:dsDate;
+  await ensurePdfLib();
+  const {jsPDF}=window.jspdf;
+  const d=new Date(iso+"T00:00");
+  const day=d.toLocaleDateString("en-IN",{weekday:"long"}).toUpperCase();
+  const dt=d.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,".");
+  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])));
+  const doc=new jsPDF({unit:"pt",format:"a4"});
+  const W=doc.internal.pageSize.getWidth();
+  doc.setFont("times","bold").setFontSize(17); doc.text(CHAMBER.seniorName.toUpperCase(),W/2,42,{align:"center"});
+  doc.setFont("times","italic").setFontSize(11); doc.text(CHAMBER.designation||"Senior Advocate",W/2,57,{align:"center"});
+  doc.setFont("times","bold").setFontSize(12); const ch=`SUPREME COURT (${day}) ${dt}`; doc.text(ch,W/2,74,{align:"center"});
+  const cw=doc.getTextWidth(ch); doc.setLineWidth(0.7); doc.line((W-cw)/2,77,(W+cw)/2,77);
+  const body=entries.map(e=>{
+    const R=resolveEntry(e,iso);
+    const judges=String(R.bench||"").split(/\s*,\s*/).filter(Boolean).join("\n");
+    const side=R.appearingFor?(/resp/i.test(R.appearingFor)?"(R)":"(P)"):"";
+    const adv=[side,e.counsel,...jrsOf(e).map(u=>nameOf(u))].filter(Boolean).join("\n");
+    let last="";
+    if(R.total){ last=`Total ${R.total}`; if(SUPP_TYPES.has(R.listType)){ const s=suppFetched(iso,R.listType)?R.courtSupp:"—"; last+=`\nMain ${R.courtMain} · Supp ${s}`; } }
+    last+=`\nSeq. ${e.seq||"______"}`;
+    return [`${e.courtNo||"?"} #${e.itemNo||"?"}`, e.time||"", R.title||"", judges, adv, last];
+  });
+  doc.autoTable({ startY:86,
+    head:[["Court/Item","Time","Case Name","Judges","Advocates","Total & Seq."]],
+    body: body.length?body:[["","","No matters listed.","","",""]],
+    theme:"grid",
+    styles:{font:"times",fontSize:8.5,cellPadding:3,valign:"top",lineColor:[0,0,0],lineWidth:0.5,textColor:[0,0,0],overflow:"linebreak"},
+    headStyles:{fontStyle:"bold",fontSize:8.5,fillColor:[245,244,240],textColor:[0,0,0]},
+    columnStyles:{0:{cellWidth:46},1:{cellWidth:32},2:{cellWidth:"auto",fontSize:10.5},3:{cellWidth:90,fontSize:7.5},4:{cellWidth:84,fontSize:7.5},5:{cellWidth:78,fontSize:7.5}},
+    margin:{left:26,right:26} });
+  const confGroups=conferenceList(iso);
+  if(confGroups.length){ let y=doc.lastAutoTable.finalY+22;
+    if(y>790){doc.addPage();y=44;}
+    doc.setFont("times","bold").setFontSize(11); doc.text("Conferences",26,y); doc.setLineWidth(0.5); doc.line(26,y+3,92,y+3); y+=17;
+    confGroups.forEach(g=>{ doc.setFont("times","bold").setFontSize(9.5); doc.text(confDateHeading(g.iso),26,y); y+=13;
+      doc.setFont("times","normal").setFontSize(9.5);
+      g.items.forEach(c=>{ if(y>810){doc.addPage();y=44;} doc.text(`${c.time||"—"}    -    ${c.label||""}`,40,y); y+=12; }); y+=5; }); }
+  return {doc,dt};
+}
+async function shareCauselistPdf(iso){
+  toast("Preparing PDF…","ti-file-text");
+  let out; try{ out=await buildCauselistPdf(iso); }catch(e){ toast("Couldn't build the PDF — check your connection and retry","ti-alert-triangle"); return; }
+  const {doc,dt}=out;
+  const fname=`SD-Causelist-${dt.replace(/\./g,"-")}.pdf`;
+  const blob=doc.output("blob");
+  const file=new File([blob],fname,{type:"application/pdf"});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:`SD Causelist ${dt}`,text:`Cause list — ${dt}`}); return; }
+    catch(e){ if(e && e.name==="AbortError") return; }
+  }
+  doc.save(fname);
+  toast("PDF saved — attach it in WhatsApp or email","ti-file-text");
 }
 
 function dsForm(idx=null){
@@ -3033,6 +3118,18 @@ function leaveForm(prefillDate){
 /* ============================================================
    TEAM
    ============================================================ */
+// Tap a workload island -> the actual cases making up that colleague's load.
+function islandSheet(uid, days, plab){
+  const cs=casesInWindow(uid, days);
+  openSheet(`<div class="sheet-head"><div><h3>${esc(nameOf(uid))}</h3><div class="sub">${cs.length} matter${cs.length===1?'':'s'} · ${esc(plab)} · load ${fmtPts(loadInWindow(uid,days))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      ${cs.length? cs.map((b,i)=>{const st=STATUS[b.status];const imm=isImminent(b)&&b.status!=='disposed';return `<button class="mw-card" data-brief="${b.id}">
+        <div class="mw-title"><span class="mw-sn">${i+1}</span>${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span> `:''}${esc(labelOf(b))}</div>
+        <div class="mw-meta"><span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>${b.nextDate?`<span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(b.nextDate)}</span>`:'<span class="muted">no date</span>'}${(b.assignedTo||[]).length>1?`<span class="muted" style="font-size:11px">½ shared</span>`:''}</div>
+      </button>`;}).join("") : '<div class="muted" style="font-size:13px">No matters in this period.</div>'}
+    </div>`);
+  bindClicks($("modalRoot"));
+}
 function renderTeam(){
   $("topbarAction").innerHTML= canAdmin()? `<button class="btn" id="tbInvite"><span class="ic ti ti-user-plus"></span>Add member</button>`:"";
   const order={admin:0,senior:1,clerk:2,pa:3,junior:4};
@@ -3084,10 +3181,11 @@ function renderTeam(){
   const _seg=`<div class="seg" id="loadPeriodSeg"><button type="button" data-lp="week" class="${loadPeriod==="week"?"active":""}">Weekly</button><button type="button" data-lp="month" class="${loadPeriod==="month"?"active":""}">Monthly</button><button type="button" data-lp="year" class="${loadPeriod==="year"?"active":""}">Yearly</button></div>`;
   // visible to the whole chamber — transparency on who is carrying what
   const loadPanel=`<div class="panel" style="margin-bottom:16px"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload snapshot</span>${_seg}</div>
-    <div style="padding:14px 16px">${_disp.length?`<div class="load-islands">${_loads.map(({m,pts})=>`<div class="load-island ${_col(pts)}"><div class="li-ava">${esc(initials(m.name))}</div><div class="li-name">${esc(m.name)}</div><div class="li-load">${fmtPts(pts)}</div><div class="li-lab"><span class="li-dot"></span>${_plab}</div></div>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}
+    <div style="padding:14px 16px">${_disp.length?`<div class="load-islands">${_loads.map(({m,pts})=>`<button type="button" class="load-island ${_col(pts)}" data-island="${m.id}" title="See ${esc(m.name.split(' ')[0])}'s matters"><div class="li-ava">${esc(initials(m.name))}</div><div class="li-name">${esc(m.name)}</div><div class="li-load">${fmtPts(pts)}</div><div class="li-lab"><span class="li-dot"></span>${_plab}</div></button>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}
       <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`;
   $("tab-team").innerHTML=myAvail+loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
   document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderTeam(); });
+  document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,_days,_plab));
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
   document.querySelectorAll("[data-editinvite]").forEach(x=>x.onclick=()=>inviteForm(x.dataset.editinvite));
   document.querySelectorAll("[data-delinvite]").forEach(x=>x.onclick=async()=>{await db.remove("approvals/"+x.dataset.delinvite);toast("Invite removed");});
