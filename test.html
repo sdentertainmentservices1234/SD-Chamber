@@ -218,13 +218,6 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .conf-list{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:2px 16px;max-width:620px}
 .conf-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
 .conf-row:first-child{border-top:none}
-.conf-reorder{display:inline-flex;flex-direction:column;gap:1px;margin-right:-4px}
-.conf-reorder .tbtn{width:22px;height:17px;padding:0;font-size:13px;border-radius:5px}
-.conf-reorder .tbtn[disabled]{opacity:.25;cursor:default;pointer-events:none}
-.conf-grip{color:var(--line-2);font-size:17px;cursor:grab;flex-shrink:0}
-.conf-row.conf-drag{cursor:grab}
-.conf-row.dragging{opacity:.4}
-.conf-row.drag-over{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent);border-radius:8px}
 /* numbered register (calendar day view) */
 .reg{border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;margin-top:2px}
 .reg-row{display:flex;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:0;align-items:stretch;font-family:inherit}
@@ -1883,9 +1876,8 @@ const COURT_SPECIALS=["Chamber","Registrar","Away"];
 const fmtClock=ms=>{ try{ return new Date(ms).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"}); }catch(e){ return ""; } };
 // stable per-conference id: date + time + label, sanitised for a Firestore doc id
 const confKey=c=>{ const t=String(c.time||"").replace(/[^\dapm]/gi,""); const l=String(c.label||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,48); return `${c.date||"x"}_${t||"x"}_${l||"x"}`; };
-// Conferences always display in time order. Reordering in the day sheet SWAPS
-// the two conferences' times (see swapConfTimes) and writes them back to the
-// matter/manual record, so the new times propagate to every reader.
+// Conferences always display in time order (fixed — no manual reordering). To
+// change a time, edit the conference from the day sheet's Conferences section.
 function sortConfsInPlace(arr){ arr.sort((a,b)=>(confMins(a.time)??9999)-(confMins(b.time)??9999)); return arr; }
 // ALL conferences whose date is dateISO, scanned across every day sheet (a
 // conference can sit on a matter listed for another hearing day) — fixes the
@@ -2742,14 +2734,12 @@ function renderToday(){
   const confSec=`<div class="section-label" style="margin-top:30px">Conferences &amp; meetings</div>
     ${confGroups.length?confGroups.map(g=>`<div class="conf-daygroup">
       <div class="conf-dayhead">${esc(confDateHeading(g.iso))}</div>
-      <div class="conf-list">${g.items.map((c,ci)=>`<div class="conf-row${canManage()?' conf-drag':''}" ${canManage()?`draggable="true" data-confrow="${esc(g.iso)}|${esc(c.key)}"`:''}>
-        ${canManage()?`<span class="conf-grip ti ti-grip-vertical" title="Drag onto another conference to swap their times"></span>`:''}
-        ${canManage()&&g.items.length>1?`<span class="conf-reorder"><button class="tbtn icon-only sm" data-confswap="${esc(g.iso)}|${esc(c.key)}|${esc(g.items[ci-1]?.key||'')}" ${ci===0?'disabled':''} title="Swap time with the one above"><span class="ic ti ti-chevron-up"></span></button><button class="tbtn icon-only sm" data-confswap="${esc(g.iso)}|${esc(c.key)}|${esc(g.items[ci+1]?.key||'')}" ${ci===g.items.length-1?'disabled':''} title="Swap time with the one below"><span class="ic ti ti-chevron-down"></span></button></span>`:''}
+      <div class="conf-list">${g.items.map(c=>`<div class="conf-row">
         <span class="mono" style="min-width:44px">${esc(fmtConfTime(c.time)||"—")}</span>
         <span style="flex:1">${esc(c.label||"")}${c.kind==="matter"?'<span class="muted" style="font-size:11px;margin-left:6px">· from the matter</span>':''}</span>
         ${canManage()?(c.kind==="matter"
-          ? `<button class="tbtn icon-only" data-dsedit="${c.ref}" aria-label="Edit matter / conference"><span class="ic ti ti-pencil"></span></button>`
-          : `<button class="tbtn icon-only" data-confedit="${c.ref}" aria-label="Edit conference"><span class="ic ti ti-pencil"></span></button><button class="tbtn icon-only" data-confdel="${c.ref}" aria-label="Remove conference"><span class="ic ti ti-trash"></span></button>`):''}
+          ? `<button class="tbtn icon-only" data-dsedit="${c.ref}" aria-label="Edit time / conference" title="Edit conference time"><span class="ic ti ti-pencil"></span></button>`
+          : `<button class="tbtn icon-only" data-confedit="${c.ref}" aria-label="Edit conference" title="Edit conference"><span class="ic ti ti-pencil"></span></button><button class="tbtn icon-only" data-confdel="${c.ref}" aria-label="Remove conference"><span class="ic ti ti-trash"></span></button>`):''}
       </div>`).join("")}</div></div>`).join("")
       :`<div class="muted" style="font-size:13px">No conferences yet — add a conference date &amp; time when adding a matter, or use “Add conference”.</div>`}
     ${canManage()?`<div style="margin-top:12px"><button class="tbtn" id="tbAddConf"><span class="ic ti ti-plus"></span>Add conference</button></div>`:''}`;
@@ -2761,38 +2751,11 @@ function renderToday(){
   if($("tbShare"))$("tbShare").onclick=shareDaySheet;
   if($("tbPrint"))$("tbPrint").onclick=()=>printCauseList(dsDate);
   if($("tbAddConf"))$("tbAddConf").onclick=()=>confForm();
-  // up/down arrows swap this conference's time with its neighbour's
-  document.querySelectorAll("#tab-today [data-confswap]").forEach(x=>x.onclick=()=>{ const [iso,key,other]=x.dataset.confswap.split("|"); if(other) swapConfTimes(iso,key,other); });
-  // drag one conference onto another to swap their time slots
-  let _dragConf=null;
-  document.querySelectorAll("#tab-today [data-confrow]").forEach(row=>{
-    row.addEventListener("dragstart",e=>{ _dragConf=row.dataset.confrow; row.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",_dragConf);}catch(_){} });
-    row.addEventListener("dragend",()=>{ row.classList.remove("dragging"); document.querySelectorAll("#tab-today .conf-row.drag-over").forEach(r=>r.classList.remove("drag-over")); });
-    row.addEventListener("dragover",e=>{ e.preventDefault(); if(_dragConf&&_dragConf!==row.dataset.confrow) row.classList.add("drag-over"); });
-    row.addEventListener("dragleave",()=>row.classList.remove("drag-over"));
-    row.addEventListener("drop",e=>{ e.preventDefault(); row.classList.remove("drag-over"); const src=_dragConf||(e.dataTransfer&&e.dataTransfer.getData("text/plain")); const tgt=row.dataset.confrow; _dragConf=null;
-      if(!src||src===tgt) return; const [isoA,keyA]=src.split("|"), [isoB,keyB]=tgt.split("|"); if(isoA!==isoB) return; swapConfTimes(isoA,keyA,keyB); });
-  });
   $("tab-today").querySelectorAll("[data-confedit]").forEach(x=>x.onclick=()=>confForm(+x.dataset.confedit));
   $("tab-today").querySelectorAll("[data-confdel]").forEach(x=>x.onclick=()=>{const c=[...(daysheet?.conferences||[])];c.splice(+x.dataset.confdel,1);saveDaysheet(daysheet?.entries||[],c);});
   bindClicks($("tab-today"));
 }
 async function saveDaysheet(entries,conferences){ await db.set("daysheets/"+dsDate,{date:dsDate,entries,conferences:conferences??(daysheet?.conferences||[]),updatedAt:db.now(),updatedBy:me.uid},true); }
-// Swap the TIMES of two conferences (drag one onto another, or the up/down
-// arrows) and write the new times back to the underlying matter entry / manual
-// conference. Every reader re-sorts by time, so the swap propagates everywhere
-// (day sheet, print, share, Now tab).
-async function swapConfTimes(dateISO, keyA, keyB){
-  if(!keyA||!keyB||keyA===keyB) return;
-  const items=(conferenceList(dateISO).find(g=>g.iso===dateISO)?.items)||[];
-  const a=items.find(x=>x.key===keyA), b=items.find(x=>x.key===keyB); if(!a||!b) return;
-  const ds=dsAll[dateISO]||((dateISO===dsDate)?daysheet:null); if(!ds) return;
-  const entries=(ds.entries||[]).map(e=>({...e})), confs=(ds.conferences||[]).map(c=>({...c}));
-  const setTime=(it,t)=>{ if(it.kind==="matter"){ if(entries[it.ref]) entries[it.ref].confTime=t; } else if(confs[it.ref]) confs[it.ref].time=t; };
-  setTime(a,b.time); setTime(b,a.time);
-  await db.set("daysheets/"+dateISO,{date:dateISO,entries,conferences:confs,updatedAt:db.now(),updatedBy:me.uid},true);
-  toast("Conference times swapped");
-}
 function dsMove(i,d){const e=[...daysheet.entries];const j=i+d;if(j<0||j>=e.length)return;[e[i],e[j]]=[e[j],e[i]];saveDaysheet(e);}
 function dsDone(i){const e=[...daysheet.entries];e[i]={...e[i],done:!e[i].done};saveDaysheet(e);}
 function dsDel(i){ const e=[...daysheet.entries]; const ent=e[i]; if(!ent)return; const R=resolveEntry(ent,dsDate);
