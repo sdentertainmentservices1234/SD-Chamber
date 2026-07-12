@@ -1,6 +1,6 @@
 {
-  "name": "SD Chamber — Day Sheet & Briefs",
-  "short_name": "Chamber",
+  "name": "SD Chamber",
+  "short_name": "SD Chamber",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

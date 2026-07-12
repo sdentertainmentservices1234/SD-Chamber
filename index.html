@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#101418">
-<title>Chamber</title>
+<title>SD Chamber</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -12,11 +12,11 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Chamber">
+<meta name="apple-mobile-web-app-title" content="SD Chamber">
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,380;9..144,450&family=Inter:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Fraunces:opsz,wght@9..144,380;9..144,450&family=Inter:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   /* near-monochrome institutional palette */
@@ -73,8 +73,12 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .sidebar{width:var(--sb-w);background:var(--sidebar);color:var(--sidebar-ink);flex-shrink:0;display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;z-index:20}
 .sb-brand{padding:24px 20px 18px;border-bottom:1px solid rgba(203,182,130,.16)}
 .sb-brand .k{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#a58a4e}
-.sb-brand .n{font-family:var(--serif);font-size:20px;font-weight:450;color:#f3f2ee;line-height:1.2;margin-top:4px}
-.sb-brand .c{font-size:11.5px;color:var(--sidebar-ink-2);margin-top:4px;letter-spacing:.03em}
+.sb-brand .n{font-family:'Cormorant Garamond',Georgia,serif;font-size:27px;font-weight:600;color:#f3f2ee;line-height:1.05;margin-top:5px;letter-spacing:.01em}
+.sb-brand .desig{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:14px;color:#cbb682;margin-top:2px;letter-spacing:.02em}
+.sb-brand .c{font-size:11.5px;color:var(--sidebar-ink-2);margin-top:3px;letter-spacing:.03em}
+/* the senior's name, set in an elegant display serif on the login card */
+.auth-card h1.senior-name{font-family:'Cormorant Garamond',Georgia,serif;font-size:38px;font-weight:600;letter-spacing:.01em;line-height:1.02;margin:9px 0 0}
+.auth-card .desig{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:16px;color:var(--accent-ink);text-align:center;margin-top:2px}
 /* SD monogram — gold Fraunces inside a hairline gold ring (echoes the seal) */
 .sb-logo{font-family:var(--serif);font-size:23px;font-weight:450;letter-spacing:1px;color:#cbb682;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(203,182,130,.55),0 0 0 3px var(--sidebar),0 0 0 4px rgba(203,182,130,.28);margin-bottom:14px}
 /* circular seal emblem — navy field, double gold rule, gold SD monogram */
@@ -343,6 +347,18 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 /* ---------------- TEAM ---------------- */
 .team-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:720px){.team-grid{grid-template-columns:1fr}}
+/* workload snapshot islands (Chamber tab) */
+.load-islands{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:11px;padding:2px}
+.load-island{border-radius:var(--r-lg);padding:14px 10px;text-align:center;border:1px solid var(--line-2);background:var(--surface);transition:transform .1s}
+.load-island.ld-green{background:rgba(46,160,80,.10);border-color:rgba(46,160,80,.38)}
+.load-island.ld-yellow{background:rgba(224,168,32,.14);border-color:rgba(224,168,32,.46)}
+.load-island.ld-red{background:rgba(210,64,64,.10);border-color:rgba(210,64,64,.40)}
+.li-ava{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;margin:0 auto 8px}
+.li-name{font-size:12.5px;font-weight:500;color:var(--ink);line-height:1.22;min-height:31px;display:flex;align-items:center;justify-content:center}
+.li-load{font-family:var(--serif);font-size:27px;font-weight:450;color:var(--ink);margin-top:6px;line-height:1}
+.li-lab{font-size:10px;color:var(--ink-3);margin-top:3px}
+.li-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.ld-green .li-dot{background:#2ea050}.ld-yellow .li-dot{background:#e0a820}.ld-red .li-dot{background:#d24040}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
 .panel-head{padding:15px 18px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--ink);display:flex;justify-content:space-between;align-items:center}
 .trow{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--line)}
@@ -533,7 +549,8 @@ body.demo .topbar{top:34px}
   <div class="auth-card">
     <div class="brand-mark">SD</div>
     <div class="k">Chambers of</div>
-    <h1 id="authName">Senior Advocate</h1>
+    <h1 class="senior-name" id="authName">Senior Advocate</h1>
+    <div class="desig" id="authDesig">Senior Advocate</div>
     <div class="court" id="authCourt">Supreme Court of India</div>
     <label for="loginEmail">Email</label>
     <input id="loginEmail" type="email" autocomplete="email" inputmode="email" placeholder="name@chamber.in">
@@ -541,6 +558,7 @@ body.demo .topbar{top:34px}
     <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••">
     <div style="margin-top:20px"><button class="btn" id="loginBtn">Sign in</button></div>
     <div class="err" id="loginErr"></div>
+    <div class="auth-note"><a href="#" id="forgotPass">Forgot your password?</a></div>
     <div class="auth-note" id="authToggleNote">First time here? <a href="#" id="authToggle">Set your password</a> — use the email your chamber entered for you.</div>
   </div>
 </div>
@@ -564,6 +582,7 @@ body.demo .topbar{top:34px}
       <div class="sb-logo">SD</div>
       <div class="k">Chambers of</div>
       <div class="n" id="sbName">Senior Advocate</div>
+      <div class="desig" id="sbDesig">Senior Advocate</div>
       <div class="c" id="sbCourt">Supreme Court of India</div>
     </div>
     <nav class="sb-nav" id="sbNav">
@@ -625,6 +644,7 @@ const DEMO = false;
 
 const CHAMBER = {
   seniorName: "Shyam Divan",          // <-- put the senior's name here, keep the quotes
+  designation: "Senior Advocate",     // shown between the name and the court
   court: "Supreme Court of India",
   // The chamber's admin does all technical feeding (members, joining dates,
   // matter weights, holidays, email pre-approval). Recognised BY EMAIL so the
@@ -707,11 +727,12 @@ if(DEMO){
   };
   let authCb=null, cur={uid:"u_clerk"};
   auth={ onChange(cb){authCb=cb; setTimeout(()=>cb(cur),0);}, signIn(){return Promise.resolve();}, signUp(){return Promise.resolve();},
+    resetPassword(){return Promise.resolve();},
     signOut(){cur=null; authCb&&authCb(null);}, setUser(uid){cur={uid}; authCb&&authCb(cur);} };
   window.__demoSetUser = uid => auth.setUser(uid);
   seedDemo(db);
 } else {
-  const [{initializeApp},{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,onAuthStateChanged,signOut},
+  const [{initializeApp},{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,onAuthStateChanged,signOut,sendPasswordResetEmail},
     {getFirestore,collection,doc,getDoc,setDoc,addDoc,updateDoc,deleteDoc,onSnapshot,query,orderBy,serverTimestamp}] =
     await Promise.all([
       import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
@@ -757,6 +778,7 @@ if(DEMO){
       } cb(user); }); },
     signIn(email,pass){ return signInWithEmailAndPassword(fa,email,pass); },
     signUp(email,pass){ return createUserWithEmailAndPassword(fa,email,pass); },
+    resetPassword(email){ return sendPasswordResetEmail(fa,email); },
     signOut(){ return signOut(fa); }, setUser(){} };
 }
 
@@ -985,7 +1007,7 @@ const suppFetched=(dateISO,listType)=>{ const lf=courtUpdates?.by_date?.[dateISO
 
 function toast(msg,icon="ti-check"){ const t=$("toast"); t.innerHTML=`<span class="ic ti ${icon}"></span>${esc(msg)}`; t.classList.remove("hidden"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.add("hidden"),2400); }
 
-$("authName").textContent=CHAMBER.seniorName; $("authCourt").textContent=CHAMBER.court;
+$("authName").textContent=CHAMBER.seniorName; $("authCourt").textContent=CHAMBER.court; $("authDesig").textContent=CHAMBER.designation;
 let authMode="in";  // "in" = sign in, "up" = first-time set-password
 function paintAuthMode(){ const up=authMode==="up"; $("loginErr").textContent="";
   $("loginBtn").textContent=up?"Create my access":"Sign in";
@@ -1008,6 +1030,15 @@ $("loginBtn").onclick=async()=>{ $("loginErr").textContent="";
       : "Sign-in failed. Check your email and password.";
   }};
 $("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("loginBtn").click();});
+// Forgot password — Firebase emails a secure reset link to the address on file.
+$("forgotPass").onclick=async e=>{ e.preventDefault(); $("loginErr").textContent="";
+  const email=$("loginEmail").value.trim();
+  if(!/^\S+@\S+\.\S+$/.test(email)){ $("loginErr").textContent="Type your email above first, then tap “Forgot your password?”."; $("loginEmail").focus(); return; }
+  try{ await auth.resetPassword(email);
+    $("loginErr").style.color="var(--accent-ink)";
+    $("loginErr").textContent=`Reset link sent to ${email}. Check your inbox (and spam), open the link, and set a new password.`;
+  }catch(err){ $("loginErr").style.color=""; $("loginErr").textContent="Couldn't send a reset link. Check the email is correct and try again."; }
+};
 $("pendingSignOut").onclick=()=>auth.signOut();
 $("signOutBtn").onclick=()=>auth.signOut();
 // Hard refresh: pull the newest app shell + data even on an installed PWA whose
@@ -1064,7 +1095,7 @@ function startApp(){
 function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(daysheet.entries) daysheet.entries=byCourt(daysheet.entries); if(curTab==="today")renderToday(); }); }
 
 function paintChrome(){
-  $("sbName").textContent=CHAMBER.seniorName; $("sbCourt").textContent=CHAMBER.court;
+  $("sbName").textContent=CHAMBER.seniorName; $("sbCourt").textContent=CHAMBER.court; if($("sbDesig"))$("sbDesig").textContent=CHAMBER.designation;
   $("sbUserName").textContent=me.name; $("sbUserRole").textContent=ROLES[me.role]||me.role;
   $("sbAva").textContent=initials(me.name);
   // colleagues get "My work" (a personal home); Staff/admin get the distribution board
@@ -1257,6 +1288,21 @@ function activeCount(uid){
 // weightage/imminence applies only to activeLoad.
 function lifetimeCount(uid){
   return Object.values(briefs).filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid)).reduce((s,b)=>s+_share(b.everAssigned||b.assignedTo),0);
+}
+// Workload a colleague carried over the last `days` days — share-split points from
+// briefs (assigned / heard / listed in the window) plus bare causelist listings.
+let loadPeriod="month";   // week | month | year — the Chamber-tab snapshot toggle
+function loadInWindow(uid, days){
+  const now=todayISO(); const s=new Date(now+"T00:00"); s.setDate(s.getDate()-days);
+  const start=s.toLocaleDateString("en-CA");
+  const inWin=d=>d&&d>=start&&d<=now;
+  let pts=0;
+  Object.values(briefs).forEach(b=>{ if((b.everAssigned||b.assignedTo||[]).includes(uid)){
+    const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
+    if(inWin(ad)||inWin(b.nextDate)||listingDatesOf(b.id).some(inWin)) pts+=_share(b.everAssigned||b.assignedTo);
+  }});
+  listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=_share(jrsOf(x.e)); });
+  return Math.round(pts*10)/10;
 }
 
 // Pick the next junior for a brief.
@@ -2140,8 +2186,8 @@ td.tm,th.tm{width:34px;white-space:nowrap;font-size:11.5px}
 td.nm{font-size:16px;line-height:1.34}            /* the cause title — the largest column */
 td.jg,th.jg{width:84px;font-size:10.5px;line-height:1.38}   /* judges, one per line */
 td.ad,th.ad{width:88px;font-size:10.5px;line-height:1.38}   /* advocates, one per line */
-td.last,th.last{width:78px;font-size:10.5px}
-.brk{font-size:10px;margin-top:1px}
+td.last,th.last{width:106px;font-size:10.5px}
+.brk{font-size:10px;margin-top:1px;white-space:nowrap}   /* Main N · Supp N on one line */
 .seq{margin-top:5px;white-space:nowrap}
 .wl{display:inline-block;border-bottom:1px solid #000;min-width:34px;vertical-align:baseline}
 .confs{margin-top:16px}
@@ -2589,7 +2635,19 @@ function renderTeam(){
   const pendingPanel = (pending.length&&canAdmin())? `<div class="panel" style="margin-top:16px"><div class="panel-head">Signed in without an invite <span class="chip st-prep">${pending.length}</span></div>
     ${pending.map(u=>`<div class="trow"><div class="sb-ava" style="background:var(--surface-2);color:var(--ink-3)">${esc(initials(u.name))}</div><div class="info"><div class="nm">${esc(u.name)}</div><div class="rl">${esc(u.email||'')}</div></div><button class="btn sm" data-role="${u.id}">Set role</button></div>`).join("")}</div>` : "";
 
-  $("tab-team").innerHTML=myAvail+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
+  // workload snapshot — colour-coded islands per colleague; weekly/monthly/yearly
+  const _disp=rosterDisplay();
+  const _days=loadPeriod==="week"?7:loadPeriod==="year"?365:30;
+  const _loads=_disp.map(m=>({m,pts:loadInWindow(m.id,_days)}));
+  const _max=Math.max(1,..._loads.map(l=>l.pts));
+  const _col=pts=>pts<=_max*0.4?"ld-green":pts<=_max*0.75?"ld-yellow":"ld-red";
+  const _plab=loadPeriod==="week"?"this week":loadPeriod==="year"?"this year":"this month";
+  const _seg=`<div class="seg" id="loadPeriodSeg"><button type="button" data-lp="week" class="${loadPeriod==="week"?"active":""}">Weekly</button><button type="button" data-lp="month" class="${loadPeriod==="month"?"active":""}">Monthly</button><button type="button" data-lp="year" class="${loadPeriod==="year"?"active":""}">Yearly</button></div>`;
+  const loadPanel=canManage()?`<div class="panel" style="margin-bottom:16px"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload snapshot</span>${_seg}</div>
+    <div style="padding:14px 16px">${_disp.length?`<div class="load-islands">${_loads.map(({m,pts})=>`<div class="load-island ${_col(pts)}"><div class="li-ava">${esc(initials(m.name))}</div><div class="li-name">${esc(m.name)}</div><div class="li-load">${fmtPts(pts)}</div><div class="li-lab"><span class="li-dot"></span>${_plab}</div></div>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}
+      <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`:"";
+  $("tab-team").innerHTML=myAvail+loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
+  document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderTeam(); });
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
   document.querySelectorAll("[data-editinvite]").forEach(x=>x.onclick=()=>inviteForm(x.dataset.editinvite));
   document.querySelectorAll("[data-delinvite]").forEach(x=>x.onclick=async()=>{await db.remove("approvals/"+x.dataset.delinvite);toast("Invite removed");});
