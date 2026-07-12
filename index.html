@@ -653,8 +653,12 @@ body.demo .topbar{top:34px}
 .cnote-m{font-size:11px;color:var(--muted);margin-top:3px}
 .cnote-x{border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;padding:0;text-decoration:underline}
 .cnote-empty{font-size:12.5px;color:var(--muted);padding:4px 0}
-.cnote-add{display:flex;gap:8px;margin-top:10px}
-.cnote-add input{flex:1}
+.cnote-add{margin-top:12px}
+.cnote-ta{width:100%;min-height:96px;resize:vertical;font-family:var(--sans);font-size:14px;line-height:1.55;padding:11px 13px;border-radius:10px}
+.cnote-addbar{display:flex;justify-content:flex-end;margin-top:8px}
+.conf-who{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--accent-ink);background:var(--accent-soft);border-radius:8px;padding:6px 10px;margin-bottom:12px;font-weight:600}
+.conf-who .ic{font-size:15px}
+.conf-viewonly{font-size:12px;color:var(--muted);font-style:italic;margin-top:8px;padding:8px 0}
 @media(max-width:860px){.now-grid{grid-template-columns:repeat(5,1fr)}.now-live{font-size:22px}.conf-body{padding-left:18px}}
 </style>
 </head>
@@ -1747,10 +1751,11 @@ const confKey=c=>{ const t=String(c.time||"").replace(/[^\dapm]/gi,""); const l=
 function conferencesOn(dateISO){
   const raw=[];
   Object.values(dsAll||{}).forEach(ds=>{ const dt=ds.date||ds.id;
-    (ds.entries||[]).forEach(e=>{ const cd=e.confDate||dt; if((e.confTime||e.confDate)&&cd===dateISO)
-      raw.push({date:cd,time:e.confTime||"",counsel:(e.counsel||"").trim(),title:resolveEntry(e,dt).title,kind:"matter"}); });
+    (ds.entries||[]).forEach(e=>{ const cd=e.confDate||dt; if((e.confTime||e.confDate)&&cd===dateISO){
+      const jrs=[...new Set([...jrsOf(e), ...((e.briefId&&briefs[e.briefId]?.assignedTo)||[])])];
+      raw.push({date:cd,time:e.confTime||"",counsel:(e.counsel||"").trim(),title:resolveEntry(e,dt).title,kind:"matter",jrs}); } });
     (ds.conferences||[]).forEach(c=>{ const cd=c.date||dt; if(cd===dateISO)
-      raw.push({date:cd,time:c.time||"",counsel:c.name||"",title:"",kind:"manual",isManual:true}); });
+      raw.push({date:cd,time:c.time||"",counsel:c.name||"",title:"",kind:"manual",isManual:true,jrs:[]}); });
   });
   const counts={}; raw.forEach(r=>{ if(!r.isManual&&r.counsel){const k=r.counsel.toLowerCase(); counts[k]=(counts[k]||0)+1;} });
   raw.forEach(r=>{ const dup=!r.isManual&&r.counsel&&counts[r.counsel.toLowerCase()]>1; const first=(r.title||"").split(/\s+/)[0]||""; r.label=(r.counsel||"—")+((dup&&first)?` (${first})`:""); });
@@ -1803,6 +1808,10 @@ function confSectionHtml(){
   const cards=confs.map((c,i)=>{
     const st=confStatus[c.key]||{}, onNow=!!st.onNow, infer=!anyOn&&i===inferIdx, open=onNow||nowConfOpen.has(c.key);
     const notes=st.notes||[];
+    // Only the colleague(s) marked on the matter, plus Staff/PA/Adith, may
+    // update a conference. Everyone else sees it live but read-only.
+    const canEdit=idIn(c.jrs,me.uid)||canManage();
+    const whoNames=(c.jrs||[]).map(nameOf).filter(n=>n&&n!=="—");
     let estLine;
     if(st.endAt){ const left=Math.round((st.endAt-Date.now())/60000);
       estLine=`<span class="est-cur">${left>0?`ends ~${esc(fmtClock(st.endAt))} · in ${left} min`:`past estimate (~${esc(fmtClock(st.endAt))})`}</span>`; }
@@ -1810,7 +1819,7 @@ function confSectionHtml(){
     else estLine=`<span class="est-cur dim">not set</span>`;
     const durBtns=CONF_DUR.map(dd=>`<button class="est-chip${st.endEst===dd.lab?" on":""}" data-est="${esc(c.key)}|${dd.min}|${esc(dd.lab)}">${esc(dd.lab)}</button>`).join("")
       +((st.endEst||st.endAt)?`<button class="est-chip clear" data-est="${esc(c.key)}||">Clear</button>`:"");
-    const noteList=notes.length?notes.map((nn,ni)=>`<div class="cnote"><div class="cnote-t">${esc(nn.text)}</div><div class="cnote-m">${esc(nameOf(nn.by))} · ${esc(timeAgo(nn.at))}${(nn.by===me.uid||canManage())?` · <button class="cnote-x" data-notedel="${esc(c.key)}|${ni}">remove</button>`:""}</div></div>`).join(""):`<div class="cnote-empty">No notes yet.</div>`;
+    const noteList=notes.length?notes.map((nn,ni)=>`<div class="cnote"><div class="cnote-t">${esc(nn.text)}</div><div class="cnote-m">${esc(nameOf(nn.by))} · ${esc(timeAgo(nn.at))}${(canEdit&&(nn.by===me.uid||canManage()))?` · <button class="cnote-x" data-notedel="${esc(c.key)}|${ni}">remove</button>`:""}</div></div>`).join(""):`<div class="cnote-empty">No notes yet.</div>`;
     return `<div class="conf-card${onNow?" on":infer?" infer":""}">
       <div class="conf-top" data-conftoggle="${esc(c.key)}">
         <span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span>
@@ -1819,18 +1828,20 @@ function confSectionHtml(){
         <span class="ic ti ti-chevron-${open?"up":"down"} conf-chev"></span>
       </div>
       <div class="conf-body${open?"":" hidden"}">
-        <div class="conf-actions">
+        ${whoNames.length?`<div class="conf-who"><span class="ic ti ti-user"></span>${esc(whoNames.join(", "))}</div>`:(c.isManual?`<div class="conf-who"><span class="ic ti ti-user"></span>Chamber conference</div>`:"")}
+        ${canEdit?`<div class="conf-actions">
           ${onNow?`<button class="tbtn sm" data-confdone="${esc(c.key)}"><span class="ic ti ti-check"></span>Mark ended</button>`
                  :`<button class="tbtn sm go" data-confon="${esc(c.key)}"><span class="ic ti ti-player-play"></span>Mark on now</button>`}
-        </div>
+        </div>`:""}
         <div class="conf-est">
           <div class="conf-est-h">Likely to run · <span class="est-line">${estLine}</span></div>
-          <div class="est-chips">${durBtns}</div>
+          ${canEdit?`<div class="est-chips">${durBtns}</div>`:""}
         </div>
         <div class="conf-notes">
           <div class="conf-notes-h">Notes from the conference</div>
           <div class="cnote-list">${noteList}</div>
-          <div class="cnote-add"><input type="text" placeholder="Add a note…" data-noteinput="${esc(c.key)}"><button class="tbtn sm" data-noteadd="${esc(c.key)}">Add</button></div>
+          ${canEdit?`<div class="cnote-add"><textarea class="cnote-ta" rows="4" placeholder="Add a note from the conference…  (Ctrl/⌘+Enter to save)" data-noteinput="${esc(c.key)}"></textarea><div class="cnote-addbar"><button class="tbtn sm go" data-noteadd="${esc(c.key)}"><span class="ic ti ti-plus"></span>Add note</button></div></div>`
+                   :`<div class="conf-viewonly">View only — updated by the colleague(s) on this matter, or Staff/Adith.</div>`}
         </div>
       </div>
     </div>`;
@@ -1841,13 +1852,13 @@ function confSectionHtml(){
     <div class="ncard-b np">
       ${confs.length?cards:`<div class="now-blank" style="margin:8px 14px">No conferences scheduled for today.</div>`}
     </div></div>
-    <div class="now-note">Estimates and notes are live to the whole chamber — colleagues see whether a conference is on, how long it may run, and what came out of it.</div>`;
+    <div class="now-note">Live to the whole chamber to view. Only the colleague(s) marked on a matter — plus Staff and Adith — can mark it on/ended, set the estimate, or take notes.</div>`;
 }
 function wireConf(){
   const T=sel=>document.querySelectorAll("#tab-now "+sel);
   const findC=k=>conferencesOn(todayISO()).find(z=>z.key===k);
-  const base=c=>({date:todayISO(),time:c?.time||"",label:c?.label||""});
-  T("[data-conftoggle]").forEach(x=>x.onclick=e=>{ if(e.target.closest("button,input"))return; const k=x.dataset.conftoggle; nowConfOpen.has(k)?nowConfOpen.delete(k):nowConfOpen.add(k); renderNow(); });
+  const base=c=>({date:todayISO(),time:c?.time||"",label:c?.label||"",owners:c?.jrs||[]});
+  T("[data-conftoggle]").forEach(x=>x.onclick=e=>{ if(e.target.closest("button,input,textarea"))return; const k=x.dataset.conftoggle; nowConfOpen.has(k)?nowConfOpen.delete(k):nowConfOpen.add(k); renderNow(); });
   T("[data-confon]").forEach(x=>x.onclick=async()=>{ const k=x.dataset.confon; nowConfOpen.add(k);
     await db.set("confstatus/"+k,{...base(findC(k)),onNow:true,by:me.uid,at:Date.now()},true); toast("Marked on now","ti-broadcast"); });
   T("[data-confdone]").forEach(x=>x.onclick=async()=>{ await db.set("confstatus/"+x.dataset.confdone,{onNow:false},true); toast("Conference ended"); });
@@ -1858,7 +1869,7 @@ function wireConf(){
   T("[data-noteadd]").forEach(x=>x.onclick=async()=>{ const k=x.dataset.noteadd; const inp=document.querySelector(`#tab-now [data-noteinput="${k}"]`);
     const txt=(inp?.value||"").trim(); if(!txt)return; const cur=confStatus[k]?.notes||[];
     await db.set("confstatus/"+k,{...base(findC(k)),notes:[...cur,{text:txt,by:me.uid,at:Date.now()}]},true); if(inp)inp.value=""; });
-  T("[data-noteinput]").forEach(inp=>inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); document.querySelector(`#tab-now [data-noteadd="${inp.dataset.noteinput}"]`)?.click(); } });
+  T("[data-noteinput]").forEach(inp=>inp.onkeydown=e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); document.querySelector(`#tab-now [data-noteadd="${inp.dataset.noteinput}"]`)?.click(); } });
   T("[data-notedel]").forEach(x=>x.onclick=async()=>{ const [k,ni]=x.dataset.notedel.split("|"); const cur=(confStatus[k]?.notes||[]).slice(); cur.splice(+ni,1); await db.set("confstatus/"+k,{notes:cur},true); });
 }
 function notifSheet(){
