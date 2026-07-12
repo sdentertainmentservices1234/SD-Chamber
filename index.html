@@ -326,9 +326,27 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .seg button:last-child{border-right:none}
 .seg button.active{background:var(--sidebar);color:#fff}
 .brief-table{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
-.brief-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:15px 18px;transition:background .1s}
+.brief-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;width:100%;border-bottom:1px solid var(--line);padding:13px 16px;transition:background .1s}
 .brief-row:last-child{border-bottom:none}
 .brief-row:hover{background:var(--surface-2)}
+.br-open{display:block;min-width:0;text-align:left;background:none;border:none;padding:0;cursor:pointer;font-family:inherit}
+/* directions / tasks the Senior gave on a matter */
+.dir-list{margin-top:4px}
+.dir-row{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+.dir-row:last-child{border-bottom:none}
+.dir-row.done .dir-text{text-decoration:line-through;color:var(--ink-3)}
+.dir-check{background:none;border:none;cursor:pointer;color:var(--accent-ink);font-size:18px;padding:0;line-height:1;margin-top:1px;flex-shrink:0}
+.dir-main{flex:1;min-width:0}
+.dir-text{font-size:13.5px;color:var(--ink);line-height:1.35}
+.dir-due{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.dir-due.soon{color:var(--warn);font-weight:500}
+.dir-due.overdue{color:var(--danger);font-weight:600}
+/* task reminders on My work */
+.task-card{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line-2);border-left:3px solid var(--accent-ink);border-radius:var(--r);padding:11px 13px;margin-bottom:8px;width:100%;text-align:left;cursor:pointer}
+.task-card.overdue{border-left-color:var(--danger)}
+.task-card.soon{border-left-color:var(--warn)}
+.task-t{font-size:13.5px;color:var(--ink);font-weight:450}
+.task-m{font-size:11.5px;color:var(--ink-2);margin-top:2px}
 .br-sn{font-family:var(--mono);font-size:12px;color:var(--ink-3);min-width:20px;text-align:right}
 .file-badge{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);padding:1px 7px;border-radius:5px;white-space:nowrap}
 .br-main{min-width:0}
@@ -1167,6 +1185,10 @@ function isImminent(b){
 }
 // A matter listed within 4 days counts double (imminent) — by date.
 const _imminentDate=iso=>{ if(!iso)return false; const dd=(new Date(iso+"T00:00")-new Date(todayISO()+"T00:00"))/864e5; return dd>=0&&dd<=4; };
+// How urgent a task's due date is: "overdue" (past), "soon" (<=3 days), else "".
+const _dueClass=iso=>{ if(!iso)return ""; const dd=(new Date(iso+"T00:00")-new Date(todayISO()+"T00:00"))/864e5; return dd<0?"overdue":dd<=3?"soon":""; };
+// open tasks (directions with a due date, not done) a colleague is carrying
+function myTasks(uid){ const out=[]; Object.values(briefs).forEach(b=>{ if((b.assignedTo||[]).includes(uid)&&b.status!=="disposed") (b.directions||[]).forEach(d=>{ if(!d.done&&d.dueDate) out.push({b,d}); }); }); return out.sort((a,z)=>a.d.dueDate.localeCompare(z.d.dueDate)); }
 // Causelist listings a colleague is marked on (day-sheet juniorUids) that AREN'T
 // already one of their assigned briefs — so the causelist counts as real work.
 // dsAll holds every day sheet (watched app-wide), so this sees all dates.
@@ -1674,6 +1696,7 @@ function renderMyWork(){
   const list=[...withDate, ...mine.filter(b=>!b.nextDate)];
   const myListings=activeListings(me.uid).sort((a,b)=>a.date.localeCompare(b.date));   // causelist matters
   const soonListings=myListings.filter(x=>_imminentDate(x.date));
+  const tasks=myTasks(me.uid);   // open directions from the Senior, with due dates
   const ros=effectiveRoster(), pos=ros.indexOf(me.uid), nextUpIdx=ros.length?roster.pointer%ros.length:0;
   const turns=pos>=0?((pos-nextUpIdx+ros.length)%ros.length):null;
   const av=availToday[me.uid];
@@ -1699,9 +1722,15 @@ function renderMyWork(){
       <div class="mw-title">${esc(R.title)}</div>
       <div class="mw-meta"><span class="chip st-received"><span class="dot"></span>Court ${esc(x.e.courtNo||'—')} · Item ${esc(x.e.itemNo||'—')}</span><span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(x.date)}</span>${x.e.time?`<span class="mono muted" style="font-size:11px">${esc(x.e.time)}</span>`:''}</div>
     </button>`;}).join("")}`:"";
+  // reminders — directions from the Senior with a due date (overdue/soon flagged)
+  const tasksSec=tasks.length?`<div class="section-label" style="margin-top:22px">Tasks from the Senior <span class="muted" style="font-weight:400">${tasks.length}</span></div>
+    ${tasks.map(({b,d})=>{const dc=_dueClass(d.dueDate);return `<button class="task-card ${dc}" data-brief="${b.id}">
+      <span class="ti ti-clipboard-text" style="font-size:16px;color:var(--accent-ink);margin-top:1px"></span>
+      <div><div class="task-t">${esc(d.text)}</div><div class="task-m">${esc(labelOf(b))} · Due ${fmtDateY(d.dueDate)}${dc==='overdue'?' · <b style="color:var(--danger)">overdue</b>':dc==='soon'?' · <b style="color:var(--warn)">due soon</b>':''}</div></div>
+    </button>`;}).join("")}`:"";
   const emptyState=(!mine.length&&!myListings.length)?`<div class="muted" style="font-size:13px;margin-top:22px">No matters assigned or listed for you yet.</div>`:"";
   const standing=`<div class="mw-standing muted">You're ${pos<0?'not in the roster':turns===0?'<b>next up</b>':'#'+(pos+1)+' in the rotation'+(turns!=null&&turns>0?` · next up in ${turns} turn${turns>1?'s':''}`:'')} · ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div>`;
-  $("tab-board").innerHTML=metrics+availRow+unackedSec+matters+listedSec+emptyState+standing;
+  $("tab-board").innerHTML=metrics+availRow+unackedSec+tasksSec+matters+listedSec+emptyState+standing;
   document.querySelectorAll("[data-goday]").forEach(x=>x.onclick=()=>{ dsDate=x.dataset.goday; watchDaysheet(); selectTab("today"); });
   document.querySelectorAll("[data-av]").forEach(x=>x.onclick=async()=>{await db.set("availability/"+me.uid+"_"+todayISO(),{uid:me.uid,date:todayISO(),status:x.dataset.av,note:availToday[me.uid]?.note||"",at:db.now()});toast("Status updated");});
   document.querySelectorAll("[data-ackm]").forEach(x=>x.onclick=async e=>{e.stopPropagation();await acknowledge(x.dataset.ackm);});
@@ -2164,7 +2193,7 @@ function printCauseList(iso){
         totLine+=`<div class="brk">Main ${q(R.courtMain)} · Supp ${s}</div>`;
       }
     }
-    const last = `${totLine}<div class="seq">Seq <span class="wl">&nbsp;</span></div>`;
+    const last = `${totLine}<div class="seqbox"><div class="seqlab">Seq.</div><div class="seqline">${e.seq?q(e.seq):"&nbsp;"}</div></div>`;
     return `<tr><td class="ci">${ci}</td><td class="tm">${q(e.time||"")}</td><td class="nm">${q(R.title)}</td><td class="jg">${judges}</td><td class="ad">${adv}</td><td class="last">${last}</td></tr>`;
   }).join("");
   const confGroups=conferenceList(iso);
@@ -2188,8 +2217,9 @@ td.jg,th.jg{width:84px;font-size:10.5px;line-height:1.38}   /* judges, one per l
 td.ad,th.ad{width:88px;font-size:10.5px;line-height:1.38}   /* advocates, one per line */
 td.last,th.last{width:106px;font-size:10.5px}
 .brk{font-size:10px;margin-top:1px;white-space:nowrap}   /* Main N · Supp N on one line */
-.seq{margin-top:5px;white-space:nowrap}
-.wl{display:inline-block;border-bottom:1px solid #000;min-width:34px;vertical-align:baseline}
+.seqbox{margin-top:6px}
+.seqlab{font-size:9.5px;letter-spacing:.03em;text-align:center}
+.seqline{border-bottom:1px solid #000;min-height:15px;line-height:15px;font-size:12.5px;font-weight:600;text-align:center}   /* full-width rule to hand-fill the sequence */
 .confs{margin-top:16px}
 .ch{text-decoration:underline;margin-bottom:5px;font-weight:600}
 .cfday{font-weight:600;margin:7px 0 2px}
@@ -2224,6 +2254,8 @@ function dsForm(idx=null){
       <select id="f_listtype"><option value="">— select —</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select>
       <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
         <div><label>Item no. <span class="muted" style="font-weight:400">(required — e.g. 30, MM, 37.1)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or 37.1"></div></div>
+      <label>Sequence <span class="muted" style="font-weight:400">(optional — the serial at which the item is actually taken up; usually known only at 10:30. If given, it prints on the cause list)</span></label>
+      <input id="f_seq" class="mono" value="${esc(e.seq||'')}" placeholder="e.g. 3" inputmode="numeric" style="max-width:120px">
       <div id="f_foundhint" style="margin-top:4px;min-height:16px"></div>
       <p class="muted" style="font-size:11.5px;margin:4px 0 12px"><span class="ti ti-info-circle"></span> Date → type → court → item is all you need — the case name &amp; bench fill from the SC causelist (now, or automatically once that day's list is out). Everything below is optional.</p>
       <label>Case title <span class="muted" style="font-weight:400">(auto-fills from the SC list — edit freely to shorten or change; your text is kept)</span></label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="fills from the causelist — or type it">
@@ -2290,7 +2322,7 @@ function dsForm(idx=null){
     const listDate=fdate();
     const entry={briefId:$("f_brief").value||null,caseTitle:$("f_title").value.trim(),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
       listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:toDotted($("f_conf").value),confDate:(toDotted($("f_conf").value)?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
-      juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
+      seq:$("f_seq").value.trim(),juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
     if(!((entry.courtNo&&entry.itemNo)||entry.caseTitle||entry.briefId)){toast("Enter the court no + item no (or a case title)","ti-alert-triangle");return;}
     // save-time backfill: whatever the fetched list already knows, store it
     const hit=(entry.courtNo&&entry.itemNo)?lookupCauselistItem(listDate,entry.courtNo,entry.itemNo,entry.listType):null;
@@ -2405,23 +2437,20 @@ function renderBriefs(){
   const rows = list.length? `<div class="brief-table">`+list.map((b,i)=>{
     const st=STATUS[b.status];
     const mineNew=needsMyAck(b);
-    const nList=listingDatesOf(b.id).length;
-    return `<button class="brief-row" data-brief="${b.id}">
+    return `<div class="brief-row">
       <div class="br-sn">${i+1}</div>
-      <div class="br-main">
-        <div class="br-title-row">${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span>`:''}${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:14px" title="Urgent"></span>':''}${b.directed?'<span class="ti ti-pin" style="color:var(--accent-ink);font-size:13px" title="On Senior\u2019s direction"></span>':''}<span class="br-title">${esc(labelOf(b))}</span>${mineNew?'<span class="new-chip">New — acknowledge</span>':''}${b.heldForClerk&&canManage()?'<span class="new-chip held">Held for you</span>':''}</div>
-        <div class="br-nums"><span>${esc(b.diaryNo?`Dy. ${b.diaryNo}`:'—')}</span>${b.caseNo?`<span>${esc(b.caseNo)}</span>`:''}<span class="type">${esc(b.matterType||'')}</span>${nList?`<span>${nList} listing${nList>1?'s':''}</span>`:''}${b.detailsAwaited?'<span style="color:var(--warn)">Details awaited</span>':''}</div>
-      </div>
-      <div class="br-right">
-        <span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>
-        <div class="br-team">${(b.assignedTo||[]).slice(0,3).map(u=>`<span class="mini-ava" title="${esc(nameOf(u))}">${esc(initials(nameOf(u)))}</span>`).join("")||'<span class="muted" style="font-size:12px">Unassigned</span>'}</div>
-        <div class="br-next">${b.nextDate?`Next<b>${fmtDate(b.nextDate)}</b>`:''}</div>
-      </div>
-    </button>`;
+      <button class="br-open" data-brief="${b.id}">
+        <div class="br-title-row">${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span>`:''}${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:14px" title="Urgent"></span>':''}<span class="br-title">${esc(labelOf(b))}</span>${mineNew?'<span class="new-chip">New</span>':''}</div>
+        <div class="br-nums">${b.caseNo||b.diaryNo?`<span>${esc(b.caseNo||('Dy. '+b.diaryNo))}</span>`:'<span class="muted">no case no.</span>'}${b.detailsAwaited?'<span style="color:var(--warn)">details awaited</span>':''}</div>
+      </button>
+      <span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>
+      ${canManage()?`<button class="tbtn icon-only" data-editbrief="${b.id}" title="Edit this entry"><span class="ic ti ti-pencil"></span></button>`:'<span></span>'}
+    </div>`;
   }).join("")+`</div>` : `<div class="empty"><span class="ic ti ti-folder-open"></span>No briefs match this view.</div>`;
   $("tab-briefs").innerHTML=notice+bar+rows;
   $("bSearch").oninput=e=>{briefSearch=e.target.value; renderBriefs(); $("bSearch").focus(); const v=$("bSearch").value;$("bSearch").setSelectionRange(v.length,v.length);};
   document.querySelectorAll("[data-bf]").forEach(x=>x.onclick=()=>{briefFilter=x.dataset.bf;renderBriefs();});
+  document.querySelectorAll("#tab-briefs [data-editbrief]").forEach(x=>x.onclick=e=>{e.stopPropagation();briefForm(briefs[x.dataset.editbrief]);});
   if($("tbNewBrief2"))$("tbNewBrief2").onclick=()=>briefForm();
   if($("tbSyncReg"))$("tbSyncReg").onclick=async()=>{ $("tbSyncReg").disabled=true; await syncRegister(true); toast("Register synced with the listings","ti-check"); renderBriefs(); };
   bindClicks($("tab-briefs"));
@@ -2564,7 +2593,26 @@ function openBrief(id){
           ${b.declinedBy.map(d=>`<div class="obj-row"><span class="obj-ground">${esc(OBJECTION_GROUNDS[d.ground]||d.ground)}</span> — ${esc(nameOf(d.uid))}${d.note?`<span class="obj-note">“${esc(d.note)}”</span>`:''}<span class="obj-at">${d.at?new Date(d.at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></div>`).join("")}
         </div>`:''}
       </div>
+
+      ${canStatus&&b.status!=="disposed"?`<label style="margin-top:16px">Next date &amp; status</label>
+      <div class="row" style="gap:8px;align-items:center">
+        <input type="date" id="ob_next" value="${esc(b.nextDate||'')}" title="Set the next hearing date">
+        <button class="btn ghost sm" id="ob_disp"><span class="ic ti ti-archive"></span>Mark disposed</button>
+      </div>`:''}
+
+      <label style="margin-top:16px">Directions &amp; tasks <span class="muted" style="font-weight:400">(what the Senior asked you to prepare)</span></label>
+      <div class="dir-list">${(b.directions||[]).slice().sort((a,z)=>(a.dueDate||'~').localeCompare(z.dueDate||'~')).map(d=>{const dc=d.done?'':_dueClass(d.dueDate);return `<div class="dir-row ${d.done?'done':''}">
+        ${canStatus?`<button class="dir-check" data-dirtoggle="${d.id}"><span class="ti ${d.done?'ti-checkbox':'ti-square'}"></span></button>`:`<span class="dir-check"><span class="ti ${d.done?'ti-checkbox':'ti-square'}"></span></span>`}
+        <div class="dir-main"><div class="dir-text">${esc(d.text)}</div>${d.dueDate?`<div class="dir-due ${dc}">Due ${fmtDateY(d.dueDate)}${d.done?'':dc==='overdue'?' · overdue':dc==='soon'?' · due soon':''}</div>`:''}</div>
+        ${canStatus?`<button class="tbtn icon-only" data-dirdel="${d.id}"><span class="ic ti ti-x"></span></button>`:''}
+      </div>`;}).join("")||'<div class="muted" style="font-size:12.5px">No directions noted yet.</div>'}</div>
+      ${canStatus?`<button class="tbtn" data-adddir="${id}" style="margin-top:8px"><span class="ic ti ti-plus"></span>Add a direction</button>`:''}
     </div>`);
+  if($("ob_next"))$("ob_next").onchange=async()=>{ await db.update("briefs/"+id,{nextDate:$("ob_next").value||null,updatedAt:db.now()}); toast("Next date updated","ti-calendar-check"); };
+  if($("ob_disp"))$("ob_disp").onclick=async()=>{ await db.update("briefs/"+id,{status:"disposed",updatedAt:db.now()}); toast("Marked disposed"); closeSheet(); openBrief(id); };
+  document.querySelectorAll("[data-dirtoggle]").forEach(x=>x.onclick=async()=>{ const dirs=(b.directions||[]).map(d=>d.id===x.dataset.dirtoggle?{...d,done:!d.done}:d); await db.update("briefs/"+id,{directions:dirs,updatedAt:db.now()}); closeSheet(); openBrief(id); });
+  document.querySelectorAll("[data-dirdel]").forEach(x=>x.onclick=async()=>{ const dirs=(b.directions||[]).filter(d=>d.id!==x.dataset.dirdel); await db.update("briefs/"+id,{directions:dirs,updatedAt:db.now()}); closeSheet(); openBrief(id); });
+  document.querySelectorAll("[data-adddir]").forEach(x=>x.onclick=()=>dirForm(id));
   document.querySelectorAll("[data-status]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{status:x.dataset.status,updatedAt:db.now()});closeSheet();openBrief(id);});
   document.querySelectorAll("[data-editbrief]").forEach(x=>x.onclick=()=>{closeSheet();briefForm(b);});
   document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{const r=await autoAssign(id);if(r)notifyForm(id,r);else{closeSheet();openBrief(id);}});
@@ -2576,6 +2624,23 @@ function openBrief(id){
   document.querySelectorAll("[data-copymsg]").forEach(x=>x.onclick=()=>{navigator.clipboard?.writeText(nudgeMsg(b));toast("Nudge message copied — paste it anywhere","ti-copy");});
 }
 
+// A colleague notes a direction the Senior gave (e.g. "prepare written submissions"),
+// optionally with a due date the app then reminds them about on My work.
+function dirForm(briefId){
+  const b=briefs[briefId]; if(!b)return;
+  openSheet(`<div class="sheet-head"><div><h3>Add a direction</h3><div class="sub">${esc(labelOf(b))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <p class="muted" style="font-size:12.5px">Note what the Senior asked you to work on. Add a due date and the app reminds you as it nears.</p>
+      <label>Direction / task</label><input id="d_text" placeholder="e.g. Prepare written submissions">
+      <label>Due by <span class="muted" style="font-weight:400">(optional)</span></label><input type="date" id="d_due" min="${todayISO()}">
+      <div class="row" style="margin-top:18px"><button class="btn" id="d_save"><span class="ic ti ti-plus"></span>Add direction</button><button class="btn ghost" id="d_cancel">Cancel</button></div>
+    </div>`);
+  $("d_cancel").onclick=()=>{closeSheet();openBrief(briefId);};
+  $("d_save").onclick=async()=>{ const text=$("d_text").value.trim(); if(!text){toast("Write the direction first","ti-alert-triangle");return;}
+    const dir={id:"d"+Date.now()+"_"+((b.directions||[]).length),text,dueDate:$("d_due").value||"",done:false,by:me.uid,at:Date.now()};
+    await db.update("briefs/"+briefId,{directions:[...(b.directions||[]),dir],updatedAt:db.now()});
+    closeSheet(); openBrief(briefId); toast("Direction added","ti-check"); };
+}
 function objectForm(id){
   const b=briefs[id]; if(!b)return;
   openSheet(`<div class="sheet-head"><div><h3>Object to assignment</h3><div class="sub">${esc(labelOf(b))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
