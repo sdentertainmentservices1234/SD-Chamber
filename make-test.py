@@ -63,6 +63,10 @@ SEED = '''function seedDemo(db){
   // senior-away day, so the demo shows the actual shading (no fake clutter).
   db.set("config/vacation",{ranges:[["2026-06-01","2026-07-12","Summer vacation — partial court working days"]]});
   db.set("config/senioravail",{"2026-07-15":"Travelling (sample)"});
+  // a couple of sample leave-log entries (this month, so the counters show)
+  db.set("leaves/lv1",{uid:"u_yash",from:"2026-07-04",to:"2026-07-06",reason:"Family function",by:"u_admin",at:n()});
+  db.set("leaves/lv2",{uid:"u_ankur",from:"2026-07-09",to:"2026-07-09",reason:"",by:"u_admin",at:n()});
+  db.set("leaves/lv3",{uid:"u_yash",from:"2026-02-11",to:"2026-02-14",reason:"Medical",by:"u_admin",at:n()});
 
   // everyone available today and on the 13th
   ["u_adith","u_ankur","u_yash","u_shaishir","u_anshula","u_rongong","u_rishit"].forEach(u=>

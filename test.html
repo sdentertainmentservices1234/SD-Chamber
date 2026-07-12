@@ -347,6 +347,9 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .task-card.soon{border-left-color:var(--warn)}
 .task-t{font-size:13.5px;color:var(--ink);font-weight:450}
 .task-m{font-size:11.5px;color:var(--ink-2);margin-top:2px}
+/* full-credit claim — shown prominently so everyone sees it */
+.claim-badge{display:flex;align-items:center;gap:8px;background:rgba(203,182,130,.16);border:1px solid rgba(203,182,130,.5);color:var(--accent-ink);border-radius:var(--r);padding:9px 12px;font-size:13px;font-weight:500;margin:8px 0}
+.claim-chip{font-size:10px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid rgba(203,182,130,.5);padding:1px 7px;border-radius:20px;white-space:nowrap}
 .br-sn{font-family:var(--mono);font-size:12px;color:var(--ink-3);min-width:20px;text-align:right}
 .file-badge{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);padding:1px 7px;border-radius:5px;white-space:nowrap}
 .br-main{min-width:0}
@@ -376,6 +379,8 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .li-load{font-family:var(--serif);font-size:27px;font-weight:450;color:var(--ink);margin-top:6px;line-height:1}
 .li-lab{font-size:10px;color:var(--ink-3);margin-top:3px}
 .li-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.leave-bar{height:5px;background:var(--surface-2);border-radius:3px;margin-top:6px;max-width:200px;overflow:hidden}
+.leave-bar span{display:block;height:100%;background:var(--accent-ink);border-radius:3px}
 .ld-green .li-dot{background:#2ea050}.ld-yellow .li-dot{background:#e0a820}.ld-red .li-dot{background:#d24040}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
 .panel-head{padding:15px 18px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--ink);display:flex;justify-content:space-between;align-items:center}
@@ -606,6 +611,7 @@ body.demo .topbar{top:34px}
       <button data-tab="today"><span class="ic ti ti-list-check"></span>Day sheet</button>
       <button data-tab="briefs"><span class="ic ti ti-folders"></span>Briefs<span class="count" id="cntBriefs"></span></button>
       <button data-tab="roster"><span class="ic ti ti-list-numbers"></span>Roster</button>
+      <button data-tab="leave"><span class="ic ti ti-plane-departure"></span>Leave</button>
       <button data-tab="team"><span class="ic ti ti-users"></span>Chamber</button>
     </nav>
     <div class="sb-foot">
@@ -634,6 +640,7 @@ body.demo .topbar{top:34px}
       <section id="tab-today" class="hidden"></section>
       <section id="tab-briefs" class="hidden"></section>
       <section id="tab-roster" class="hidden"></section>
+      <section id="tab-leave" class="hidden"></section>
       <section id="tab-team" class="hidden"></section>
     </div>
   </div>
@@ -643,6 +650,7 @@ body.demo .topbar{top:34px}
     <button data-tab="today"><span class="ic ti ti-list-check"></span>Day</button>
     <button data-tab="briefs"><span class="ic ti ti-folders"></span>Briefs</button>
     <button data-tab="roster"><span class="ic ti ti-list-numbers"></span>Roster</button>
+    <button data-tab="leave"><span class="ic ti ti-plane-departure"></span>Leave</button>
     <button data-tab="team"><span class="ic ti ti-users"></span>Chamber</button>
   </nav>
 </div>
@@ -855,6 +863,10 @@ function seedDemo(db){
   // senior-away day, so the demo shows the actual shading (no fake clutter).
   db.set("config/vacation",{ranges:[["2026-06-01","2026-07-12","Summer vacation — partial court working days"]]});
   db.set("config/senioravail",{"2026-07-15":"Travelling (sample)"});
+  // a couple of sample leave-log entries (this month, so the counters show)
+  db.set("leaves/lv1",{uid:"u_yash",from:"2026-07-04",to:"2026-07-06",reason:"Family function",by:"u_admin",at:n()});
+  db.set("leaves/lv2",{uid:"u_ankur",from:"2026-07-09",to:"2026-07-09",reason:"",by:"u_admin",at:n()});
+  db.set("leaves/lv3",{uid:"u_yash",from:"2026-02-11",to:"2026-02-14",reason:"Medical",by:"u_admin",at:n()});
 
   // everyone available today and on the 13th
   ["u_adith","u_ankur","u_yash","u_shaishir","u_anshula","u_rongong","u_rishit"].forEach(u=>
@@ -873,6 +885,8 @@ let me=null, users={}, briefs={}, daysheet={entries:[]}, availToday={}, availAll
 // staff-set unavailability {colleagueId:{note,until,by,at}} — the colleague is
 // skipped for assignment until Staff revoke it (works for pending ids too).
 let unavailable={};
+// leave log: leaves/{id}={uid,from,to,reason,at,by} — transparent to all
+let leaves={};
 // calendar state: month shown, SC holidays map {dateISO:name|null}, senior
 // unavailability map {dateISO:note|null} (null = cleared), all day-sheet docs
 let calMonth=todayISO().slice(0,7), holidays={}, seniorAvail={}, dsAll={}, vacation={ranges:[]};
@@ -1046,6 +1060,7 @@ function startApp(){
   unsub.push(db.watchDoc("config/unavailable", d=>{ unavailable=d||{}; delete unavailable.id; renderActive(); }));
   unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
+  unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); if(curTab==="leave")renderLeave(); }));
   loadCourtUpdates();
   watchDaysheet();
 }
@@ -1071,18 +1086,18 @@ const uiExp={ balance:true, rosterInfo:false, cardsClosed:new Set() };
 const TITLES={cal:["Calendar","Court days, holidays and the chamber's diary"],
   board:["Work board","Distribution and workload across the chamber"],
   today:["Day sheet",""], briefs:["Briefs","The chamber's matter register"],
-  roster:["Roster","Assignment order and rotation"], team:["Chamber","People and availability"]};
+  roster:["Roster","Assignment order and rotation"], leave:["Leave","Chamber leave — logged openly for everyone"], team:["Chamber","People and availability"]};
 document.querySelectorAll("#sbNav button, #mobileNav button").forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
 function selectTab(t){ curTab=t;
   document.querySelectorAll("#sbNav button, #mobileNav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
-  ["cal","board","today","briefs","roster","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
+  ["cal","board","today","briefs","roster","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
   $("pageTitle").textContent=TITLES[t][0]; $("pageSub").textContent=TITLES[t][1];
   if((t==="today"||t==="cal")&&me&&courtUpdatesStale()) loadCourtUpdates();
   closeSidebar(); renderActive();
 }
 function renderActive(){ if(!me)return;
   if(curTab==="cal")renderCal(); else if(curTab==="board")renderBoard(); else if(curTab==="today")renderToday();
-  else if(curTab==="briefs")renderBriefs(); else if(curTab==="roster")renderRoster(); else if(curTab==="team")renderTeam(); }
+  else if(curTab==="briefs")renderBriefs(); else if(curTab==="roster")renderRoster(); else if(curTab==="leave")renderLeave(); else if(curTab==="team")renderTeam(); }
 
 /* ---- mobile sidebar ---- */
 $("hamburger").onclick=()=>{ $("sidebar").classList.add("open"); $("scrim").classList.add("show"); };
@@ -1227,11 +1242,14 @@ async function syncRegister(force){
 // A matter shared by N colleagues counts 1/N per colleague (owner's decision) —
 // so two colleagues on one brief each carry half its point / half its load.
 const _share=arr=>{ const n=(arr||[]).length; return n>1?1/n:1; };
+// Share of a BRIEF for one colleague, honouring a full-credit claim: if someone
+// has claimed the whole matter, they carry 1 and everyone else 0.
+function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[]; if(b.creditClaim&&b.creditClaim.uid) return b.creditClaim.uid===uid?1:0; return arr.length>1?1/arr.length:1; }
 const fmtPts=n=>{ n=Math.round(n*10)/10; return Number.isInteger(n)?String(n):n.toFixed(1); };  // tidy fractional display
 function activeLoad(uid){
   const briefLoad=Object.values(briefs)
     .filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid))
-    .reduce((s,b)=>s + weightOf(b)*(isImminent(b)?2:1)*_share(b.assignedTo), 0);
+    .reduce((s,b)=>s + weightOf(b)*(isImminent(b)?2:1)*shareFor(b,uid,b.assignedTo), 0);
   const listLoad=activeListings(uid).reduce((s,x)=>s+(_imminentDate(x.date)?2:1)*_share(jrsOf(x.e)), 0);
   return briefLoad + listLoad;
 }
@@ -1248,19 +1266,23 @@ function activeCount(uid){
 // as its SHARE (1/N when co-assigned). The career-fairness "clock"; day-to-day
 // weightage/imminence applies only to activeLoad.
 function lifetimeCount(uid){
-  return Object.values(briefs).filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid)).reduce((s,b)=>s+_share(b.everAssigned||b.assignedTo),0);
+  return Object.values(briefs).filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid)).reduce((s,b)=>s+shareFor(b,uid,b.everAssigned||b.assignedTo),0);
 }
 // Workload a colleague carried over the last `days` days — share-split points from
 // briefs (assigned / heard / listed in the window) plus bare causelist listings.
 let loadPeriod="month";   // week | month | year — the Chamber-tab snapshot toggle
 function loadInWindow(uid, days){
-  const now=todayISO(); const s=new Date(now+"T00:00"); s.setDate(s.getDate()-days);
-  const start=s.toLocaleDateString("en-CA");
-  const inWin=d=>d&&d>=start&&d<=now;
+  const now=todayISO();
+  const b0=new Date(now+"T00:00"); b0.setDate(b0.getDate()-days); const start=b0.toLocaleDateString("en-CA");
+  const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
+  const inWin=d=>d&&d>=start&&d<=end;   // a window BOTH sides of today, so upcoming matters count
   let pts=0;
   Object.values(briefs).forEach(b=>{ if((b.everAssigned||b.assignedTo||[]).includes(uid)){
     const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
-    if(inWin(ad)||inWin(b.nextDate)||listingDatesOf(b.id).some(inWin)) pts+=_share(b.everAssigned||b.assignedTo);
+    const ld=listingDatesOf(b.id);
+    const hasDate=ad||b.nextDate||ld.length;
+    // count if any date falls in the window, OR it's active work with no date yet
+    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.everAssigned||b.assignedTo);
   }});
   listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=_share(jrsOf(x.e)); });
   return Math.round(pts*10)/10;
@@ -2380,7 +2402,7 @@ function renderBriefs(){
       <div class="br-sn">${i+1}</div>
       <button class="br-open" data-brief="${b.id}">
         <div class="br-title-row">${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span>`:''}${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:14px" title="Urgent"></span>':''}<span class="br-title">${esc(labelOf(b))}</span>${mineNew?'<span class="new-chip">New</span>':''}</div>
-        <div class="br-nums">${b.caseNo||b.diaryNo?`<span>${esc(b.caseNo||('Dy. '+b.diaryNo))}</span>`:'<span class="muted">no case no.</span>'}${b.detailsAwaited?'<span style="color:var(--warn)">details awaited</span>':''}</div>
+        <div class="br-nums">${b.caseNo||b.diaryNo?`<span>${esc(b.caseNo||('Dy. '+b.diaryNo))}</span>`:'<span class="muted">no case no.</span>'}${b.creditClaim?`<span class="claim-chip"><span class="ti ti-award" style="font-size:10px"></span> ${esc(nameOf(b.creditClaim.uid).split(' ')[0])} claimed</span>`:''}${b.detailsAwaited?'<span style="color:var(--warn)">details awaited</span>':''}</div>
       </button>
       <span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>
       ${canManage()?`<button class="tbtn icon-only" data-editbrief="${b.id}" title="Edit this entry"><span class="ic ti ti-pencil"></span></button>`:'<span></span>'}
@@ -2518,6 +2540,9 @@ function openBrief(id){
           const acked=(b.ackBy||[]).includes(u);
           return `<span class="chip st-assigned" title="${acked?'Acknowledged':'Not yet acknowledged'}"><span class="mini-ava" style="width:16px;height:16px;font-size:9px;margin-right:-2px">${esc(initials(nameOf(u)))}</span>${esc(nameOf(u))}${acked?' <span class="ti ti-check" style="font-size:11px"></span>':' <span class="ti ti-clock" style="font-size:11px;opacity:.7"></span>'}</span>`;
         }).join("")||'<span class="muted">Unassigned</span>'}</div>
+        ${(b.assignedTo||[]).length>1?(b.creditClaim&&b.creditClaim.uid
+          ? `<div class="claim-badge"><span class="ti ti-award"></span><span style="flex:1">Full credit for this matter claimed by <b>${esc(nameOf(b.creditClaim.uid))}</b></span>${(b.creditClaim.uid===me.uid||canManage())?`<button class="tbtn sm" data-unclaim="${b.id}">Release</button>`:''}</div>`
+          : ((b.assignedTo||[]).includes(me.uid)?`<div style="margin-top:8px"><button class="tbtn" data-claim="${b.id}"><span class="ic ti ti-award"></span>Claim full credit for this matter</button></div>`:'')):''}
         ${(canManage()&&unackedBy(b).length&&b.status!=="disposed")?`<div class="ack-note muted"><span class="ti ti-clock"></span>${unackedBy(b).map(nameOf).join(", ")} ${unackedBy(b).length>1?'have':'has'} not acknowledged yet${ackAgeDays(b)!==null?` · assigned ${ackAgeDays(b)===0?'today':ackAgeDays(b)+'d ago'}`:''}
           ${unackedBy(b).map(u=>{const l=waLink(u,b);return l?`<a class="nudge" href="${l}" target="_blank" rel="noopener"><span class="ic ti ti-brand-whatsapp"></span>Nudge ${esc(nameOf(u).split(' ')[0])}</a><button class="tbtn icon-only" data-copymsg="${b.id}" title="Copy nudge message (paste anywhere — SMS, Telegram, email)"><span class="ic ti ti-copy"></span></button>`:`<span class="muted" style="font-size:11px">(no phone saved for ${esc(nameOf(u).split(' ')[0])})</span><button class="tbtn icon-only" data-copymsg="${b.id}" title="Copy nudge message"><span class="ic ti ti-copy"></span></button>`;}).join(" ")}</div>`:''}
         <div class="row" style="gap:6px;margin-top:10px">
@@ -2556,6 +2581,8 @@ function openBrief(id){
   document.querySelectorAll("[data-editbrief]").forEach(x=>x.onclick=()=>{closeSheet();briefForm(b);});
   document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{const r=await autoAssign(id);if(r)notifyForm(id,r);else{closeSheet();openBrief(id);}});
   document.querySelectorAll("[data-notify]").forEach(x=>x.onclick=()=>notifyForm(x.dataset.notify));
+  document.querySelectorAll("[data-claim]").forEach(x=>x.onclick=async()=>{ await db.update("briefs/"+id,{creditClaim:{uid:me.uid,at:Date.now()},updatedAt:db.now()}); toast("Full credit claimed — recorded for everyone to see","ti-award"); closeSheet(); openBrief(id); });
+  document.querySelectorAll("[data-unclaim]").forEach(x=>x.onclick=async()=>{ await db.update("briefs/"+id,{creditClaim:null,updatedAt:db.now()}); toast("Credit claim released — back to an equal split"); closeSheet(); openBrief(id); });
   document.querySelectorAll("[data-object]").forEach(x=>x.onclick=()=>objectForm(id));
   document.querySelectorAll("[data-ack]").forEach(x=>x.onclick=async()=>{await acknowledge(id);closeSheet();openBrief(id);});
   document.querySelectorAll("[data-keepheld]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{heldForClerk:false,updatedAt:db.now()});toast("Senior's direction upheld — assignment stands");closeSheet();openBrief(id);});
@@ -2595,6 +2622,58 @@ function objectForm(id){
   $("o_submit").onclick=async()=>{ await objectAssignment(id,$("o_ground").value,$("o_note").value.trim()); closeSheet(); };
 }
 
+/* ============================================================
+   LEAVE — a transparent, self-service leave log + monthly/yearly counters
+   ============================================================ */
+// days of a leave [from,to] that fall within [start,end] (inclusive)
+function overlapDays(from,to,start,end){ const a=from>start?from:start, b=to<end?to:end; if(!a||!b||a>b) return 0; return Math.round((new Date(b+"T00:00")-new Date(a+"T00:00"))/864e5)+1; }
+const leaveLen=l=>overlapDays(l.from,l.to,l.from,l.to);
+function renderLeave(){
+  $("pageTitle").textContent="Leave"; $("pageSub").textContent="Chamber leave — logged openly for everyone to see";
+  $("topbarAction").innerHTML=`<button class="btn" id="tbAddLeave"><span class="ic ti ti-plus"></span>Add leave</button>`;
+  const now=todayISO(); const d=new Date(now+"T00:00");
+  const mStart=now.slice(0,7)+"-01", mEnd=new Date(d.getFullYear(),d.getMonth()+1,0).toLocaleDateString("en-CA");
+  const yStart=now.slice(0,4)+"-01-01", yEnd=now.slice(0,4)+"-12-31";
+  const all=Object.values(leaves); const cols=rosterDisplay();
+  const mDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,mStart,mEnd),0);
+  const yDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
+  const maxY=Math.max(1,...cols.map(m=>yDays(m.id)));
+  const counters=`<div class="panel"><div class="panel-head">Leave taken <span class="muted" style="font-weight:400;font-size:12px">this month &amp; this year</span></div>
+    ${cols.map(m=>{const md=mDays(m.id),yd=yDays(m.id);return `<div class="trow">
+      <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
+      <div class="info" style="flex:1;min-width:0"><div class="nm">${esc(m.name)}</div><div class="leave-bar"><span style="width:${Math.round(yd/maxY*100)}%"></span></div></div>
+      <div style="text-align:right;flex-shrink:0"><div style="font-family:var(--serif);font-size:17px;line-height:1">${md}<span class="muted" style="font-size:11px;font-family:Inter,sans-serif"> this month</span></div><div class="muted" style="font-size:12px;margin-top:2px">${yd} day${yd!==1?'s':''} this year</div></div>
+    </div>`;}).join("")}</div>`;
+  const log=all.slice().sort((a,b)=>(b.from||"").localeCompare(a.from||""));
+  const logPanel=`<div class="panel" style="margin-top:16px"><div class="panel-head">Leave log</div>
+    ${log.length?log.map(l=>`<div class="trow">
+      <div class="sb-ava" style="background:var(--surface-2);color:var(--ink-3)">${esc(initials(nameOf(l.uid)))}</div>
+      <div class="info" style="flex:1;min-width:0"><div class="nm">${esc(nameOf(l.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${leaveLen(l)} day${leaveLen(l)!==1?'s':''}</span></div>
+        <div class="muted" style="font-size:12.5px">${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}${l.reason?` · ${esc(l.reason)}`:' · <span style="opacity:.7">no reason given</span>'}</div></div>
+      ${(l.uid===me.uid||canManage())?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Remove"><span class="ic ti ti-trash"></span></button>`:''}
+    </div>`).join(""):'<div class="trow"><div class="info muted" style="font-size:13px">No leave logged yet. Tap “Add leave” to record yours.</div></div>'}</div>`;
+  $("tab-leave").innerHTML=counters+logPanel;
+  if($("tbAddLeave"))$("tbAddLeave").onclick=()=>leaveForm();
+  document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=async()=>{ await db.remove("leaves/"+x.dataset.delleave); toast("Leave entry removed"); });
+}
+function leaveForm(){
+  const canPickOther=canManage(); const cols=rosterDisplay();
+  openSheet(`<div class="sheet-head"><div><h3>Add leave</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      ${canPickOther?`<label>Colleague</label><select id="lv_uid">${cols.map(m=>`<option value="${m.id}" ${m.id===me.uid?'selected':''}>${esc(m.name)}</option>`).join("")}</select>`:''}
+      <div class="grid2"><div><label>From</label><input type="date" id="lv_from" value="${todayISO()}"></div>
+        <div><label>To <span class="muted" style="font-weight:400">(same day if blank)</span></label><input type="date" id="lv_to"></div></div>
+      <label>Reason <span class="muted" style="font-weight:400">(optional — leave blank to keep it private)</span></label>
+      <input id="lv_reason" placeholder="e.g. family function, medical, personal">
+      <div class="row" style="margin-top:18px"><button class="btn" id="lv_save"><span class="ic ti ti-plus"></span>Add leave</button></div>
+    </div>`);
+  $("lv_save").onclick=async()=>{ const from=$("lv_from").value; if(!from){toast("Pick a from date","ti-alert-triangle");return;}
+    const to=$("lv_to").value||from; if(to<from){toast("The 'to' date is before 'from'","ti-alert-triangle");return;}
+    const uid=(canPickOther&&$("lv_uid"))?$("lv_uid").value:me.uid;
+    await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
+    closeSheet(); toast("Leave logged","ti-plane-departure");
+  };
+}
 /* ============================================================
    TEAM
    ============================================================ */

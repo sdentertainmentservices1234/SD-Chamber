@@ -51,7 +51,7 @@ OUTPUT_FILE = "court-updates.json"
 # based change-detection reuses a cached parse when the PDF is unchanged; without
 # this, a parser FIX never reaches already-cached dates (their PDFs don't change).
 # A version mismatch forces a full re-parse of every date in the window.
-PARSER_VERSION = 4
+PARSER_VERSION = 5
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; sd-chamber-causelist-bot/1.0)"}
 
 COURT_RE = re.compile(r"COURT\s*NO\.?\s*[:\-]?\s*([0-9]+)", re.I)
@@ -172,6 +172,13 @@ def pdf_to_column_text(data):
 # sub-items are captured as their own keys so the clerk can enter either the
 # main item or a specific sub-item.
 ITEM_LINE_RE = re.compile(r"^([0-9]{1,4}(?:\.[0-9]{1,3})?)[.\)]?\s+(.+)$")
+# Regular (F_J) lists number connected matters differently from Misc: the main
+# item is "102 SLP(Crl) No. ..." and each connected matter is written as
+# "102. Connected <PARTY>" followed by a line whose leading number is the
+# sub-index, e.g. "2 SLP(Crl) No. 8718/2021" -> sub-item 102.2. We must capture
+# every one of these so a clerk entering item 102.2 gets its cause title.
+CONNECTED_RE = re.compile(r"^([0-9]{1,4})\.\s+Connected\s+(.+)$", re.I)
+SUBINDEX_RE = re.compile(r"^([0-9]{1,3})\b\s*(.*)$")
 
 
 def parse_courts(text):
@@ -184,6 +191,7 @@ def parse_courts(text):
     in_header = False
     pending = None      # (court, item) awaiting a "Versus" respondent
     await_resp = False
+    pending_conn = None # a "N. Connected <party>" awaiting its sub-index next line
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
@@ -209,6 +217,24 @@ def parse_courts(text):
         fm = FRESH_RE.search(line)
         if fm and not courts[cur]["fresh"]:
             courts[cur]["fresh"] = fm.group(1)
+        # Regular-list connected matter: "102. Connected <party>" — the sub-index
+        # is on the following line; record the party and wait for it.
+        cm = CONNECTED_RE.match(line)
+        if cm:
+            in_header = False
+            pending_conn = {"main": cm.group(1), "party": cm.group(2).strip()}
+            continue
+        if pending_conn is not None:
+            sm = SUBINDEX_RE.match(line)
+            if sm:
+                key = pending_conn["main"] + "." + sm.group(1)
+                caseline = (sm.group(2).strip() + " " + pending_conn["party"]).strip()
+                if key not in courts[cur]["items"]:
+                    courts[cur]["items"][key] = re.sub(r"\s+", " ", caseline).strip()[:70]
+                    pending = (cur, key); await_resp = False
+                pending_conn = None
+                continue
+            pending_conn = None   # next line wasn't a sub-index — abandon
         # an item line — record its number -> petitioner side (first occurrence
         # only; page-header repeats won't overwrite). The respondent is captured
         # from the line after "Versus" so the title reads "Petitioner vs Resp".
