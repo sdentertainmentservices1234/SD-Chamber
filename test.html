@@ -994,6 +994,11 @@ const nameOf=uid=>{
 const labelOf=b=>b?.caseTitle||"(untitled matter)";
 // day-sheet entries pre-date juniorUids[]; old docs carry a single juniorUid
 const jrsOf=e=>e?.juniorUids?.length?e.juniorUids:(e?.juniorUid?[e.juniorUid]:[]);
+// Work assigned BEFORE a colleague's first login is recorded under their
+// "pending:<email>" id. Until it is migrated, treat that id as an alias of the
+// real uid — so a colleague sees all their matters from the very first login.
+const aliasIds=uid=>{ const u=users[uid]; return (u&&u.email)?[uid,"pending:"+emailKey(u.email)]:[uid]; };
+const idIn=(arr,uid)=>{ const a=aliasIds(uid); return (arr||[]).some(x=>a.includes(x)); };
 // Everyone in chambers for LABELLING a matter — signed-in colleagues plus those
 // added but not yet signed in — so a causelist entry can name anyone. Assignment
 // (roster/ack) still needs a real login; this list is only for the day sheet.
@@ -1214,15 +1219,15 @@ const _imminentDate=iso=>{ if(!iso)return false; const dd=(new Date(iso+"T00:00"
 const _dueClass=iso=>{ if(!iso)return ""; const dd=(new Date(iso+"T00:00")-new Date(todayISO()+"T00:00"))/864e5; return dd<0?"overdue":dd<=3?"soon":""; };
 // open work items a colleague is carrying — every not-done direction (from the
 // Senior, or self-noted), dated ones first by due date.
-function myTasks(uid){ const out=[]; Object.values(briefs).forEach(b=>{ if((b.assignedTo||[]).includes(uid)&&b.status!=="disposed") (b.directions||[]).forEach(d=>{ if(!d.done) out.push({b,d}); }); }); return out.sort((a,z)=>(a.d.dueDate||"9999").localeCompare(z.d.dueDate||"9999")); }
+function myTasks(uid){ const out=[]; Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)&&b.status!=="disposed") (b.directions||[]).forEach(d=>{ if(!d.done) out.push({b,d}); }); }); return out.sort((a,z)=>(a.d.dueDate||"9999").localeCompare(z.d.dueDate||"9999")); }
 // Causelist listings a colleague is marked on (day-sheet juniorUids) that AREN'T
 // already one of their assigned briefs — so the causelist counts as real work.
 // dsAll holds every day sheet (watched app-wide), so this sees all dates.
 function listingsOf(uid){
-  const mineBriefs=new Set(Object.values(briefs).filter(b=>(b.assignedTo||[]).includes(uid)).map(b=>b.id));
+  const mineBriefs=new Set(Object.values(briefs).filter(b=>idIn(b.assignedTo,uid)).map(b=>b.id));
   const out=[];
   Object.entries(dsAll).forEach(([date,ds])=>{ (ds?.entries||[]).forEach((e,i)=>{
-    if(jrsOf(e).includes(uid) && !(e.briefId&&mineBriefs.has(e.briefId))) out.push({date,e,i});
+    if(idIn(jrsOf(e),uid) && !(e.briefId&&mineBriefs.has(e.briefId))) out.push({date,e,i});
   });});
   return out;
 }
@@ -1265,10 +1270,29 @@ function findBriefForListing(entry, caseNo, diaryNo){
 //     (so listings entered before this existed still appear in the register), and
 //  2) migrate "pending:<email>" colleague ids to the real uid once that colleague
 //     has signed in for the first time.
-let _registerSynced=false, _briefsLoaded=false, _dsLoaded=false;
+let _registerSynced=false, _briefsLoaded=false, _dsLoaded=false, _selfMigrated=false;
 // run the reconciliation only once BOTH collections have loaded — otherwise an
 // empty-yet briefs map would make every already-linked listing look unlinked.
-function maybeSyncRegister(){ if(_briefsLoaded && _dsLoaded) syncRegister(); }
+// Staff/admin run the full syncRegister; a COLLEAGUE migrates their own briefs
+// (selfMigrateMine) so their matters are theirs from the very first login.
+function maybeSyncRegister(){ if(_briefsLoaded && _dsLoaded){ syncRegister(); selfMigrateMine(); } }
+// Rewrite "pending:<my email>" to my real uid on my own briefs. Day-sheet ids
+// stay until a Staff session runs syncRegister — the idIn() display alias
+// covers them in the meantime, so nothing is invisible while we wait.
+async function selfMigrateMine(){
+  if(_selfMigrated || !me || canManage()) return;
+  _selfMigrated=true;
+  const em=emailKey(me.email||users[me.uid]?.email||""); if(!em) return;
+  const alias="pending:"+em, map=x=>x===alias?me.uid:x;
+  for(const b of Object.values(briefs)){
+    if([...(b.assignedTo||[]),...(b.everAssigned||[]),...(b.ackBy||[])].includes(alias)){
+      const patch={updatedAt:db.now()};
+      ["assignedTo","everAssigned","ackBy"].forEach(f=>{ if(Array.isArray(b[f])) patch[f]=[...new Set(b[f].map(map))]; });
+      if(Array.isArray(b.assignHistory)) patch.assignHistory=b.assignHistory.map(hh=>({...hh,uid:map(hh.uid)}));
+      try{ await db.update("briefs/"+b.id,patch); }catch(_){}
+    }
+  }
+}
 async function syncRegister(force){
   if((!force && _registerSynced) || !me || !canManage()) return;
   _registerSynced=true;
@@ -1320,29 +1344,29 @@ async function syncRegister(force){
 const _share=arr=>{ const n=(arr||[]).length; return n>1?1/n:1; };
 // Share of a BRIEF for one colleague, honouring a full-credit claim: if someone
 // has claimed the whole matter, they carry 1 and everyone else 0.
-function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[]; if(b.creditClaim&&b.creditClaim.uid) return b.creditClaim.uid===uid?1:0; return arr.length>1?1/arr.length:1; }
+function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[]; if(b.creditClaim&&b.creditClaim.uid) return aliasIds(uid).includes(b.creditClaim.uid)?1:0; return arr.length>1?1/arr.length:1; }
 const fmtPts=n=>{ n=Math.round(n*10)/10; return Number.isInteger(n)?String(n):n.toFixed(1); };  // tidy fractional display
 function activeLoad(uid){
   const briefLoad=Object.values(briefs)
-    .filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid))
+    .filter(b=>b.status!=="disposed" && idIn(b.assignedTo,uid))
     .reduce((s,b)=>s + weightOf(b)*(isImminent(b)?2:1)*shareFor(b,uid,b.assignedTo), 0);
   const listLoad=activeListings(uid).reduce((s,x)=>s+(_imminentDate(x.date)?2:1)*_share(jrsOf(x.e)), 0);
   return briefLoad + listLoad;
 }
 function imminentCount(uid){
-  return Object.values(briefs).filter(b=>(b.assignedTo||[]).includes(uid)&&isImminent(b)).length
+  return Object.values(briefs).filter(b=>idIn(b.assignedTo,uid)&&isImminent(b)).length
        + activeListings(uid).filter(x=>_imminentDate(x.date)).length;
 }
 // Count of active matters on a colleague's plate (headcount, not points).
 function activeCount(uid){
-  return Object.values(briefs).filter(b=>b.status!=="disposed" && (b.assignedTo||[]).includes(uid)).length
+  return Object.values(briefs).filter(b=>b.status!=="disposed" && idIn(b.assignedTo,uid)).length
        + activeListings(uid).length;
 }
 // LIFETIME points — every matter ever assigned (disposed included), each counted
 // as its SHARE (1/N when co-assigned). The career-fairness "clock"; day-to-day
 // weightage/imminence applies only to activeLoad.
 function lifetimeCount(uid){
-  return Object.values(briefs).filter(b=>(b.everAssigned||b.assignedTo||[]).includes(uid)).reduce((s,b)=>s+shareFor(b,uid,b.everAssigned||b.assignedTo),0);
+  return Object.values(briefs).filter(b=>idIn(b.everAssigned||b.assignedTo,uid)).reduce((s,b)=>s+shareFor(b,uid,b.everAssigned||b.assignedTo),0);
 }
 // Workload a colleague carried over the last `days` days — share-split points from
 // briefs (assigned / heard / listed in the window) plus bare causelist listings.
@@ -1353,7 +1377,7 @@ function loadInWindow(uid, days){
   const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
   const inWin=d=>d&&d>=start&&d<=end;   // a window BOTH sides of today, so upcoming matters count
   let pts=0;
-  Object.values(briefs).forEach(b=>{ if((b.everAssigned||b.assignedTo||[]).includes(uid)){
+  Object.values(briefs).forEach(b=>{ if(idIn(b.everAssigned||b.assignedTo,uid)){
     const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
     const ld=listingDatesOf(b.id);
     const hasDate=ad||b.nextDate||ld.length;
@@ -1440,7 +1464,7 @@ function reassignForm(briefId){
     closeSheet(); toast("Request sent — the matter stays with you until someone accepts","ti-arrows-exchange"); };
 }
 async function acceptReassign(briefId){
-  const b=briefs[briefId]; const rq=b?.reassignReq; if(!rq||!rq.to.includes(me.uid)){ toast("This request is no longer open","ti-alert-triangle"); return; }
+  const b=briefs[briefId]; const rq=b?.reassignReq; if(!rq||!idIn(rq.to,me.uid)){ toast("This request is no longer open","ti-alert-triangle"); return; }
   const assignedTo=[...new Set([...(b.assignedTo||[]).filter(u=>u!==rq.from), me.uid])];
   await db.update("briefs/"+briefId,{
     assignedTo, everAssigned:[...new Set([...(b.everAssigned||[]),me.uid])],
@@ -1496,7 +1520,7 @@ async function acknowledge(briefId){
   await db.update("briefs/"+briefId,{ackBy,updatedAt:db.now()});
   toast("Assignment acknowledged","ti-check");
 }
-const needsMyAck = b => b.status!=="disposed" && (b.assignedTo||[]).includes(me.uid) && !(b.ackBy||[]).includes(me.uid);
+const needsMyAck = b => b.status!=="disposed" && idIn(b.assignedTo,me.uid) && !idIn(b.ackBy,me.uid);
 const unackedBy = b => (b.assignedTo||[]).filter(u=>!(b.ackBy||[]).includes(u));
 const ackAgeDays = b => b.assignedAt? Math.floor((Date.now()-b.assignedAt)/864e5) : null;
 
@@ -1613,7 +1637,7 @@ function renderCal(){
   const byDate={}, mineBy={};
   Object.values(briefs).forEach(b=>{ if(b.status==="disposed"||!b.nextDate)return;
     (byDate[b.nextDate]=byDate[b.nextDate]||[]).push(b);
-    if((b.assignedTo||[]).includes(me.uid))(mineBy[b.nextDate]=mineBy[b.nextDate]||[]).push(b); });
+    if(idIn(b.assignedTo,me.uid))(mineBy[b.nextDate]=mineBy[b.nextDate]||[]).push(b); });
   const cells=[];
   for(let i=0;i<startDow;i++)cells.push('<div class="cal-cell blank"></div>');
   for(let d=1;d<=dim;d++){
@@ -1798,7 +1822,7 @@ function holidayRangeForm(){
 function renderMyWork(){
   $("pageTitle").textContent="My work"; $("pageSub").textContent="Your matters, hearings and availability";
   $("topbarAction").innerHTML="";
-  const mine=Object.values(briefs).filter(b=>b.status!=="disposed"&&(b.assignedTo||[]).includes(me.uid));
+  const mine=Object.values(briefs).filter(b=>b.status!=="disposed"&&idIn(b.assignedTo,me.uid));
   const unacked=mine.filter(needsMyAck);
   const soon=mine.filter(isImminent);
   const withDate=mine.filter(b=>b.nextDate).sort((a,b)=>a.nextDate.localeCompare(b.nextDate));
@@ -1818,7 +1842,7 @@ function renderMyWork(){
   const availRow=`<div style="margin-top:18px"><div class="section-label">My status today</div>
     <div class="av-quick">${Object.entries(AVAIL).map(([k,v])=>`<button class="av-btn ${av?.status===k?'on':''}" data-av="${k}">${v.label}</button>`).join("")}</div></div>`;
   // takeover requests from colleagues — accept moves the matter to me
-  const rreqs=Object.values(briefs).filter(b=>b.status!=="disposed"&&b.reassignReq&&(b.reassignReq.to||[]).includes(me.uid));
+  const rreqs=Object.values(briefs).filter(b=>b.status!=="disposed"&&b.reassignReq&&idIn(b.reassignReq.to,me.uid));
   const rreqSec=rreqs.length?`<div class="section-label" style="margin-top:22px">Takeover requests</div>
     ${rreqs.map(b=>`<div class="mw-card new"><button class="mw-open" data-brief="${b.id}"><div class="mw-title">${esc(labelOf(b))}</div>
       <div class="mw-meta"><span class="ti ti-arrows-exchange" style="color:var(--accent-ink)"></span> ${esc(nameOf(b.reassignReq.from))} asks you to take this over${b.nextDate?` · next ${fmtDate(b.nextDate)}`:''}</div></button>
@@ -2579,7 +2603,7 @@ function renderBriefs(){
     <div class="seg">${filters.map(([k,l])=>`<button data-bf="${k}" class="${briefFilter===k?'active':''}">${l}</button>`).join("")}</div>
   </div>`;
   let list=Object.values(briefs);
-  if(briefFilter==="mine")list=list.filter(b=>(b.assignedTo||[]).includes(me.uid));
+  if(briefFilter==="mine")list=list.filter(b=>idIn(b.assignedTo,me.uid));
   else if(briefFilter==="urgent")list=list.filter(b=>b.priority&&b.status!=="disposed");
   else if(briefFilter==="awaited")list=list.filter(b=>b.detailsAwaited&&b.status!=="disposed");
   else if(briefFilter==="listed")list=list.filter(b=>b.status==="listed");
@@ -2716,7 +2740,7 @@ function briefForm(b=null){
 
 function openBrief(id){
   const b=briefs[id]; if(!b)return;
-  const canStatus=canManage()||(b.assignedTo||[]).includes(me.uid);
+  const canStatus=canManage()||idIn(b.assignedTo,me.uid);
   // status as a dropdown (pick any stage — also the way to undo a mis-tap),
   // with the progression path below: every stage passed through to reach here.
   const stKeys=Object.keys(STATUS); const stIdx=Math.max(0,stKeys.indexOf(b.status));
@@ -2747,11 +2771,11 @@ function openBrief(id){
         }).join("")||'<span class="muted">Unassigned</span>'}</div>
         ${b.reassignReq?`<div class="claim-badge" style="background:var(--s-assigned-bg);border-color:var(--s-assigned);color:var(--s-assigned)"><span class="ti ti-arrows-exchange"></span>
           <span style="flex:1"><b>${esc(nameOf(b.reassignReq.from))}</b> has requested ${b.reassignReq.to.map(nameOf).map(esc).join(" / ")} to take this over — it stays with ${esc(nameOf(b.reassignReq.from).split(' ')[0])} until accepted.</span>
-          ${(b.reassignReq.to||[]).includes(me.uid)?`<span class="row" style="gap:6px;flex-shrink:0"><button class="btn sm" data-racc="${b.id}">Accept</button><button class="btn ghost sm" data-rdec="${b.id}">Decline</button></span>`
+          ${idIn(b.reassignReq.to,me.uid)?`<span class="row" style="gap:6px;flex-shrink:0"><button class="btn sm" data-racc="${b.id}">Accept</button><button class="btn ghost sm" data-rdec="${b.id}">Decline</button></span>`
             :(b.reassignReq.from===me.uid||canManage())?`<button class="tbtn sm" data-rcancel="${b.id}" style="flex-shrink:0">Withdraw</button>`:''}</div>`:''}
         ${(b.assignedTo||[]).length>1?(b.creditClaim&&b.creditClaim.uid
           ? `<div class="claim-badge"><span class="ti ti-award"></span><span style="flex:1">Full credit for this matter claimed by <b>${esc(nameOf(b.creditClaim.uid))}</b></span>${(b.creditClaim.uid===me.uid||canManage())?`<button class="tbtn sm" data-unclaim="${b.id}">Release</button>`:''}</div>`
-          : ((b.assignedTo||[]).includes(me.uid)?`<div style="margin-top:8px"><button class="tbtn" data-claim="${b.id}"><span class="ic ti ti-award"></span>Claim full credit for this matter</button></div>`:'')):''}
+          : (idIn(b.assignedTo,me.uid)?`<div style="margin-top:8px"><button class="tbtn" data-claim="${b.id}"><span class="ic ti ti-award"></span>Claim full credit for this matter</button></div>`:'')):''}
         ${(canManage()&&unackedBy(b).length&&b.status!=="disposed")?`<div class="ack-note muted"><span class="ti ti-clock"></span>${unackedBy(b).map(nameOf).join(", ")} ${unackedBy(b).length>1?'have':'has'} not acknowledged yet${ackAgeDays(b)!==null?` · assigned ${ackAgeDays(b)===0?'today':ackAgeDays(b)+'d ago'}`:''}
           ${unackedBy(b).map(u=>{const l=waLink(u,b);return l?`<a class="nudge" href="${l}" target="_blank" rel="noopener"><span class="ic ti ti-brand-whatsapp"></span>Nudge ${esc(nameOf(u).split(' ')[0])}</a><button class="tbtn icon-only" data-copymsg="${b.id}" title="Copy nudge message (paste anywhere — SMS, Telegram, email)"><span class="ic ti ti-copy"></span></button>`:`<span class="muted" style="font-size:11px">(no phone saved for ${esc(nameOf(u).split(' ')[0])})</span><button class="tbtn icon-only" data-copymsg="${b.id}" title="Copy nudge message"><span class="ic ti ti-copy"></span></button>`;}).join(" ")}</div>`:''}
         <div class="row" style="gap:6px;margin-top:10px">
@@ -2759,8 +2783,8 @@ function openBrief(id){
           ${canManage()&&!(b.assignedTo||[]).length?`<button class="btn sm" data-autoassign2="${b.id}"><span class="ic ti ti-wand"></span>Auto-assign next</button>`:''}
           ${canManage()&&(b.assignedTo||[]).length?`<button class="tbtn" data-notify="${b.id}"><span class="ic ti ti-send"></span>Inform colleague${(b.assignedTo||[]).length>1?'s':''}</button>`:''}
           ${canManage()?`<button class="tbtn" data-editbrief="${b.id}"><span class="ic ti ti-pencil"></span>Reassign manually</button>`:''}
-          ${((b.assignedTo||[]).includes(me.uid)&&b.status!=='disposed'&&!b.reassignReq)?`<button class="tbtn" data-reassign="${b.id}"><span class="ic ti ti-arrows-exchange"></span>Request reassignment</button>`:''}
-          ${(!canManage()&&(b.assignedTo||[]).includes(me.uid)&&b.status!=='disposed')?`<button class="tbtn" style="color:var(--danger)" data-object="${b.id}"><span class="ic ti ti-hand-stop"></span>Object to this assignment</button>`:''}
+          ${(idIn(b.assignedTo,me.uid)&&b.status!=='disposed'&&!b.reassignReq)?`<button class="tbtn" data-reassign="${b.id}"><span class="ic ti ti-arrows-exchange"></span>Request reassignment</button>`:''}
+          ${(!canManage()&&idIn(b.assignedTo,me.uid)&&b.status!=='disposed')?`<button class="tbtn" style="color:var(--danger)" data-object="${b.id}"><span class="ic ti ti-hand-stop"></span>Object to this assignment</button>`:''}
         </div>
         ${(b.declinedBy||[]).length?`<div class="obj-trail">
           <div class="obj-trail-h">Objection trail</div>
