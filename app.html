@@ -688,7 +688,8 @@ body.demo .topbar{top:34px}
 .est-chip:hover{border-color:var(--accent)}
 .est-chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .est-chip.clear{color:var(--muted)}
-.conf-notes-h{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.conf-notes-h{font-size:12.5px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.conf-savedhint{font-size:10.5px;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:1px 7px;margin-left:8px;font-weight:600}
 .cnote{padding:8px 0;border-top:1px solid var(--line)}
 .cnote-t{font-size:13.5px;color:var(--ink);line-height:1.45}
 .cnote-m{font-size:11px;color:var(--muted);margin-top:3px}
@@ -1819,6 +1820,31 @@ const fmtElapsed=ms=>{ const s=Math.max(0,Math.floor(ms/1000)),h=Math.floor(s/36
 const fmtDur=ms=>{ const m=Math.round(ms/60000); if(m<1)return "under a minute"; if(m<60)return m+" min"; const h=Math.floor(m/60),mm=m%60; return mm?`${h} h ${mm} min`:`${h} h`; };
 // elapsed run-time honouring pauses: accumulated segments + the current running one
 const confElapsed=st=>{ const acc=st.accumMs||0; return (st.state==="running"&&st.runningSince)?acc+(Date.now()-st.runningSince):acc; };
+// Export a set of notes as a Word (.doc) document — Word opens this HTML/MSO
+// payload natively and it stays fully editable for further work.
+function noteStamp(ms){ try{ return new Date(ms).toLocaleString("en-IN",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
+function buildNotesDoc(matterTitle, sub, notes){
+  const rows=(notes||[]).slice().sort((a,b)=>(a.at||0)-(b.at||0))
+    .map(n=>`<p style="margin:0 0 12pt">${esc(n.text).replace(/\n/g,"<br>")}<br><span style="color:#777;font-size:9pt">— ${esc(nameOf(n.by))}, ${esc(noteStamp(n.at))}</span></p>`).join("");
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head>
+    <body style="font-family:Georgia,'Times New Roman',serif;font-size:12pt;color:#111">
+      <p style="font-family:Georgia,serif;font-size:16pt;margin:0">${esc(CHAMBER.seniorName)}</p>
+      <p style="margin:2pt 0 0;color:#555">${esc(CHAMBER.designation)} · ${esc(CHAMBER.court)}</p>
+      <hr>
+      <p style="font-size:13pt;margin:12pt 0 0"><b>${esc(matterTitle||"Conference notes")}</b></p>
+      ${sub?`<p style="margin:2pt 0 14pt;color:#555">${esc(sub)}</p>`:""}
+      ${rows||"<p><i>No notes.</i></p>"}
+    </body></html>`;
+}
+async function exportNotesDoc(matterTitle, sub, notes, fnameBase){
+  const html=buildNotesDoc(matterTitle,sub,notes);
+  const fname=((fnameBase||"Conference notes").replace(/[^\w \-]/g,"").replace(/\s+/g," ").trim().slice(0,50)||"Conference notes")+".doc";
+  const blob=new Blob(["﻿",html],{type:"application/msword"});
+  try{ const file=new File([blob],fname,{type:"application/msword"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:matterTitle||fname}); return; } }catch(_){}
+  const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+  toast("Word document exported","ti-file-download");
+}
 // tick each RUNNING conference's stopwatch in place (no tab re-render → note/typing
 // focus is kept). A running span carries data-since + data-accum; paused/ended
 // spans have no data-since so they stay frozen.
@@ -1844,9 +1870,9 @@ function conferencesOn(dateISO){
   Object.values(dsAll||{}).forEach(ds=>{ const dt=ds.date||ds.id;
     (ds.entries||[]).forEach(e=>{ const cd=e.confDate||dt; if((e.confTime||e.confDate)&&cd===dateISO){
       const jrs=[...new Set([...jrsOf(e), ...((e.briefId&&briefs[e.briefId]?.assignedTo)||[])])];
-      raw.push({date:cd,time:e.confTime||"",counsel:(e.counsel||"").trim(),title:resolveEntry(e,dt).title,kind:"matter",jrs}); } });
+      raw.push({date:cd,time:e.confTime||"",counsel:(e.counsel||"").trim(),title:resolveEntry(e,dt).title,kind:"matter",jrs,briefId:e.briefId||null}); } });
     (ds.conferences||[]).forEach(c=>{ const cd=c.date||dt; if(cd===dateISO)
-      raw.push({date:cd,time:c.time||"",counsel:c.name||"",title:"",kind:"manual",isManual:true,jrs:[]}); });
+      raw.push({date:cd,time:c.time||"",counsel:c.name||"",title:"",kind:"manual",isManual:true,jrs:[],briefId:null}); });
   });
   const counts={}; raw.forEach(r=>{ if(!r.isManual&&r.counsel){const k=r.counsel.toLowerCase(); counts[k]=(counts[k]||0)+1;} });
   raw.forEach(r=>{ const dup=!r.isManual&&r.counsel&&counts[r.counsel.toLowerCase()]>1; const first=(r.title||"").split(/\s+/)[0]||""; r.label=(r.counsel||"—")+((dup&&first)?` (${first})`:""); });
@@ -1947,7 +1973,7 @@ function confSectionHtml(){
                    :`<div class="conf-inrow"><input type="text" placeholder="Ask the attending colleague for a status…" data-askin="${esc(c.key)}"><button class="tbtn sm" data-askbtn="${esc(c.key)}">Ask</button></div>`}
         </div>
         <div class="conf-notes">
-          <div class="conf-notes-h">Notes from the conference</div>
+          <div class="conf-notes-h"><span>Notes from the conference${c.briefId?`<span class="conf-savedhint">saved to the brief</span>`:""}</span>${notes.length?`<button class="tbtn sm" data-noteexport="${esc(c.key)}"><span class="ic ti ti-file-type-doc"></span>Export to Word</button>`:""}</div>
           <div class="cnote-list">${noteList}</div>
           ${canEdit?`<div class="cnote-add"><textarea class="cnote-ta" rows="4" placeholder="Add a note from the conference…  (Ctrl/⌘+Enter to save)" data-noteinput="${esc(c.key)}"></textarea><div class="cnote-addbar"><button class="tbtn sm go" data-noteadd="${esc(c.key)}"><span class="ic ti ti-plus"></span>Add note</button></div></div>`
                    :`<div class="conf-viewonly">Only the colleague(s) on this matter, or Staff/Adith, can take notes.</div>`}
@@ -1991,10 +2017,16 @@ function wireConf(){
     await db.set("confstatus/"+k,{...base(k),asks},true); if(inp)inp.value=""; toast("Asked the attending colleague"); });
   T("[data-statusin],[data-askin]").forEach(inp=>inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); const k=inp.dataset.statusin||inp.dataset.askin; (document.querySelector(`#tab-now [data-statusbtn="${k}"]`)||document.querySelector(`#tab-now [data-askbtn="${k}"]`))?.click(); } });
   T("[data-noteadd]").forEach(x=>x.onclick=async()=>{ const k=x.dataset.noteadd; const inp=document.querySelector(`#tab-now [data-noteinput="${k}"]`);
-    const txt=(inp?.value||"").trim(); if(!txt)return; const c0=confStatus[k]?.notes||[];
-    await db.set("confstatus/"+k,{...base(k),notes:[...c0,{text:txt,by:me.uid,at:Date.now()}]},true); if(inp)inp.value=""; });
+    const txt=(inp?.value||"").trim(); if(!txt)return; const c=findC(k); const note={id:"n"+Date.now(),text:txt,by:me.uid,at:Date.now()};
+    await db.set("confstatus/"+k,{...base(k),notes:[...(confStatus[k]?.notes||[]),note]},true);
+    // auto-save to the matter's brief so the note lives with the case record
+    if(c?.briefId&&briefs[c.briefId]){ try{ await db.update("briefs/"+c.briefId,{confNotes:[...(briefs[c.briefId].confNotes||[]),{...note,confKey:k,confLabel:c.label||"",date:todayISO()}],updatedAt:db.now()}); }catch(_){} }
+    if(inp)inp.value=""; toast(c?.briefId?"Note saved to the brief":"Note added","ti-check"); });
   T("[data-noteinput]").forEach(inp=>inp.onkeydown=e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); document.querySelector(`#tab-now [data-noteadd="${inp.dataset.noteinput}"]`)?.click(); } });
-  T("[data-notedel]").forEach(x=>x.onclick=async()=>{ const [k,ni]=x.dataset.notedel.split("|"); const c0=(confStatus[k]?.notes||[]).slice(); c0.splice(+ni,1); await db.set("confstatus/"+k,{notes:c0},true); });
+  T("[data-notedel]").forEach(x=>x.onclick=async()=>{ const [k,ni]=x.dataset.notedel.split("|"); const c0=(confStatus[k]?.notes||[]).slice(); const removed=c0.splice(+ni,1)[0]; await db.set("confstatus/"+k,{notes:c0},true);
+    const c=findC(k); if(c?.briefId&&briefs[c.briefId]&&removed?.id){ try{ await db.update("briefs/"+c.briefId,{confNotes:(briefs[c.briefId].confNotes||[]).filter(n=>n.id!==removed.id),updatedAt:db.now()}); }catch(_){} } });
+  T("[data-noteexport]").forEach(x=>x.onclick=()=>{ const k=x.dataset.noteexport, c=findC(k);
+    exportNotesDoc(c?.title||c?.label||"Conference", `${c?.label||""} · ${confDateHeading(todayISO())}`, confStatus[k]?.notes||[], "Conference notes - "+(c?.label||"conference")); });
 }
 function notifSheet(){
   const list=myNotifs();
@@ -3377,6 +3409,9 @@ function openBrief(id){
       </div>`;}).join("")||'<div class="muted" style="font-size:12.5px">No directions noted yet.</div>'}</div>
       ${canStatus?`<button class="tbtn" data-adddir="${id}" style="margin-top:8px"><span class="ic ti ti-plus"></span>Add a direction</button>`:''}
 
+      ${(b.confNotes&&b.confNotes.length)?`<label style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">Conference notes <button class="tbtn sm" data-brnoteexport="${id}"><span class="ic ti ti-file-type-doc"></span>Export to Word</button></label>
+      <div class="cnote-list">${b.confNotes.slice().sort((a,z)=>(a.at||0)-(z.at||0)).map(n=>`<div class="cnote"><div class="cnote-t">${esc(n.text)}</div><div class="cnote-m">${esc(nameOf(n.by))}${n.confLabel?` · ${esc(n.confLabel)}`:''} · ${n.at?new Date(n.at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):''}</div></div>`).join("")}</div>`:''}
+
       ${canManage()?`<div class="danger-zone">
         <button class="tbtn danger-btn" data-delbrief="${id}"><span class="ic ti ti-trash"></span>Delete this matter</button>
         <span class="muted" style="font-size:11.5px">Removes it from the register${listingDatesOf(id).length?` — it is listed on ${listingDatesOf(id).length} day sheet${listingDatesOf(id).length>1?'s':''}`:''}.</span>
@@ -3389,6 +3424,7 @@ function openBrief(id){
   document.querySelectorAll("[data-adddir]").forEach(x=>x.onclick=()=>dirForm(id));
   if($("ob_status"))$("ob_status").onchange=async()=>{await db.update("briefs/"+id,{status:$("ob_status").value,updatedAt:db.now()});closeSheet();openBrief(id);};
   document.querySelectorAll("[data-editbrief]").forEach(x=>x.onclick=()=>{closeSheet();briefForm(b);});
+  document.querySelectorAll("[data-brnoteexport]").forEach(x=>x.onclick=()=>{ exportNotesDoc(labelOf(b), `Conference notes${b.chamberNo?` · File #${b.chamberNo}`:''}`, b.confNotes||[], "Conference notes - "+labelOf(b)); });
   document.querySelectorAll("[data-delbrief]").forEach(x=>x.onclick=()=>{ const ld=listingDatesOf(id);
     confirmAsk({title:"Delete this matter?",danger:true,confirmLabel:"Delete matter",
       body:`<b>${esc(labelOf(b))}</b> will be removed from the register for the whole chamber.${ld.length?`<br><br><span style="color:var(--warn)">It is listed on ${ld.length} day sheet${ld.length>1?'s':''} — those cause-list rows stay in place; remove them from the day sheet if you want them gone too.</span>`:''}`,
