@@ -627,14 +627,28 @@ body.demo .topbar{top:34px}
 .now-seg button{display:inline-flex;align-items:center;gap:7px;border:none;background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;padding:8px 18px;border-radius:8px;cursor:pointer}
 .now-seg button .ic{font-size:16px}
 .now-seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
-/* conference cards */
+/* conference cards (Now tab) */
 .conf-card{border-bottom:1px solid var(--line)}
 .conf-card:last-child{border-bottom:none}
 .conf-card.on{background:var(--s-conf-bg)}
 .conf-card.infer{background:var(--surface-2)}
-.conf-top{display:flex;align-items:center;gap:13px;padding:13px 18px;cursor:pointer}
-.conf-chev{color:var(--muted);font-size:16px;margin-left:auto}
-.conf-body{padding:0 18px 16px 63px}
+.conf-top{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer}
+.conf-sn{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line-2);color:var(--muted);font-family:var(--serif);font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.conf-card.on .conf-sn{background:var(--s-conf);color:#fff;border-color:var(--s-conf)}
+.conf-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.conf-line1{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.conf-line1 .conf-t{min-width:0;font-size:12.5px}
+.conf-name{font-size:14.5px;font-weight:600;color:var(--ink)}
+.conf-statusrow{margin-top:3px}
+.conf-live{display:inline-flex;align-items:center;gap:7px;background:rgba(63,174,99,.12);border:1px solid rgba(63,174,99,.4);color:#256b3c;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:20px}
+.conf-elapsed{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700}
+.conf-ended{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12.5px;font-weight:500}
+.conf-ended .ic{color:var(--ok);font-size:15px}
+.conf-chev{color:var(--muted);font-size:16px;flex-shrink:0;margin-top:2px}
+.conf-body{padding:0 18px 16px 56px}
+.conf-times{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.conf-times .ic{font-size:15px;color:var(--s-conf)}
+.conf-times b{color:var(--ink)}
 .conf-actions{margin-bottom:12px}
 .tbtn.go{background:var(--sidebar);color:#fff;border-color:var(--sidebar)}
 .tbtn.go:hover{background:#1c2229}
@@ -1278,6 +1292,7 @@ function selectTab(t){ curTab=t;
   ["cal","now","board","today","briefs","roster","leave","team"].forEach(s=>$("tab-"+s).classList.toggle("hidden",s!==t));
   $("pageTitle").textContent=TITLES[t][0]; $("pageSub").textContent=TITLES[t][1];
   if((t==="today"||t==="cal")&&me&&courtUpdatesStale()) loadCourtUpdates();
+  if(t!=="now") stopConfTimer();
   closeSidebar(); renderActiveNow();   // paint the newly-chosen tab at once (no frame delay)
 }
 // Coalesce renders: 13 data watchers each ask to re-render, and a burst of them
@@ -1717,6 +1732,15 @@ const confMins=t=>{ const c=toClock(t); const m=String(c).match(/^(\d{1,2}):(\d{
 function timeAgo(ms){ if(!ms) return ""; const s=Math.max(0,Math.floor((Date.now()-ms)/1000));
   if(s<45) return "just now"; if(s<3600) return Math.floor(s/60)+" min ago";
   if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; }
+// live stopwatch M:SS (or H:MM:SS past an hour) for a running conference
+const fmtElapsed=ms=>{ const s=Math.max(0,Math.floor(ms/1000)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60,pad=n=>String(n).padStart(2,"0"); return h?`${h}:${pad(m)}:${pad(ss)}`:`${m}:${pad(ss)}`; };
+// human duration for a concluded conference
+const fmtDur=ms=>{ const m=Math.round(ms/60000); if(m<1)return "under a minute"; if(m<60)return m+" min"; const h=Math.floor(m/60),mm=m%60; return mm?`${h} h ${mm} min`:`${h} h`; };
+// tick every running conference's stopwatch WITHOUT re-rendering the tab (keeps
+// note-typing focus; only the elapsed text nodes change)
+let _confTimerId=0;
+function _tickConfTimers(){ let any=false; document.querySelectorAll("#tab-now [data-elapsed]").forEach(el=>{ const s=+el.dataset.elapsed; if(s){ any=true; el.textContent=fmtElapsed(Date.now()-s); } }); if(!any&&_confTimerId){ clearInterval(_confTimerId); _confTimerId=0; } }
+function stopConfTimer(){ if(_confTimerId){ clearInterval(_confTimerId); _confTimerId=0; } }
 // topbar pill + sidebar dot — glanceable "where the Senior is" from any tab
 function updateLivePill(){
   const c=live?.court?.court, p=$("livePill"), dot=$("navNowDot");
@@ -1751,12 +1775,14 @@ function conferencesOn(dateISO){
 let nowSub="conf";                 // which sub-tab: "conf" | "court"
 const nowConfOpen=new Set();        // expanded conference cards (session)
 function renderNow(){
+  stopConfTimer();   // re-established below if a conference is running
   const seg=`<div class="now-seg">
     <button data-nowsub="conf" class="${nowSub==="conf"?"on":""}"><span class="ic ti ti-users-group"></span>Conference</button>
     <button data-nowsub="court" class="${nowSub==="court"?"on":""}"><span class="ic ti ti-map-pin"></span>Court</button></div>`;
   $("tab-now").innerHTML=`<div class="now-wrap">${seg}${nowSub==="court"?courtSectionHtml():confSectionHtml()}</div>`;
   document.querySelectorAll("#tab-now [data-nowsub]").forEach(b=>b.onclick=()=>{ nowSub=b.dataset.nowsub; renderNow(); });
-  if(nowSub==="court") wireCourt(); else wireConf();
+  if(nowSub==="court") wireCourt(); else { wireConf();
+    if(document.querySelector("#tab-now [data-elapsed]")) _confTimerId=setInterval(_tickConfTimers,1000); }
 }
 function courtSectionHtml(){
   const lc=live?.court||null, hasCourt=!!(lc&&lc.court);
@@ -1790,29 +1816,41 @@ function confSectionHtml(){
   let inferIdx=-1; confs.forEach((c,i)=>{ const m=confMins(c.time); if(m!=null&&m<=nowMin&&(nowMin-m)<=150) inferIdx=i; });
   const anyOn=confs.some(c=>confStatus[c.key]?.onNow);
   const cards=confs.map((c,i)=>{
-    const st=confStatus[c.key]||{}, onNow=!!st.onNow, infer=!anyOn&&i===inferIdx, open=onNow||nowConfOpen.has(c.key);
+    const st=confStatus[c.key]||{}, onNow=!!st.onNow, infer=!anyOn&&i===inferIdx;
+    const started=st.startedAt||0, concluded=!onNow&&started&&st.endedAt;
+    const open=onNow||nowConfOpen.has(c.key);
     const notes=st.notes||[];
     // Only the colleague(s) marked on the matter, plus Staff/PA/Adith, may
     // update a conference. Everyone else sees it live but read-only.
     const canEdit=idIn(c.jrs,me.uid)||canManage();
     const whoNames=(c.jrs||[]).map(nameOf).filter(n=>n&&n!=="—");
+    // right-hand status: live stopwatch, concluded duration, or "likely now"
+    const status = onNow&&started
+        ? `<span class="conf-live"><span class="now-dot"></span>Running <b class="conf-elapsed" data-elapsed="${started}">${esc(fmtElapsed(Date.now()-started))}</b></span>`
+      : concluded
+        ? `<span class="conf-ended"><span class="ic ti ti-circle-check"></span>Ran ${esc(fmtDur(st.endedAt-started))}</span>`
+      : infer ? `<span class="conf-tag maybe">likely now</span>` : "";
     let estLine;
     if(st.endAt){ const left=Math.round((st.endAt-Date.now())/60000);
-      estLine=`<span class="est-cur">${left>0?`ends ~${esc(fmtClock(st.endAt))} · in ${left} min`:`past estimate (~${esc(fmtClock(st.endAt))})`}</span>`; }
+      estLine=`<span class="est-cur">${left>0?`about ${left} min more (till ~${esc(fmtClock(st.endAt))})`:`past estimate (~${esc(fmtClock(st.endAt))})`}</span>`; }
     else if(st.endEst) estLine=`<span class="est-cur">${esc(st.endEst)}</span>`;
     else estLine=`<span class="est-cur dim">not set</span>`;
     const durBtns=CONF_DUR.map(dd=>`<button class="est-chip${st.endEst===dd.lab?" on":""}" data-est="${esc(c.key)}|${dd.min}|${esc(dd.lab)}">${esc(dd.lab)}</button>`).join("")
       +((st.endEst||st.endAt)?`<button class="est-chip clear" data-est="${esc(c.key)}||">Clear</button>`:"");
     const noteList=notes.length?notes.map((nn,ni)=>`<div class="cnote"><div class="cnote-t">${esc(nn.text)}</div><div class="cnote-m">${esc(nameOf(nn.by))} · ${esc(timeAgo(nn.at))}${(canEdit&&(nn.by===me.uid||canManage()))?` · <button class="cnote-x" data-notedel="${esc(c.key)}|${ni}">remove</button>`:""}</div></div>`).join(""):`<div class="cnote-empty">No notes yet.</div>`;
-    return `<div class="conf-card${onNow?" on":infer?" infer":""}">
+    return `<div class="conf-card${onNow?" on":concluded?" ended":infer?" infer":""}">
       <div class="conf-top" data-conftoggle="${esc(c.key)}">
-        <span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span>
-        <span class="conf-l">${esc(c.label||"—")}${c.title?`<span class="conf-sub">${esc(c.title)}</span>`:""}
-          ${onNow?`<span class="conf-tag now"><span class="dot"></span>On now</span>`:infer?`<span class="conf-tag maybe">likely now</span>`:""}</span>
+        <span class="conf-sn">${i+1}</span>
+        <div class="conf-main">
+          <div class="conf-line1"><span class="conf-t mono">${esc((c.time&&toClock(c.time))||"—")}</span><span class="conf-name">${esc(c.label||"—")}</span></div>
+          ${c.title?`<div class="conf-sub">${esc(c.title)}</div>`:""}
+          ${status?`<div class="conf-statusrow">${status}</div>`:""}
+        </div>
         <span class="ic ti ti-chevron-${open?"up":"down"} conf-chev"></span>
       </div>
       <div class="conf-body${open?"":" hidden"}">
         ${whoNames.length?`<div class="conf-who"><span class="ic ti ti-user"></span>${esc(whoNames.join(", "))}</div>`:(c.isManual?`<div class="conf-who"><span class="ic ti ti-user"></span>Chamber conference</div>`:"")}
+        ${started?`<div class="conf-times"><span class="ic ti ti-clock-play"></span>Started ${esc(fmtClock(started))}${concluded?` · ended ${esc(fmtClock(st.endedAt))} · <b>ran ${esc(fmtDur(st.endedAt-started))}</b>`:onNow?` · <b class="conf-elapsed" data-elapsed="${started}">${esc(fmtElapsed(Date.now()-started))}</b> so far`:""}</div>`:""}
         ${canEdit?`<div class="conf-actions">
           ${onNow?`<button class="tbtn sm" data-confdone="${esc(c.key)}"><span class="ic ti ti-check"></span>Mark ended</button>`
                  :`<button class="tbtn sm go" data-confon="${esc(c.key)}"><span class="ic ti ti-player-play"></span>Mark on now</button>`}
@@ -1844,12 +1882,12 @@ function wireConf(){
   const base=c=>({date:todayISO(),time:c?.time||"",label:c?.label||"",owners:c?.jrs||[]});
   T("[data-conftoggle]").forEach(x=>x.onclick=e=>{ if(e.target.closest("button,input,textarea"))return; const k=x.dataset.conftoggle; nowConfOpen.has(k)?nowConfOpen.delete(k):nowConfOpen.add(k); renderNow(); });
   T("[data-confon]").forEach(x=>x.onclick=async()=>{ const k=x.dataset.confon; nowConfOpen.add(k);
-    await db.set("confstatus/"+k,{...base(findC(k)),onNow:true,by:me.uid,at:Date.now()},true); toast("Marked on now","ti-broadcast"); });
-  T("[data-confdone]").forEach(x=>x.onclick=async()=>{ await db.set("confstatus/"+x.dataset.confdone,{onNow:false},true); toast("Conference ended"); });
+    await db.set("confstatus/"+k,{...base(findC(k)),onNow:true,startedAt:Date.now(),endedAt:null,by:me.uid,at:Date.now()},true); toast("Marked on now — timer running","ti-broadcast"); });
+  T("[data-confdone]").forEach(x=>x.onclick=async()=>{ await db.set("confstatus/"+x.dataset.confdone,{onNow:false,endedAt:Date.now()},true); toast("Conference ended"); });
   T("[data-est]").forEach(x=>x.onclick=async()=>{ const [k,min,lab]=x.dataset.est.split("|");
     if(!lab&&!min){ await db.set("confstatus/"+k,{endEst:null,endAt:null},true); return; }
     const m=parseInt(min,10)||0;
-    await db.set("confstatus/"+k,{...base(findC(k)),endEst:lab,endAt:m>0?Date.now()+m*60000:null,onNow:true,by:me.uid,at:Date.now()},true); });
+    await db.set("confstatus/"+k,{...base(findC(k)),endEst:lab,endAt:m>0?Date.now()+m*60000:null,by:me.uid,at:Date.now()},true); });
   T("[data-noteadd]").forEach(x=>x.onclick=async()=>{ const k=x.dataset.noteadd; const inp=document.querySelector(`#tab-now [data-noteinput="${k}"]`);
     const txt=(inp?.value||"").trim(); if(!txt)return; const cur=confStatus[k]?.notes||[];
     await db.set("confstatus/"+k,{...base(findC(k)),notes:[...cur,{text:txt,by:me.uid,at:Date.now()}]},true); if(inp)inp.value=""; });
