@@ -1648,7 +1648,10 @@ function activeCount(uid){
 // as its SHARE (1/N when co-assigned). The career-fairness "clock"; day-to-day
 // weightage/imminence applies only to activeLoad.
 function lifetimeCount(uid){
-  return Object.values(briefs).filter(b=>idIn(b.everAssigned||b.assignedTo,uid)).reduce((s,b)=>s+shareFor(b,uid,b.everAssigned||b.assignedTo),0);
+  // Credit follows the CURRENT assignees — a reassigned/objected-away matter
+  // carries no residual credit for the person who gave it up (full transfer,
+  // owner's rule). assignedTo is the single source of truth for who "has" it.
+  return Object.values(briefs).filter(b=>idIn(b.assignedTo,uid)).reduce((s,b)=>s+shareFor(b,uid,b.assignedTo),0);
 }
 // Workload a colleague carried over the last `days` days — share-split points from
 // briefs (assigned / heard / listed in the window) plus bare causelist listings.
@@ -1660,7 +1663,7 @@ function casesInWindow(uid, days){
   const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
   const inWin=d=>d&&d>=start&&d<=end;
   const out=[];
-  Object.values(briefs).forEach(b=>{ if(idIn(b.everAssigned||b.assignedTo,uid)){
+  Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)){
     const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
     const ld=listingDatesOf(b.id); const hasDate=ad||b.nextDate||ld.length;
     if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) out.push(b);
@@ -1673,12 +1676,12 @@ function loadInWindow(uid, days){
   const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
   const inWin=d=>d&&d>=start&&d<=end;   // a window BOTH sides of today, so upcoming matters count
   let pts=0;
-  Object.values(briefs).forEach(b=>{ if(idIn(b.everAssigned||b.assignedTo,uid)){
+  Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)){
     const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
     const ld=listingDatesOf(b.id);
     const hasDate=ad||b.nextDate||ld.length;
     // count if any date falls in the window, OR it's active work with no date yet
-    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.everAssigned||b.assignedTo);
+    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.assignedTo);
   }});
   listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=shareForDate(jrsOf(x.e),uid,x.date); });
   return Math.round(pts*10)/10;
@@ -2416,7 +2419,7 @@ function renderMyWork(){
       <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-ackm="${b.id}"><span class="ic ti ti-check"></span>Acknowledge</button><button class="btn ghost sm" data-objm="${b.id}">Object</button></div></div>`).join("")}`:"";
   // register of THIS colleague's cases — live (currently theirs) and old
   // (concluded), each numbered serially under its own heading.
-  const myOld=Object.values(briefs).filter(b=>b.status==="disposed"&&idIn(b.everAssigned||b.assignedTo,me.uid))
+  const myOld=Object.values(briefs).filter(b=>b.status==="disposed"&&idIn(b.assignedTo,me.uid))
     .sort((a,b)=>(b.nextDate||"").localeCompare(a.nextDate||"")||(a.caseTitle||"").localeCompare(b.caseTitle||""));
   const regRow=(b,i)=>{const st=STATUS[b.status];return `<button class="mw-card" data-brief="${b.id}">
       <div class="mw-title"><span class="mw-sn">${i+1}</span>${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px"></span> ':''}${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span> `:''}${esc(labelOf(b))}${needsMyAck(b)?'<span class="new-chip">new</span>':''}</div>
@@ -3652,9 +3655,18 @@ function islandSheet(uid, days, plab){
   const cs=casesInWindow(uid, days);
   openSheet(`<div class="sheet-head"><div><h3>${esc(nameOf(uid))}</h3><div class="sub">${cs.length} matter${cs.length===1?'':'s'} · ${esc(plab)} · load ${fmtPts(loadInWindow(uid,days))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      ${cs.length? cs.map((b,i)=>{const st=STATUS[b.status];const imm=isImminent(b)&&b.status!=='disposed';return `<button class="mw-card" data-brief="${b.id}">
+      ${cs.length? cs.map((b,i)=>{const st=STATUS[b.status];const imm=isImminent(b)&&b.status!=='disposed';
+        // show THIS colleague's actual share of the matter (honours a full-credit
+        // claim and the on-leave redistribution), not a blanket "½ shared".
+        const arr=b.assignedTo||[]; const sh=shareFor(b,uid,arr);
+        let shareTag="";
+        if(arr.length>1){ const claimed=b.creditClaim&&b.creditClaim.uid;
+          const lab = sh>=1?"full credit" : sh<=0?"no credit here" : (Math.abs(sh-0.5)<0.01?"½ share":fmtPts(sh)+" share");
+          const by = (claimed&&!idIn([b.creditClaim.uid],uid))?` · ${esc(nameOf(b.creditClaim.uid).split(' ')[0])} claimed it`:(claimed&&idIn([b.creditClaim.uid],uid)?" (you claimed it)":"");
+          shareTag=`<span class="muted" style="font-size:11px">${lab}${by}</span>`; }
+        return `<button class="mw-card" data-brief="${b.id}">
         <div class="mw-title"><span class="mw-sn">${i+1}</span>${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span> `:''}${esc(labelOf(b))}</div>
-        <div class="mw-meta"><span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>${b.nextDate?`<span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(b.nextDate)}</span>`:'<span class="muted">no date</span>'}${(b.assignedTo||[]).length>1?`<span class="muted" style="font-size:11px">½ shared</span>`:''}</div>
+        <div class="mw-meta"><span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>${b.nextDate?`<span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(b.nextDate)}</span>`:'<span class="muted">no date</span>'}${shareTag}</div>
       </button>`;}).join("") : '<div class="muted" style="font-size:13px">No matters in this period.</div>'}
     </div>`);
   bindClicks($("modalRoot"));
