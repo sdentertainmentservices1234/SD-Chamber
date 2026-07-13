@@ -1,6 +1,6 @@
 {
-  "name": "SD War Room \u2014 live court board",
-  "short_name": "War Room",
+  "name": "SD Court App",
+  "short_name": "SD Court App",
   "description": "Live Supreme Court display board overlaid with the chamber's matters, plus coordination chat.",
   "start_url": "./board.html",
   "scope": "./",
