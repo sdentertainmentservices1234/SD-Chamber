@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#141a22">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -24,9 +24,10 @@
   --shadow:0 1px 3px rgba(20,26,34,.08),0 4px 16px rgba(20,26,34,.06);
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
-  -webkit-font-smoothing:antialiased;overflow:hidden}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;
+  -webkit-text-size-adjust:100%;touch-action:manipulation}
+body{background:var(--navy);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden;position:fixed;inset:0}
 .mono{font-family:'IBM Plex Mono',monospace}
 button{font-family:inherit;cursor:pointer}
 .hidden{display:none!important}
@@ -51,8 +52,10 @@ button{font-family:inherit;cursor:pointer}
 .err{color:var(--now);font-size:13px;margin-top:12px;min-height:16px;text-align:center}
 
 /* ---- app shell ---- */
-#app{display:flex;flex-direction:column;height:100%;max-width:760px;width:100%;margin-inline:auto;
-  background:var(--bg)}
+/* Fixed app shell: header + bottom nav never move; only <main> scrolls.
+   100dvh tracks the phone's dynamic viewport so nothing is left blank. */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:760px;width:100%;
+  margin-inline:auto;background:var(--bg);overflow:hidden}
 @media(min-width:761px){ body{background:#d3d8dd} #app{border-inline:1px solid var(--line)} }
 
 header.top{display:flex;align-items:center;gap:10px;
@@ -96,7 +99,20 @@ header.top{display:flex;align-items:center;gap:10px;
 .mini.gold{border-color:var(--gold);color:#7a6320;background:#fbf6ea;font-weight:600}
 select.mini{appearance:none}
 
-main{flex:1;overflow-y:auto;padding:12px 15px 16px;-webkit-overflow-scrolling:touch}
+/* status row (date + freshness) */
+.statusrow{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut);padding:2px 3px 0}
+/* senior location line (colleagues only; the Senior doesn't see it) */
+.seniorLine{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:8px 11px;margin-top:9px;box-shadow:var(--shadow)}
+.seniorLine i{color:var(--navy);font-size:15px}
+.seniorLine .hint{color:var(--mut);font-size:11px;font-weight:400}
+.senpin{position:absolute;top:5px;left:5px;width:21px;height:21px;border-radius:50%;background:var(--navy);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.cell.sen{box-shadow:var(--shadow),0 0 0 2px var(--navy)}
+.cell[data-setcourt]{cursor:pointer}
+.cell[data-setcourt]:active{transform:scale(.97)}
+
+main{flex:1;overflow-y:auto;padding:12px 15px 16px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 /* legend */
 .legend{display:flex;gap:13px;font-size:10.5px;color:var(--mut);margin:0 2px 11px;flex-wrap:wrap}
@@ -194,26 +210,19 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 <!-- APP -->
 <div id="app" class="hidden">
   <header class="top">
-    <div class="ttl">Display Board<small>SD Chamber · <span id="topDate">live</span></small></div>
+    <div class="ttl"><span id="hdrName">Chambers of Shyam Divan</span><small id="hdrSub">Senior Advocate · Supreme Court of India</small></div>
     <div class="spacer"></div>
-    <div class="freshpill"><span class="freshdot off" id="freshDot"></span><span id="freshTxt">…</span></div>
     <button class="iconbtn" id="btnRefresh" title="Refresh"><i class="ti ti-refresh"></i></button>
     <button class="iconbtn" id="btnOut" title="Sign out"><i class="ti ti-logout"></i></button>
   </header>
 
   <div id="paneTop">
+    <div class="statusrow"><span class="freshdot off" id="freshDot"></span><span id="statusTxt">connecting…</span></div>
     <div class="headline" id="directive">
       <div class="hl-ct" id="dirCt">—</div>
       <div><div class="hl-main" id="dirBig">Reading the board…</div><div class="hl-sub" id="dirSub"></div></div>
     </div>
-    <div class="seniorbar" id="seniorBar">
-      <span class="lab">Senior:</span>
-      <span class="loc" id="snLoc">—</span>
-      <span class="tag inferred" id="snTag">inferred</span>
-      <span class="spacer"></span>
-      <select class="mini" id="snPick" title="Set the court the Senior is in"></select>
-      <button class="mini gold" id="snSet">He's here</button>
-    </div>
+    <div class="seniorLine hidden" id="seniorLine"></div>
   </div>
 
   <main id="main"></main>
@@ -403,6 +412,7 @@ let curTab="board", lastSeenChat=0, userDocUnsub=null, unsub=[], pollId=null, ti
 const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
 const myMatters = () => (daysheet?.entries||[]).filter(e=>e.courtNo);
 const shortTitle = e => e.caseTitle || ("Court "+e.courtNo+" item "+e.itemNo);
+const isSenior = () => me?.role==="senior";           // the Senior doesn't set/see his own location
 
 /* ============================================================
    BOARD FETCH
@@ -437,13 +447,14 @@ async function hardRefresh(){
    RENDER
    ============================================================ */
 function paintFresh(){
-  const dot=$("freshDot"), txt=$("freshTxt");
-  if(!dot) return;
-  if(boardErr==="relay-unset"){ dot.className="freshdot off"; txt.textContent="relay not set"; return; }
-  if(boardErr){ dot.className="freshdot stale"; txt.textContent="board offline"; return; }
-  if(!boardAt){ dot.className="freshdot off"; txt.textContent="connecting"; return; }
+  const dot=$("freshDot"), txt=$("statusTxt");
+  if(!dot||!txt) return;
+  const day=new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
+  if(boardErr==="relay-unset"){ dot.className="freshdot off"; txt.textContent=day+" · relay not set"; return; }
+  if(boardErr){ dot.className="freshdot stale"; txt.textContent=day+" · board offline"; return; }
+  if(!boardAt){ dot.className="freshdot off"; txt.textContent=day+" · connecting…"; return; }
   dot.className="freshdot"+((Date.now()-boardAt)>45000?" stale":"");
-  txt.textContent=agoTxt(boardAt);
+  txt.textContent=day+" · updated "+agoTxt(boardAt);
 }
 
 // senior location: confirmed (config/live.court, fresh <25m) else inferred
@@ -461,16 +472,16 @@ function seniorState(){
   return {court:null, mode:"none"};
 }
 function renderSenior(){
-  const s=seniorState(); const loc=$("snLoc"), tag=$("snTag"); if(!loc) return;
-  loc.textContent = s.court ? "Court "+s.court : "not known yet";
-  tag.className="tag "+(s.mode==="confirmed"?"confirmed":s.mode==="stale"?"stale":"inferred");
-  tag.textContent = s.mode==="confirmed" ? ("confirmed "+(s.at?agoTxt(s.at):"")) :
-                    s.mode==="stale" ? "last known" : s.mode==="inferred" ? "inferred" : "unknown";
-  tag.classList.toggle("hidden", s.mode==="none");
-  const pick=$("snPick");
-  if(!pick.dataset.filled){ let o='<option value="">court…</option>';
-    for(let i=1;i<=17;i++) o+=`<option value="${i}">Court ${i}</option>`; pick.innerHTML=o; pick.dataset.filled="1"; }
-  if(s.court && !pick.value) pick.value=s.court;
+  const line=$("seniorLine"); if(!line) return;
+  if(isSenior()){ line.classList.add("hidden"); return; }   // he doesn't manage his own location
+  line.classList.remove("hidden");
+  const s=seniorState();
+  const loc = s.court ? "Court "+s.court : "not marked";
+  const tagCls = s.mode==="confirmed"?"confirmed":s.mode==="stale"?"stale":"inferred";
+  const tagTxt = s.mode==="confirmed"?("confirmed "+(s.at?agoTxt(s.at):"")):s.mode==="stale"?"last known":s.mode==="inferred"?"inferred":"";
+  line.innerHTML = `<i class="ti ti-user"></i> Senior: <b>${esc(loc)}</b>`
+    + (tagTxt?` <span class="tag ${tagCls}">${esc(tagTxt)}</span>`:"")
+    + ` <span class="hint">— tap the court he's in</span>`;
 }
 
 // nearest actionable matter -> the "head to court X" headline
@@ -499,7 +510,7 @@ function renderDirective(){
 }
 
 // one court tile on the display board
-function boardCell(c){
+function boardCell(c, senCourt, canSet){
   const idle=/not in session/i.test(c.status||"");
   const ours=myMatters().filter(e=>String(e.courtNo)===String(c.court));
   let tier="", oursHtml="";
@@ -509,7 +520,10 @@ function boardCell(c){
     const items=ks.map(x=>esc(x.e.itemNo)).join(" · ");
     oursHtml=`<div class="cell-ours"><span class="oi">${items}</span><br>${esc(ks[0].k.short||ks[0].k.label)}</div>`;
   }
-  return `<div class="cell ${ours.length?"ours "+tier:""} ${idle?"idle":""}">
+  const sen = senCourt && String(senCourt)===String(c.court);
+  const tap = canSet ? ` data-setcourt="${esc(c.court)}"` : "";
+  return `<div class="cell ${ours.length?"ours "+tier:""} ${idle?"idle":""} ${sen?"sen":""}"${tap}>
+    ${sen?`<span class="senpin"><i class="ti ti-user"></i></span>`:""}
     <div class="cell-ct">Court ${esc(c.court)}</div>
     <div class="cell-item">${idle?"—":esc(c.item||"·")}</div>
     <div class="cell-sub">${idle?"not sitting":esc(c.status||"hearing")}</div>
@@ -521,7 +535,8 @@ function renderBoard(){
   let h="";
   if(boardErr && boardErr!=="relay-unset") h+=`<div class="notice"><b>Can't reach the board</b> — retrying every 15 seconds.</div>`;
   if(!board.length){ $("main").innerHTML=h+`<div class="empty">Loading the display board…</div>`; return; }
-  const anyOurs = myMatters().length>0;
+  const ourCourts=new Set(myMatters().map(e=>String(e.courtNo)));
+  const anyOurs = ourCourts.size>0;
   if(anyOurs) h+=`<div class="legend">
     <span><i style="background:var(--now)"></i>at our item</span>
     <span><i style="background:var(--soon)"></i>approaching</span>
@@ -529,9 +544,13 @@ function renderBoard(){
     <span><i style="background:var(--passed)"></i>done</span>
     <span><i style="background:var(--idle-bg);border:1px solid var(--line)"></i>not sitting</span>
   </div>`;
+  // Courts 1–17 always; registrar / extra courts (>17) only when we're in them.
+  const senCourt = seniorState().court, canSet = !isSenior();
+  const sorted=[...board]
+    .filter(c=>{ const n=parseInt(c.court); return (n>=1 && n<=17) || ourCourts.has(String(c.court)); })
+    .sort((a,b)=>(parseInt(a.court)||999)-(parseInt(b.court)||999));
   h+=`<div class="grid">`;
-  const sorted=[...board].sort((a,b)=>(parseInt(a.court)||999)-(parseInt(b.court)||999));
-  for(const c of sorted) h+=boardCell(c);
+  for(const c of sorted) h+=boardCell(c, senCourt, canSet);
   h+=`</div>`;
   $("main").innerHTML=h;
 }
@@ -607,7 +626,7 @@ function boot(user){
 let bootStarted=false;
 function startWatchers(){
   unsub.push(db.watchCollection("users",rows=>{ users={}; rows.forEach(u=>users[u.id]=u); render(); }));
-  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; renderSenior(); renderDirective(); }));
+  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; render(); }));
   unsub.push(db.watchCollection("messages",rows=>{ messages={}; rows.forEach(m=>messages[m.id]=m); updateChatBadge(); if(curTab==="chat") renderChat(); }));
   unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; render(); }));
   startPolling();
@@ -616,7 +635,7 @@ function gateUI(){
   const approved = me && ["admin","senior","clerk","pa","junior"].includes(me.role);
   $("login").classList.toggle("hidden", !!approved);
   $("app").classList.toggle("hidden", !approved);
-  if(approved){ $("topDate").textContent = new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'}); render(); }
+  if(approved){ render(); }
   else if(me){ $("lgErr").textContent = me.role==="pending" ? "Your account isn't approved yet. Ask Adith to add you." : ""; }
 }
 
@@ -627,9 +646,9 @@ document.querySelectorAll("nav.botnav button").forEach(b=>b.onclick=()=>{
   render();
 });
 $("main").addEventListener("click",ev=>{
-  const h=ev.target.closest("[data-here]"); if(h){ setSeniorCourt(h.dataset.here); }
+  const sc=ev.target.closest("[data-setcourt]");
+  if(sc && !isSenior()){ setSeniorCourt(sc.dataset.setcourt); }
 });
-$("snSet").onclick=()=>{ const v=$("snPick").value; if(v) setSeniorCourt(v); };
 $("btnRefresh").onclick=hardRefresh;
 $("btnOut").onclick=()=>auth.signOut();
 
@@ -650,6 +669,8 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && 
 
 auth.onChange(boot);
 $("lgName").textContent = CHAMBER.seniorName ? CHAMBER.seniorName.split(" ")[0]+"'s Chamber — Display Board" : "Chamber Display Board";
+$("hdrName").textContent = "Chambers of "+CHAMBER.seniorName;
+$("hdrSub").textContent  = CHAMBER.designation+" · "+CHAMBER.court;
 
 /* ============================================================
    DEMO SEED (only used when DEMO=true; injected by make-board-test.py)
