@@ -1,10 +1,19 @@
 {
-  "generated_at": "2026-07-12T06:15:04.304895Z",
+  "generated_at": "2026-07-13T12:27:27.763134Z",
   "parser_version": 5,
   "window": [
     "2026-07-13",
     "2026-07-14",
-    "2026-07-15"
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+    "2026-07-20",
+    "2026-07-21",
+    "2026-07-22",
+    "2026-07-23",
+    "2026-07-24",
+    "2026-07-27",
+    "2026-07-28"
   ],
   "by_date": {
     "2026-07-13": {
@@ -99,7 +108,7 @@
           },
           "2": {
             "coram": "HON'BLE MR. JUSTICE VIKRAM NATH HON'BLE MR. JUSTICE SANDEEP MEHTA",
-            "total": "70",
+            "total": "71",
             "fresh": "",
             "items": {
               "1": "SLP(Crl) No. 5432/2026 ARSHAD AHMAD ALLAIE VERSUS UT OF JAMMU AND KASHMIR",
@@ -164,6 +173,7 @@
               "53": "SLP(C) No. 13918/2026 ARSHAD VERSUS STATE OF HARYANA AND ORS. DIVYESH PRATAP SINGH",
               "54": "SLP(C) No. AVIRAL KOSHAL VERSUS THE STATE OF MADHYA PRADESH AND ORS.",
               "55": "Diary No. 28737-2026 PARMILA VERSUS RAJENDER",
+              "1501": "C.A. No. 2820/2024 SABITRI DEY @ SWASTHI DEY AND ORS. VERSUS UNION OF INDIA AND ORS.",
               "56": "SLP(C) No. 22707/2026 VISHVESHWARA DEVELOPERS LLP VERSUS ARULMIGHU VADAPALANI ANDAVAR KOVIL",
               "57": "SLP(C) No. 8139/2026 ZUBEDABEN ABBASBHAI PATEL VERSUS GANPATSINH BHARATSINH SOLANKI AND ORS.",
               "57.1": "Connected ZUBEDABEN ABBASBHAI PATEL VERSUS DAILY CAUSE LIST FOR DATED : 13-07-2026",
@@ -174,7 +184,7 @@
               "60.1": "Connected RAJAT VERSUS UNION OF INDIA"
             },
             "main": 62,
-            "supp": 8
+            "supp": 9
           },
           "3": {
             "coram": "HON'BLE MRS. JUSTICE B.V. NAGARATHNA HON'BLE MR. JUSTICE R. MAHADEVAN",
@@ -722,7 +732,7 @@
           },
           "7": {
             "coram": "HON'BLE MR. JUSTICE DIPANKAR DATTA HON'BLE MR. JUSTICE SHEEL NAGU",
-            "total": "99",
+            "total": "106",
             "fresh": "",
             "items": {
               "1": "SLP(Crl) No. 5741/2026 BIKRAM SINGH VERSUS STATE OF PUNJAB AND ANR.",
@@ -818,6 +828,13 @@
               "48.9": "Connected PRABHJOT KAUR AND ORS. VERSUS KARAMJIT SINGH AND ANR.",
               "49": "MA 1358/2026 in C.A. No. M.T. ENRICA LEXIE AND ANR. VERSUS DORAMMA AND ORS.",
               "50": "SLP(C) No. 18028/2026 BAILOCHAN PRADHAN AND ORS. VERSUS DHANURYA NIYAL AND ORS.",
+              "1501": "C.A. No. 4211/2010 H.D.F.C.BANK LIMITED VERSUS KISHORE K.MEHTA (DEAD) THR. LRS.",
+              "1502": "C.A. No. 13783/2015 UNION OF INDIA AND ORS. VERSUS BALI RAM NO. 850808321",
+              "1503": "Diary No. 15252-2017 THE STATE OF HARYANA AND ORS. VERSUS DAILY CAUSE LIST FOR DATED : 13-07-2026",
+              "1504": "W.P.(C) No. 566/2024 NAJMA KHATUN AND ORS. VERSUS THE STATE OF WEST BENGAL AND ORS.",
+              "1505": "SLP(Crl) No. 7111/2026 DAYANAND YADAV VERSUS STATE OF BIHAR",
+              "1506": "C.A. No. 6529/2026 NILESH SHAH AND ORS. VERSUS SECURITIES AND EXCHANGE BOARD OF INDIA AND",
+              "1507": "C.A. No. ALOK KOTAHWALA AND ORS. VERSUS JAIPUR METRO RAIL CORPORATION LTD AND ORS.",
               "51": "SLP(Crl) No. 9005/2026 RAVINDER MEHTA VERSUS STATE OF UTTAR PRADESH",
               "52": "SLP(Crl) No. DINESH KUMAR VERMA ALIAS MANDAL VERSUS STATE OF CHHATTISGARH",
               "53": "SLP(Crl) No. AJAY YADAV VERSUS STATE OF CHHATTISGARH",
@@ -826,7 +843,7 @@
               "55": "Diary No. 39595-2026 VIJAY KUMAR BHARATI AND ORS. VERSUS SHRI PARTHA SARTHI SENSHARMA AND ORS."
             },
             "main": 93,
-            "supp": 6
+            "supp": 13
           },
           "8": {
             "coram": "HON'BLE MR. JUSTICE SANJAY KAROL HON'BLE MR. JUSTICE AUGUSTINE GEORGE MASIH",
@@ -5417,7 +5434,7 @@
   "sources": {
     "2026-07-13": {
       "M_J_1": 1108803,
-      "M_J_2": 581756,
+      "M_J_2": 627553,
       "M_C_1": 552071,
       "M_S_1": 529082,
       "M_S_2": 505138,
