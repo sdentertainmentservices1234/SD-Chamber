@@ -387,8 +387,48 @@ function walkMin(a,b){
   }
   return px*MIN_PER_PX*crowdFactor();
 }
-const reachMins = k => (k && k.gap!=null) ? Math.max(0,k.gap)*MIN_PER_ITEM : null;
 const NEAR_MIN=1.2;           // ≤ this walk from the primary court = "catch both"
+
+/* ---- Live per-court pace ----
+   Each court works through its DECLARED SEQUENCE, not 1,2,3. We track each
+   court's position in that sequence over time and measure how fast it advances
+   (positions per minute), then project our item from that court's real pace —
+   so a stalled bench reads slow and a fast one reads fast. Falls back to the
+   flat default until a court has ~2 min of history. */
+function posOf(bc){
+  if(!bc) return null;
+  const item=bc.item; if(!item || !/^\d/.test(String(item))) return null;
+  const seq=expandSequence(bc.sequence);
+  if(seq.length){ const p=seq.indexOf(parseInt(item)); if(p>=0) return p; }
+  return parseFloat(item);                       // no sequence → raw item number
+}
+function recordPace(){
+  if(!boardAt) return;
+  for(const c of board){
+    if(/not in session/i.test(c.status||"")) continue;
+    const p=posOf(c); if(p==null) continue;
+    const h=paceHist[c.court]||(paceHist[c.court]=[]);
+    const last=h[h.length-1];
+    if(!last || last.pos!==p) h.push({pos:p,t:boardAt});   // record only on movement
+    const cut=boardAt-20*60000; while(h.length>2 && h[0].t<cut) h.shift();
+  }
+}
+function paceVel(court){                          // sequence-positions per minute, or null
+  const h=paceHist[court]; if(!h||!h.length||!boardAt) return null;
+  const cur=posOf(boardByCourt()[court]); if(cur==null) return null;
+  let base=null; for(const e of h){ if(boardAt-e.t<=15*60000){ base=e; break; } }
+  if(!base) base=h[h.length-1];
+  const dMin=(boardAt-base.t)/60000; if(dMin<2) return null;   // need ≥2 min observed
+  return (cur-base.pos)/dMin;                     // 0 = stalled (correctly reads slow)
+}
+function reachMinsFor(court,k){
+  if(!k||k.gap==null) return null;
+  const g=Math.max(0,k.gap); if(g===0) return 0;
+  const v=paceVel(court);
+  if(v==null) return g*MIN_PER_ITEM;              // still calibrating → default pace
+  return g/Math.max(v,0.2);                       // measured; cap slowest at 5 min/item
+}
+const paceMeasured = court => paceVel(court)!=null;
 
 /* ============================================================
    DATA LAYER — Firebase (prod) / in-memory mock (demo)
@@ -451,7 +491,7 @@ if(DEMO){
    STATE
    ============================================================ */
 let me=null, users={}, daysheet=null, live={}, messages={};
-let board=[], boardAt=0, boardErr=null;
+let board=[], boardAt=0, boardErr=null, paceHist={};
 let curTab="board", lastSeenChat=0, userDocUnsub=null, unsub=[], pollId=null, tickId=null;
 
 const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
@@ -469,7 +509,7 @@ async function fetchBoard(){
     else if(BOARD_PROXY){ html=await (await fetch(BOARD_PROXY+"?ctype=c",{cache:"no-store"})).text(); }
     else { boardErr="relay-unset"; renderBoard(); return; }
     const parsed=parseBoard(html);
-    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; }
+    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); }
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
   renderBoard();
@@ -541,7 +581,7 @@ function renderRoute(){
   // our actionable matters, soonest first (by estimated minutes to our item)
   const cands=myMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
     .filter(x=>["now","soon","later"].includes(x.k.tier))
-    .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMins(x.k)}))
+    .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMinsFor(x.e.courtNo,x.k), meas:paceMeasured(x.e.courtNo)}))
     .sort((a,b)=>((a.mins==null?999:a.mins)-(b.mins==null?999:b.mins)));
   if(!cands.length){ dir.className="headline clear"; ct.textContent="✓";
     big.textContent="Nothing imminent"; sub.textContent="No chamber matter is close right now."; return; }
@@ -550,7 +590,8 @@ function renderRoute(){
   dir.className="headline"+(now?" go":"");
   ct.textContent=primary.court;
   big.textContent = now ? "Head to Court "+primary.court : "Get ready — Court "+primary.court;
-  sub.innerHTML = "Item "+esc(primary.e.itemNo)+" · "+esc(shortTitle(primary.e))+" — <b>"+esc(primary.k.label)+"</b>";
+  const ptime = (primary.mins>0.9) ? " · reaches in ~"+Math.round(primary.mins)+" min"+(primary.meas?"":" (est)") : "";
+  sub.innerHTML = "Item "+esc(primary.e.itemNo)+" · "+esc(shortTitle(primary.e))+" — <b>"+esc(primary.k.label)+"</b>"+esc(ptime);
   if(!plan) return;
   const mlabel = c => c.mins==null ? esc(c.k.short||"") : (c.mins<1 ? "reaching now" : "~"+Math.round(c.mins)+" min");
   let lines="";
