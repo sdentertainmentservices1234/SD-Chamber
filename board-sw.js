@@ -2,7 +2,7 @@
    Caches the shell + the Firebase SDK + fonts/icons so opens are instant and
    the login button is armed immediately (no waiting on a fresh SDK download).
    Live data (the SC board relay, Firestore, Auth) is NEVER cached. */
-const CACHE = "sdboard-v1";
+const CACHE = "sdboard-v2";
 const SHELL = ["./board.html", "./board-manifest.json",
   "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
@@ -30,10 +30,11 @@ self.addEventListener("fetch", e => {
     || host === "fonts.gstatic.com"    // font files
     || host === "cdn.jsdelivr.net";    // tabler icons
   if (!isStatic) return;
+  // status 0 = opaque cross-origin (fonts / firebase SDK) — cache those too.
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(req);
-    const net = fetch(req).then(r => { if (r && r.status === 200) cache.put(req, r.clone()); return r; })
+    const net = fetch(req).then(r => { if (r && (r.status === 200 || r.status === 0)) cache.put(req, r.clone()); return r; })
                           .catch(() => hit);
     return hit || net;
   })());

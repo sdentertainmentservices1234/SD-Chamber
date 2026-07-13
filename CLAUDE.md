@@ -115,7 +115,7 @@ UI and rules).
 |---|---|
 | `index.html` | Production app. `const DEMO = false;` + real firebaseConfig. |
 | `demo.html` / `app.html` | Same code with `DEMO = true` — in-memory mock, seeded sample chamber, amber "View as" role switcher. No login. |
-| `sw.js` | Minimal service worker (shell cache, network-first, never intercepts cross-origin). NOW registered from index.html head. Bump `CACHE` version when the shell changes. |
+| `sw.js` | Service worker — **stale-while-revalidate** (Jul 2026): caches the shell (index.html) + Firebase SDK + fonts + Tabler icons for instant mobile opens; serves from cache, refreshes behind. NEVER caches Firestore/Auth/`court-updates.json` (live data). Registered from index.html head. Bump `CACHE` (now `chamber-shell-v8`) when the shell changes; the in-app Refresh forces an immediate update. `board-sw.js` is the same pattern for the war room (`sdboard-v2`). |
 | `manifest.json` | PWA manifest (navy #101418, maskable icons). Linked from index.html head. |
 | `icon-192.png` / `icon-512.png` / `apple-touch-icon.png` | App icon: gold "SD" monogram in Fraunces on the sidebar-navy. Regenerate with `python3 make-icon.py` (Pillow + Fraunces TTF, self-downloading); never hand-transcribe base64. |
 | `firestore.rules` | Security rules — **git-ignored by owner's decision (Jul 2026), kept only locally / in the Firebase console**, NOT hosted on GitHub. Recover the last committed copy with `git show f2073ff:firestore.rules`. Still the source of truth for what the console rules must be. |
