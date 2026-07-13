@@ -29,7 +29,7 @@ SEED = '''function seedDemo(db){
   const entries=[
     {courtNo:"6", itemNo:"4",  caseTitle:"Mahabanoo & Anr. vs Kalikund Developers & Ors.", time:"10:30", bench:"J.B. Pardiwala, K.V. Chandran", counsel:"Somiran Sharma", juniorUids:["u_yash","u_shaishir"], confTime:"6:30 pm"},
     {courtNo:"3", itemNo:"6",  caseTitle:"Test Soon Matter vs State (sample)", time:"10:30", bench:"Vikram Nath, Sandeep Mehta", counsel:"Karanjawala & Co.", juniorUids:["u_anshula"]},
-    {courtNo:"10",itemNo:"8",  caseTitle:"Test Approach vs Union (sample)", time:"10:30", bench:"", counsel:"", juniorUids:["u_rishit"]},
+    {courtNo:"5", itemNo:"6",  caseTitle:"Test Adjacent Matter vs Union (sample)", time:"10:30", bench:"", counsel:"", juniorUids:["u_rishit"]},
     {courtNo:"6", itemNo:"49", caseTitle:"Jyoti Builders vs Chief Executive Officer & Ors.", time:"10:30", bench:"J.B. Pardiwala, K.V. Chandran", counsel:"Anish Agarwal", juniorUids:["u_yash"], confTime:"5:00 pm"},
     {courtNo:"7", itemNo:"MM", caseTitle:"Kotak Mahindra Trustee Co. Ltd. vs SEBI", time:"10:30", bench:"Dipankar Datta, Sheel Nagu", counsel:"Mahesh Agarwal", juniorUids:["u_anshula"]},
     {courtNo:"13",itemNo:"48", caseTitle:"M/s Chandler & Price India vs M.Z.S. Da Piedade Vas & Ors.", time:"10:30", bench:"P.K. Mishra, Chandrasekhar", counsel:"Wadia Ghandy", juniorUids:["u_rishit"]},

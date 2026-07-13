@@ -106,6 +106,15 @@ select.mini{appearance:none}
   background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:8px 11px;margin-top:9px;box-shadow:var(--shadow)}
 .seniorLine i{color:var(--navy);font-size:15px}
 .seniorLine .hint{color:var(--mut);font-size:11px;font-weight:400}
+/* routing plan lines under the directive */
+#plan{display:flex;flex-direction:column;gap:6px}
+#plan:not(:empty){margin-top:8px}
+.plan-line{font-size:12.5px;border-radius:10px;padding:8px 11px;display:flex;align-items:flex-start;gap:8px;line-height:1.35}
+.plan-line i{margin-top:1px;font-size:15px;flex:none}
+.plan-line.good{background:var(--later-bg);border:1px solid #c2e2cc;color:#2b6a40}
+.plan-line.good b{color:#22532f}
+.plan-line.warn{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a5a12}
+.plan-line.warn b{color:#6f460a}
 .senpin{position:absolute;top:5px;left:5px;width:21px;height:21px;border-radius:50%;background:var(--navy);
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .cell.sen{box-shadow:var(--shadow),0 0 0 2px var(--navy)}
@@ -222,6 +231,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
       <div class="hl-ct" id="dirCt">—</div>
       <div><div class="hl-main" id="dirBig">Reading the board…</div><div class="hl-sub" id="dirSub"></div></div>
     </div>
+    <div id="plan"></div>
     <div class="seniorLine hidden" id="seniorLine"></div>
   </div>
 
@@ -344,6 +354,31 @@ function classify(e, bc){
   return {tier:"later",label:gap+" items away",short:gap+" away",gap,approx};
 }
 const TIER_RANK={now:0,soon:1,later:2,unknown:3,passed:4,idle:5};
+
+/* ---- Supreme Court physical layout (from the chamber's hand-drawn map) ----
+   All 17 courts ring an oval central hall. Coordinates trace that oval; you walk
+   AROUND the corridor, never across the middle — so distance = the shorter arc
+   along the ring, not straight-line. Tunable: MIN_PER_PX (walk pace) and
+   MIN_PER_ITEM (how fast an item list moves). */
+const COURT_XY={1:[990,1015],2:[815,1015],3:[1160,1015],4:[1330,1015],5:[615,1015],
+  6:[305,730],7:[390,725],8:[1545,700],9:[1635,700],10:[990,445],11:[895,445],
+  12:[785,435],13:[690,465],14:[590,560],15:[510,585],16:[1340,630],17:[1245,555]};
+// clockwise around the oval (front-centre 1, up the right, across the top, down the left)
+const RING=[1,3,4,9,8,16,17,10,11,12,13,14,15,7,6,5,2];
+const MIN_PER_PX=0.0016;      // full oval (~3076px) ≈ 5 min walk
+const MIN_PER_ITEM=1.1;       // rough: one item ≈ ~1 min of board time
+const _seg=(a,b)=>{const p=COURT_XY[a],q=COURT_XY[b]; return (p&&q)?Math.hypot(p[0]-q[0],p[1]-q[1]):0;};
+function walkMin(a,b){
+  a=parseInt(a); b=parseInt(b);
+  const ia=RING.indexOf(a), ib=RING.indexOf(b);
+  if(ia<0||ib<0) return (COURT_XY[a]&&COURT_XY[b]) ? _seg(a,b)*MIN_PER_PX : 2.5;
+  if(ia===ib) return 0;
+  let cw=0;  for(let i=ia;i!==ib;i=(i+1)%RING.length) cw+=_seg(RING[i],RING[(i+1)%RING.length]);
+  let ccw=0; for(let i=ia;i!==ib;i=(i-1+RING.length)%RING.length) ccw+=_seg(RING[i],RING[(i-1+RING.length)%RING.length]);
+  return Math.min(cw,ccw)*MIN_PER_PX;
+}
+const reachMins = k => (k && k.gap!=null) ? Math.max(0,k.gap)*MIN_PER_ITEM : null;
+const NEAR_MIN=1.0;           // ≤ this walk from the primary court = "catch both"
 
 /* ============================================================
    DATA LAYER — Firebase (prod) / in-memory mock (demo)
@@ -484,29 +519,43 @@ function renderSenior(){
     + ` <span class="hint">— tap the court he's in</span>`;
 }
 
-// nearest actionable matter -> the "head to court X" headline
-function nearest(){
-  const bc=boardByCourt(); let pick=null;
-  for(const e of myMatters()){
-    const k=classify(e,bc[e.courtNo]);
-    if(k.tier==="now"||k.tier==="soon"){
-      if(!pick || TIER_RANK[k.tier]<TIER_RANK[pick.k.tier] || (k.tier===pick.k.tier && (k.gap??99)<(pick.k.gap??99))) pick={e,k};
-    }
-  }
-  return pick;
-}
-function renderDirective(){
-  const dir=$("directive"), ct=$("dirCt"), big=$("dirBig"), sub=$("dirSub"); if(!dir) return;
+// Routing planner: pick the court to head to, then use the oval layout to say
+// which nearby matters can be caught together and which far ones will clash.
+function renderRoute(){
+  const dir=$("directive"), ct=$("dirCt"), big=$("dirBig"), sub=$("dirSub"), plan=$("plan");
+  if(!dir) return;
+  if(plan) plan.innerHTML="";
   if(!board.length){ dir.className="headline"; ct.textContent="—";
     big.textContent = boardErr && boardErr!=="relay-unset" ? "Board offline" : "Reading the board…"; sub.textContent=""; return; }
-  const pick=nearest();
-  if(!pick){ dir.className="headline clear"; ct.textContent="✓";
+  const bc=boardByCourt();
+  // our actionable matters, soonest first (by estimated minutes to our item)
+  const cands=myMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
+    .filter(x=>["now","soon","later"].includes(x.k.tier))
+    .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMins(x.k)}))
+    .sort((a,b)=>((a.mins==null?999:a.mins)-(b.mins==null?999:b.mins)));
+  if(!cands.length){ dir.className="headline clear"; ct.textContent="✓";
     big.textContent="Nothing imminent"; sub.textContent="No chamber matter is close right now."; return; }
-  const now = pick.k.tier==="now" && !pick.k.ment;
+  const primary=cands[0];
+  const now = primary.k.tier==="now" && !primary.k.ment;
   dir.className="headline"+(now?" go":"");
-  ct.textContent=pick.e.courtNo;
-  big.textContent = now ? "Head to Court "+pick.e.courtNo : "Get ready — Court "+pick.e.courtNo;
-  sub.innerHTML = "Item "+esc(pick.e.itemNo)+" · "+esc(shortTitle(pick.e))+" — <b>"+esc(pick.k.label)+"</b>";
+  ct.textContent=primary.court;
+  big.textContent = now ? "Head to Court "+primary.court : "Get ready — Court "+primary.court;
+  sub.innerHTML = "Item "+esc(primary.e.itemNo)+" · "+esc(shortTitle(primary.e))+" — <b>"+esc(primary.k.label)+"</b>";
+  if(!plan) return;
+  const mlabel = c => c.mins==null ? esc(c.k.short||"") : (c.mins<1 ? "reaching now" : "~"+Math.round(c.mins)+" min");
+  let lines="";
+  for(const c of cands.slice(1,5)){
+    const w=walkMin(primary.court,c.court);
+    const soonish = c.mins!=null && c.mins<=18;
+    if(!soonish) continue;
+    if(w<=NEAR_MIN){
+      const near = w<0.7 ? "next door" : Math.round(w*10)/10+" min away";
+      lines+=`<div class="plan-line good"><i class="ti ti-arrows-join"></i> <span>Court <b>${esc(c.court)}</b> is ${near} and reaches in ${mlabel(c)} — <b>take both</b>.</span></div>`;
+    } else {
+      lines+=`<div class="plan-line warn"><i class="ti ti-alert-triangle"></i> <span>Court <b>${esc(c.court)}</b> also reaching (${mlabel(c)}) — ${Math.round(w)} min walk away, <b>hold it / send someone</b>.</span></div>`;
+    }
+  }
+  plan.innerHTML=lines;
 }
 
 // one court tile on the display board
@@ -530,7 +579,7 @@ function boardCell(c, senCourt, canSet){
     ${oursHtml}</div>`;
 }
 function renderBoard(){
-  paintFresh(); renderDirective(); renderSenior();
+  paintFresh(); renderRoute(); renderSenior();
   if(curTab!=="board") return;
   let h="";
   if(boardErr && boardErr!=="relay-unset") h+=`<div class="notice"><b>Can't reach the board</b> — retrying every 15 seconds.</div>`;
