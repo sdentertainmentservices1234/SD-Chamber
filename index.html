@@ -1136,9 +1136,6 @@ function seedDemo(db){
    APP STATE + BOOT
    ============================================================ */
 let me=null, users={}, briefs={}, daysheet={entries:[]}, dsDate=todayISO();
-// staff-set unavailability {colleagueId:{note,until,by,at}} — the colleague is
-// skipped for assignment until Staff revoke it (works for pending ids too).
-let unavailable={};
 // leave log: leaves/{id}={uid,from,to,reason,at,by} — transparent to all
 let leaves={};
 // in-app notifications: notifs/{id}={uid,text,kind,briefId,at,by} — each doc is
@@ -1361,7 +1358,6 @@ function startApp(){
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
   unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
-  unsub.push(db.watchDoc("config/unavailable", d=>{ unavailable=d||{}; delete unavailable.id; renderActive(); }));
   unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); _scanVer++; renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); renderActive(); }));   // leave affects roster/board too
@@ -1456,10 +1452,9 @@ function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>l.uid
 // status to mark (owner's call Jul 2026). Leave is the leave log alone.
 function isOnLeave(uid){ return leaveLogCovers(uid,todayISO()); }
 // Staff-set unavailability: active until revoked, or until an optional "until" date.
-function isUnavailable(uid){ const u=unavailable[uid]; if(!u) return false; return !u.until || u.until>=todayISO(); }
-// A colleague is skippable for a NEW assignment if on leave today or marked unavailable.
-function isSkippable(uid){ return isOnLeave(uid) || isUnavailable(uid); }
-async function setUnavailable(uid,note,until){ await db.set("config/unavailable",{[uid]: note===null?null:{note:note||"",until:until||"",by:me.uid,at:Date.now()}},true); }
+// A colleague is skippable for a NEW assignment only if on leave today.
+// (Owner's rule: availability = the leave log, nothing else.)
+function isSkippable(uid){ return isOnLeave(uid); }
 function onLeaveOn(uid,dateISO){ return leaveLogCovers(uid,dateISO); }
 
 // Weighted ACTIVE load (open matters, weighted by matter type).
@@ -3889,13 +3884,12 @@ function renderRosterBody(){
     list=standingBanner+`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates on the Workload snapshot</span></div>
       ${disp.map((m,i)=>{
         const isNext=m.real&&m.id===nextUid; const onLeave=m.real&&onLeaveOn(m.id,todayISO());
-        const isMe=m.real&&m.id===me.uid; const unav=isUnavailable(m.id); const uNote=unavailable[m.id]?.note; const uUntil=unavailable[m.id]?.until;
-        return `<div class="roster-row ${isNext&&!unav?'is-next':''} ${isMe?'is-me':''} ${onLeave||unav?'is-leave':''}">
+        const isMe=m.real&&m.id===me.uid;
+        return `<div class="roster-row ${isNext?'is-next':''} ${isMe?'is-me':''} ${onLeave?'is-leave':''}">
           <div class="roster-pos">${i+1}</div>
           <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
-          <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext&&!unav?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}${unav?`<span class="chip av-leave" style="margin-left:8px"><span class="ti ti-user-off" style="font-size:11px"></span> Unavailable${uUntil?` till ${fmtDate(uUntil)}`:''}</span>`:''}</div>
-            <div class="roster-load muted">${unav&&uNote?`<span style="color:var(--warn)">${esc(uNote)}</span> · `:''}${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${fmtPts(activeLoad(m.id))} · ${activeCount(m.id)} live · ${fmtPts(lifetimeCount(m.id))} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
-          ${canManage()?`<button class="tbtn sm" data-unav="${m.id}" style="margin-left:auto;flex-shrink:0" title="${unav?'Bring back into the roster':'Skip for new assignments'}">${unav?'<span class="ic ti ti-user-check"></span>Make available':'<span class="ic ti ti-user-off"></span>Unavailable'}</button>`:''}
+          <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
+            <div class="roster-load muted">${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${fmtPts(activeLoad(m.id))} · ${activeCount(m.id)} live · ${fmtPts(lifetimeCount(m.id))} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
         </div>`;
       }).join("")}</div>
       ${canManage()?`<div class="row" style="margin-top:14px"><button class="btn ghost sm" id="rReset"><span class="ic ti ti-refresh"></span>Reset “next up” to top</button></div>`:''}`;
@@ -3903,25 +3897,6 @@ function renderRosterBody(){
   $("teamBody").innerHTML=explain+list;
   if($("reToggle"))$("reToggle").onclick=()=>{uiExp.rosterInfo=!uiExp.rosterInfo;renderRosterBody();};
   if($("rReset"))$("rReset").onclick=async()=>{await db.set("config/roster",{pointer:0},true);toast("Rotation reset to the top");};
-  document.querySelectorAll("[data-unav]").forEach(x=>x.onclick=async()=>{ const id=x.dataset.unav;
-    if(isUnavailable(id)){ await setUnavailable(id,null); toast(nameOf(id)+" is back in the roster","ti-user-check"); }
-    else unavailForm(id); });
-}
-// Staff mark a colleague unavailable for new assignments (with a reason and an
-// optional auto-return date). They stay off the roster until revoked / the date passes.
-function unavailForm(id){
-  const nm=nameOf(id);
-  openSheet(`<div class="sheet-head"><div><h3>Mark unavailable</h3><div class="sub">${esc(nm)}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
-    <div class="sheet-body">
-      <p class="muted" style="font-size:13px"><b>${esc(nm)}</b> will be skipped by auto-assign and the rotation until you make them available again. Matters already with them are untouched.</p>
-      <label>Reason <span class="muted" style="font-weight:400">(optional)</span></label>
-      <input id="ua_note" value="${esc(unavailable[id]?.note||'')}" placeholder="e.g. on leave, exams, out of Delhi">
-      <label>Until <span class="muted" style="font-weight:400">(optional — comes back automatically after this date; blank = until you revoke)</span></label>
-      <input type="date" id="ua_until" min="${todayISO()}" value="${esc(unavailable[id]?.until||'')}">
-      <div class="row" style="margin-top:18px"><button class="btn" id="ua_save"><span class="ic ti ti-user-off"></span>Mark unavailable</button><button class="btn ghost" id="ua_cancel">Cancel</button></div>
-    </div>`);
-  $("ua_cancel").onclick=()=>closeSheet();
-  $("ua_save").onclick=async()=>{ await setUnavailable(id,$("ua_note").value.trim(),$("ua_until").value||""); closeSheet(); toast(nm+" marked unavailable","ti-user-off"); };
 }
 
 /* ============================================================
