@@ -1587,6 +1587,12 @@ async function syncRegister(force){
       const e={...e0};
       const j=jrsOf(e).map(mapId);
       if(j.join("|")!==jrsOf(e0).join("|")){ e.juniorUids=j; e.juniorUid=j[0]||null; changed=true; }
+      // Retroactively sync PAST reassignments: a listing linked to a brief must
+      // name the brief's CURRENT assignee, not whoever it was first given to.
+      if(e.briefId && briefs[e.briefId] && Array.isArray(briefs[e.briefId].assignedTo)){
+        const ba=briefs[e.briefId].assignedTo;
+        if(ba.length && jrsOf(e).join("|")!==ba.join("|")){ e.juniorUids=ba.slice(); e.juniorUid=ba[0]||null; changed=true; }
+      }
       if(!(e.briefId&&briefs[e.briefId]) && (e.caseTitle||(e.courtNo&&e.itemNo))){
         const hit=(e.courtNo&&e.itemNo)?lookupCauselistItem(date,e.courtNo,e.itemNo,e.listType):null;
         const refs=hit?refsFromCauseLine(hit.caseLine):{caseNo:"",diaryNo:""};
@@ -1765,6 +1771,20 @@ function reassignForm(briefId){
     pushNotif(to, `${nameOf(me.uid)} requests you to take over — ${labelOf(b)}${b.nextDate?`, next date ${fmtDateY(b.nextDate)}`:""}`, "reassign", briefId);
     closeSheet(); toast("Request sent — the matter stays with you until someone accepts","ti-arrows-exchange"); };
 }
+// When a matter's assignment changes, every day-sheet listing linked to that
+// brief must name the NEW colleague(s) — otherwise the cause list keeps showing
+// whoever the matter was first given to. Walks all day sheets (past + future).
+async function syncListingJrs(briefId, assignedTo){
+  const jr=(assignedTo||[]).slice();
+  for(const [date,ds] of Object.entries(dsAll)){
+    let changed=false;
+    const entries=(ds.entries||[]).map(e=>{
+      if(e.briefId!==briefId || jrsOf(e).join("|")===jr.join("|")) return e;
+      changed=true; return {...e, juniorUids:jr.slice(), juniorUid:jr[0]||null};
+    });
+    if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
+  }
+}
 async function acceptReassign(briefId){
   const b=briefs[briefId]; const rq=b?.reassignReq; if(!rq||!idIn(rq.to,me.uid)){ toast("This request is no longer open","ti-alert-triangle"); return; }
   // Full transfer: the requester hands the matter over entirely — drop them from
@@ -1777,6 +1797,7 @@ async function acceptReassign(briefId){
     ackBy:[...new Set([...(b.ackBy||[]).filter(u=>assignedTo.includes(u)), me.uid])],
     assignHistory:[...(b.assignHistory||[]),{uid:me.uid,at:Date.now(),mode:"transfer",from:rq.from}],
     reassignReq:null, assignedAt:Date.now(), updatedAt:db.now() });
+  await syncListingJrs(briefId, assignedTo);   // day-sheet listings now name the new colleague
   pushNotif([rq.from], `${nameOf(me.uid)} accepted your reassignment request — ${labelOf(b)} is now with them.`, "transfer", briefId);
   toast(`Taken over from ${nameOf(rq.from)}`,"ti-check");
 }
@@ -2597,6 +2618,7 @@ async function loadCourtUpdates(){
   courtUpdatesAt=Date.now();
   try{ const r=await fetch("court-updates.json?_="+Date.now(),{cache:"no-store"}); if(r.ok) courtUpdates=await r.json(); }
   catch(e){/* not published yet — the day sheet just won't auto-fill benches */}
+  matchAwaitingListings();
   if(curTab==="today"||curTab==="cal") renderActive();
 }
 const courtUpdatesStale=()=>Date.now()-courtUpdatesAt>COURT_UPDATES_STALE;
@@ -2656,6 +2678,47 @@ function lookupCauselistItem(dateISO, court, item, preferType){
   return null;
 }
 // Does the fetch have ANY data for this date? (to tell "not fetched" apart from "not in this list")
+// REVERSE lookup — find an as-yet-unlisted matter in the fetched causelist by its
+// diary / case number (most reliable) or first party's name. {court,item,listType,coram}|null.
+function findListingByDetails(dateISO, {title, caseNo, diaryNo}){
+  const day=courtUpdates?.by_date?.[dateISO]; if(!day) return null;
+  const norm=x=>String(x||"").toUpperCase().replace(/[^0-9A-Z]/g,"");
+  const numCore=x=>{ const m=String(x||"").match(/\d[\d\-]*\/(?:19|20)\d{2}|\d{4,}/); return m?m[0].replace(/[^0-9]/g,""):""; };
+  const dnum=numCore(diaryNo)||numCore(caseNo);
+  const pet=norm(String(title||"").split(/\bVERSUS\b|\bVS\b/i)[0]).slice(0,16);
+  let byName=null;
+  for(const [lt,courts] of Object.entries(day.lists||{})){
+    for(const [court,rec] of Object.entries(courts||{})){
+      for(const [item,line] of Object.entries(rec.items||{})){
+        const L=norm(line);
+        if(dnum && dnum.length>=6 && L.includes(dnum)) return {court,item,listType:lt,coram:rec.coram||""};
+        if(!byName && pet && pet.length>=6 && L.includes(pet)) byName={court,item,listType:lt,coram:rec.coram||""};
+      }
+    }
+  }
+  return byName;
+}
+// Once a day's (supplementary) list is out, fill court+item+bench for any matter
+// the clerk entered "unlisted" (name / number only). Runs after each causelist fetch.
+async function matchAwaitingListings(){
+  if(!courtUpdates||!canManage()) return; let any=false;
+  for(const [date,ds] of Object.entries(dsAll)){
+    if(!courtUpdates.by_date?.[date]) continue;
+    let changed=false;
+    const entries=(ds.entries||[]).map(e=>{
+      if(e.courtNo && e.itemNo) return e;                        // already listed
+      const b=e.briefId&&briefs[e.briefId];
+      const det={ title:e.caseTitle||(b&&b.caseTitle)||"", caseNo:e.caseNo||(b&&b.caseNo)||"", diaryNo:e.diaryNo||(b&&b.diaryNo)||"" };
+      if(!det.title && !det.caseNo && !det.diaryNo) return e;
+      const hit=findListingByDetails(date,det); if(!hit) return e;
+      changed=true; any=true;
+      return {...e, courtNo:hit.court, itemNo:hit.item, listType:e.listType||hit.listType,
+        bench:e.bench||cleanCoram(hit.coram), awaitingList:false};
+    });
+    if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
+  }
+  if(any){ toast("A pending matter was matched to the SC list","ti-check"); renderActive(); }
+}
 const causeListHasDate=dateISO=>!!(courtUpdates?.by_date?.[dateISO]&&Object.keys(courtUpdates.by_date[dateISO].lists||{}).length);
 const titleCase=s=>String(s||"").toLowerCase().replace(/\b([a-z])/g,m=>m.toUpperCase());
 const cleanCauseSide=side=>{
@@ -2773,6 +2836,7 @@ function renderToday(){
           <div class="rail-top">
             <span class="court-badge">Court ${esc(e.courtNo||"—")}</span>
             <span class="item-badge">Item ${esc(e.itemNo||"—")}</span>
+            ${(!e.courtNo||!e.itemNo)?`<span class="chip st-received" style="font-size:10.5px"><span class="ti ti-clock-hour-9"></span> awaiting list</span>`:''}
             ${R.listType?`<span class="chip st-received" style="font-size:10.5px">${esc(R.listType)}</span>`:''}
             ${e.time?`<span class="mono muted" style="font-size:12px">${esc(e.time)}</span>`:''}
             ${b?.priority?'<span class="chip urgent-tag"><span class="dot"></span>Urgent</span>':''}
@@ -3077,8 +3141,9 @@ function dsForm(idx=null){
         <div><label>Time</label><input type="time" id="f_time" value="${esc(toClock(e.time??'10.30'))}"></div></div>
       <label>Causelist type <span class="muted" style="font-weight:400">(which SC list to look the item up in)</span></label>
       <select id="f_listtype"><option value="">— select —</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select>
-      <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
-        <div><label>Item no. <span class="muted" style="font-weight:400">(required — e.g. 30, MM, 37.1)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or 37.1"></div></div>
+      <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(blank if not listed yet)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
+        <div><label>Item no. <span class="muted" style="font-weight:400">(e.g. 30, MM, 37.1)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or 37.1"></div></div>
+      <p class="muted" style="font-size:11.5px;margin:6px 0 0"><span class="ti ti-clock-hour-9"></span> Not listed yet? Leave court &amp; item blank and add the name + diary/case no — the app fills them automatically once the matter appears in the (supplementary) list.</p>
       <label>Sequence <span class="muted" style="font-weight:400">(optional — the serial at which the item is actually taken up; usually known only at 10:30. If given, it prints on the cause list)</span></label>
       <input id="f_seq" class="mono" value="${esc(e.seq||'')}" placeholder="e.g. 3" inputmode="numeric" style="max-width:120px">
       <div id="f_foundhint" style="margin-top:4px;min-height:16px"></div>
@@ -3086,6 +3151,7 @@ function dsForm(idx=null){
       <div id="dsNewFields">
         <label>Case title <span class="muted" style="font-weight:400">(auto-fills from the SC list — edit freely; your text is kept)</span></label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="fills from the causelist — or type it">
         <label>Chamber file no. <span class="muted" style="font-weight:400">(assign one — the register is ordered by it)</span></label><input id="f_chno" class="mono" value="${esc(e.briefId&&briefs[e.briefId]?.chamberNo||'')}" placeholder="e.g. 101" style="max-width:140px">
+        <label>Diary / Case no. <span class="muted" style="font-weight:400">(so an unlisted matter auto-matches once it\'s out)</span></label><input id="f_dno" class="mono" value="${esc((e.briefId&&(briefs[e.briefId]?.diaryNo||briefs[e.briefId]?.caseNo))||e.diaryNo||e.caseNo||'')}" placeholder="e.g. SLP(C) 18036/2026 or D. 12345/2026">
       </div>
       <label>Appearing for <span class="muted" style="font-weight:400">(bolds that party on the list)</span></label>
       <select id="f_appear"><option value="">—</option>${["Petitioner","Respondent","Applicant","Appellant","Caveator","Intervenor"].map(x=>`<option ${e.appearingFor===x?'selected':''}>${x}</option>`).join("")}</select>
@@ -3204,8 +3270,10 @@ function dsForm(idx=null){
     const listDate=fdate();
     // the name comes from the linked file when re-listing an existing matter
     const _pickTitle = pickedBriefId&&briefs[pickedBriefId] ? labelOf(briefs[pickedBriefId]) : "";
+    const typedNo=$("f_dno")?$("f_dno").value.trim():"";
     const entry={briefId:$("f_brief").value||null,caseTitle:(_pickTitle||$("f_title").value.trim()),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
-      listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:readConfTime("f_conf"),confDate:(readConfTime("f_conf")?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
+      listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:readConfTime("f_conf"),confDate:(readConfTime("f_conf")?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),caseNo:typedNo,
+      awaitingList:!($("f_court").value.trim()&&$("f_item").value.trim()),
       seq:$("f_seq").value.trim(),juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
     if(!((entry.courtNo&&entry.itemNo)||entry.caseTitle||entry.briefId)){toast("Enter the court no + item no (or a case title)","ti-alert-triangle");return;}
     // save-time backfill: whatever the fetched list already knows, store it
@@ -3218,6 +3286,7 @@ function dsForm(idx=null){
     let notifyBrief=null;   // the connected brief, for the share/notify prompt
     if(entry.caseTitle || (entry.courtNo&&entry.itemNo)){
       const refs = hit ? refsFromCauseLine(hit.caseLine) : {caseNo:"",diaryNo:""};
+      if(!refs.caseNo && !refs.diaryNo && typedNo){ if(/^\s*(D\b|DIARY|D\.?\s*NO)/i.test(typedNo)) refs.diaryNo=typedNo; else refs.caseNo=typedNo; }
       const brief = findBriefForListing(entry, refs.caseNo, refs.diaryNo);
       if(brief){
         entry.briefId = brief.id;
