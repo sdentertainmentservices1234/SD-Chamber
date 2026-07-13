@@ -156,6 +156,35 @@ main{flex:1;overflow-y:auto;padding:14px 16px calc(env(safe-area-inset-bottom,0p
 .chatbar input:focus{outline:none;border-color:var(--accent)}
 .chatbar button{border:none;background:var(--accent);color:#fff;width:44px;height:44px;border-radius:50%;font-size:19px;flex:none}
 
+/* compact matter rows (later / done) */
+.mrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);
+  border-radius:10px;margin-bottom:7px;background:var(--panel)}
+.mrow .dotc{width:8px;height:8px;border-radius:50%;flex:none;background:var(--idle)}
+.mrow.later .dotc{background:var(--later)} .mrow.passed .dotc{background:var(--passed)}
+.mrow.idle .dotc{background:var(--idle)} .mrow.unknown .dotc{background:var(--idle)}
+.mrow.passed,.mrow.idle{opacity:.72}
+.mrow .mr-ct{font-size:11px;color:var(--mut);font-family:'IBM Plex Mono';flex:none;min-width:32px}
+.mrow .mr-it{font-family:'IBM Plex Mono';font-weight:600;font-size:15px;flex:none;min-width:28px}
+.mrow .mr-ti{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .mr-st{font-size:11.5px;color:var(--mut);flex:none;font-weight:600}
+
+/* collapsible section headers */
+.collapse-h{width:100%;text-align:left;display:flex;align-items:center;gap:7px;background:transparent;
+  border:none;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+  font-weight:600;padding:7px 2px;margin-top:12px}
+.collapse-h i{font-size:15px}
+
+/* bottom refresh bar (all panes) */
+.botbar{flex:none;display:flex;align-items:center;gap:12px;
+  padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 10px);
+  border-top:1px solid var(--line);background:var(--navy)}
+.botbar .fresh{font-size:11.5px;color:var(--mut);display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.refreshbtn{display:flex;align-items:center;gap:7px;padding:10px 20px;border-radius:10px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-weight:600;font-size:14px}
+.refreshbtn:active{transform:scale(.97)}
+.refreshbtn.spin i{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 .empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
 .notice{background:#2a2216;border:1px solid #4a3f22;color:var(--soon);border-radius:11px;padding:12px 14px;font-size:13px;margin-bottom:12px;line-height:1.45}
 .notice b{color:var(--gold)}
@@ -185,7 +214,6 @@ select.mini{appearance:none}
   <header class="top">
     <div class="brand">SD War Room<small id="topDate">Supreme Court · live</small></div>
     <div class="spacer"></div>
-    <div class="freshpill"><span class="freshdot off" id="freshDot"></span><span id="freshTxt">connecting…</span></div>
     <button class="iconbtn" id="btnOut" title="Sign out"><i class="ti ti-logout"></i></button>
   </header>
 
@@ -212,6 +240,11 @@ select.mini{appearance:none}
   </nav>
 
   <main id="main"></main>
+
+  <footer class="botbar">
+    <div class="fresh"><span class="freshdot off" id="freshDot"></span><span id="freshTxt">connecting…</span></div>
+    <button class="refreshbtn" id="btnRefresh"><i class="ti ti-refresh"></i> Refresh</button>
+  </footer>
 </div>
 
 <script type="module">
@@ -248,6 +281,17 @@ const tsMs = x => x?._t ?? (x?.toDate ? x.toDate().getTime() : (typeof x==="numb
 const initials = n => (n||"?").replace(/\(.*?\)/g,"").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 const agoTxt = ms => { const s=Math.max(0,Math.round((Date.now()-ms)/1000));
   if(s<60) return s+"s ago"; const m=Math.round(s/60); if(m<60) return m+"m ago"; return Math.round(m/60)+"h ago"; };
+
+// Mentioning ("MM") matters are called in the first ~10 min after the 10:30
+// bench rises and are done by 10:40 — so we never flash them, and once the
+// window has passed we mark them done and drop them from the directive.
+const MENT_START=630, MENT_END=640;                 // 10:30 – 10:40, minutes IST
+function nowMinsIST(){
+  try{ const t=new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Kolkata',hour12:false,hour:'2-digit',minute:'2-digit'});
+    const [h,m]=t.split(':').map(Number); return h*60+m; }
+  catch(e){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
+}
+const isMentioning = item => { const s=String(item||"").trim(); return s!=="" && !/^\d/.test(s); };
 
 /* ============================================================
    BOARD ENGINES — validated offline against the live SC sample
@@ -295,23 +339,27 @@ function proximity(seq,current,ours){
   if(curPos<0||ourPos<0) return {gap:null,of:seq.length,ourPos,curPos};
   return {gap:ourPos-curPos,of:seq.length,ourPos,curPos};
 }
-// classify our matter against its board court -> {tier,label,gap,approx}
+// classify our matter against its board court -> {tier,label,short,gap,approx,ment}
 function classify(e, bc){
   const ours=e.itemNo;
-  if(!bc) return {tier:"unknown",label:"court not on the board"};
-  if(/not in session/i.test(bc.status||"")) return {tier:"idle",label:"court not sitting"};
-  if(!/^\d/.test(String(ours||""))) return {tier:"soon",label:(ours||"—")+" — watch closely",gap:null};
+  if(!bc) return {tier:"unknown",label:"court not on the board",short:"—"};
+  if(/not in session/i.test(bc.status||"")) return {tier:"idle",label:"court not sitting",short:"not sitting"};
+  // Mentioning: never flash; done once the 10:40 window closes.
+  if(isMentioning(ours)){
+    if(nowMinsIST()>MENT_END) return {tier:"passed",label:"mentioning — done",short:"done",ment:true};
+    return {tier:"soon",label:"mentioning — watch",short:"watch",gap:0,ment:true};
+  }
   const oursNum=parseFloat(ours);
   const seq=expandSequence(bc.sequence);
   let gap=null, approx=false;
   const p=proximity(seq,bc.item,ours);
   if(p && p.gap!=null) gap=p.gap;
   else { const c=parseFloat(bc.item); if(!isNaN(c)){ gap=Math.floor(oursNum)-Math.floor(c); approx=true; } }
-  if(gap==null) return {tier:"unknown",label:"position unclear",gap:null};
-  if(gap<0) return {tier:"passed",label:"likely already passed",gap,approx};
-  if(gap<=1) return {tier:"now",label:gap===0?"ITEM ON NOW":"NEXT — get in",gap,approx};
-  if(gap<=4) return {tier:"soon",label:"~"+gap+" items away",gap,approx};
-  return {tier:"later",label:gap+" items away",gap,approx};
+  if(gap==null) return {tier:"unknown",label:"position unclear",short:"—"};
+  if(gap<0) return {tier:"passed",label:"likely already passed",short:"passed",gap,approx};
+  if(gap<=1) return {tier:"now",label:gap===0?"ITEM ON NOW":"NEXT — get in",short:"NOW",gap,approx};
+  if(gap<=4) return {tier:"soon",label:"~"+gap+" items away",short:gap+" away",gap,approx};
+  return {tier:"later",label:gap+" items away",short:gap+" away",gap,approx};
 }
 const TIER_RANK={now:0,soon:1,later:2,passed:3,idle:4,unknown:5};
 
@@ -378,6 +426,7 @@ if(DEMO){
 let me=null, users={}, daysheet=null, live={}, messages={};
 let board=[], boardAt=0, boardErr=null;
 let curTab="board", lastSeenChat=0, userDocUnsub=null, unsub=[], pollId=null, tickId=null;
+let uiExp={done:false, board:false};
 
 const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
 const myMatters = () => (daysheet?.entries||[]).filter(e=>e.courtNo);
@@ -399,8 +448,21 @@ async function fetchBoard(){
   renderBoard();
 }
 function startPolling(){ stopPolling(); fetchBoard(); pollId=setInterval(fetchBoard,15000);
-  tickId=setInterval(()=>{ paintFresh(); if(curTab==="board") renderBoard(); },1000); }
+  // Board content re-renders on each 15s fetch; the 1s tick only ages the
+  // "updated Ns ago" label (no full re-render, so taps/scroll aren't interrupted).
+  tickId=setInterval(paintFresh,1000); }
 function stopPolling(){ if(pollId)clearInterval(pollId); if(tickId)clearInterval(tickId); pollId=tickId=null; }
+
+// Refresh button: pull the freshest board AND the freshest app version. Clears
+// caches and reloads with a cache-buster so an installed PWA can never sit on a
+// stale shell; the reload re-fetches the board on boot.
+async function hardRefresh(){
+  const b=$("btnRefresh"); if(b) b.classList.add("spin");
+  try{ if("caches" in window){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){}
+  try{ if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); rs.forEach(r=>r.update&&r.update()); } }catch(e){}
+  const u=new URL(location.href); u.searchParams.set("v", String(Date.now()));
+  location.replace(u.toString());
+}
 
 /* ============================================================
    RENDER
@@ -481,57 +543,88 @@ function renderDirective(){
 
 function shortTitle(e){ return e.caseTitle || ("Court "+e.courtNo+" item "+e.itemNo); }
 
-function matterCard(e){
+// Full card for imminent matters (now / soon). Court + item on the left (the two
+// numbers you navigate by), title, proximity, and — only for real numbered items
+// close now — a one-tap "Senior is here".
+function matterCard(e,k){
   const bc=boardByCourt()[e.courtNo];
-  const k=classify(e,bc);
   const onNow = bc && bc.item && !/not in session/i.test(bc.status||"")
-    ? `Court ${e.courtNo} is on item <b class="mono">${esc(bc.item)}</b>` : (bc? "Court not sitting":"—");
+    ? `court on item <b class="mono">${esc(bc.item)}</b>` : "";
   const jl=(e.juniorUids||[]).map(u=>users[u]?.name||"").filter(Boolean).map(n=>n.split(" ")[0]).join(", ");
+  const icon = k.tier==="now"?"alert-triangle-filled":"clock-play";
+  const showConfirm = (k.tier==="now"||k.tier==="soon") && !k.ment;
   return `<div class="matter ${k.tier}">
     <div class="rail"></div>
-    <div class="cwrap"><div class="cnum">${esc(e.courtNo)}</div><div class="clab">Court</div></div>
+    <div class="cwrap"><div class="cnum">${esc(e.courtNo)}</div><div class="clab">item ${esc(e.itemNo)}</div></div>
     <div class="body">
       <div class="title">${esc(shortTitle(e))}</div>
-      <div class="meta"><span>Item <b class="mono" style="color:var(--ink)">${esc(e.itemNo)}</b></span>${e.time?`<span>· ${esc(e.time)}</span>`:""}${jl?`<span>· ${esc(jl)}</span>`:""}</div>
-      <div class="status"><i class="ti ti-${k.tier==="now"?"alert-triangle-filled":k.tier==="soon"?"clock-play":k.tier==="passed"?"check":"clock"}"></i>${esc(k.label)}${k.approx?' <span class="approxtag">approx</span>':''}</div>
-      <div class="onnow">${onNow}</div>
-      ${(k.tier==="now"||k.tier==="soon")?`<div class="imhere"><button class="mini gold" data-here="${esc(e.courtNo)}">Senior is in Court ${esc(e.courtNo)}</button></div>`:""}
+      <div class="status"><i class="ti ti-${icon}"></i>${esc(k.label)}${k.approx?' <span class="approxtag">approx</span>':''}</div>
+      <div class="onnow">${onNow}${jl?`${onNow?" · ":""}${esc(jl)}`:""}</div>
+      ${showConfirm?`<div class="imhere"><button class="mini gold" data-here="${esc(e.courtNo)}">Senior is in Court ${esc(e.courtNo)}</button></div>`:""}
     </div></div>`;
+}
+// One-line row for everything not imminent (later / done / not sitting).
+function matterRow(e,k){
+  return `<div class="mrow ${k.tier}">
+    <span class="dotc"></span>
+    <span class="mr-ct">Ct ${esc(e.courtNo)}</span>
+    <span class="mr-it">${esc(e.itemNo)}</span>
+    <span class="mr-ti">${esc(shortTitle(e))}</span>
+    <span class="mr-st">${esc(k.short||k.label)}</span>
+  </div>`;
 }
 
 function renderBoard(){
   paintFresh(); renderDirective(); renderSenior();
   if(curTab!=="board") return;
   const bc=boardByCourt();
-  // our matters, sorted by urgency
-  const mine=myMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
-    .sort((a,b)=> (TIER_RANK[a.k.tier]-TIER_RANK[b.k.tier]) || ((a.k.gap??99)-(b.k.gap??99)));
+  const rows=myMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}));
+  const byUrg=(a,b)=>(TIER_RANK[a.k.tier]-TIER_RANK[b.k.tier])||((a.k.gap??999)-(b.k.gap??999));
+  const imminent=rows.filter(x=>x.k.tier==="now"||x.k.tier==="soon").sort(byUrg);
+  const later   =rows.filter(x=>x.k.tier==="later"||x.k.tier==="unknown").sort(byUrg);
+  const done    =rows.filter(x=>x.k.tier==="passed"||x.k.tier==="idle").sort(byUrg);
   let h="";
-  if(boardErr==="relay-unset")
-    h+=`<div class="notice"><b>Live board not connected yet.</b> Deploy the Cloudflare Worker and paste its URL into <span class="mono">BOARD_PROXY</span>. Everything else below already works.</div>`;
-  else if(boardErr)
-    h+=`<div class="notice"><b>Can't reach the board.</b> ${esc(boardErr)}. Retrying every 15s.</div>`;
-  h+=`<div class="section-h">Our matters today (${mine.length})</div>`;
-  h+= mine.length ? mine.map(x=>matterCard(x.e)).join("")
-    : `<div class="empty">No chamber matters on today's sheet.</div>`;
-  // full board
-  if(board.length){
-    h+=`<div class="section-h" style="margin-top:18px">All courts</div><div class="grid">`;
-    const ourCourts=new Set(myMatters().map(e=>String(e.courtNo)));
-    const sorted=[...board].sort((a,b)=>(parseInt(a.court)||99)-(parseInt(b.court)||99));
-    for(const c of sorted){
-      const idle=/not in session/i.test(c.status||"");
-      let dot="";
-      if(ourCourts.has(String(c.court))){
-        const e=myMatters().find(x=>String(x.courtNo)===String(c.court));
-        const k=classify(e,c); if(["now","soon","later"].includes(k.tier)) dot=`<span class="dot ${k.tier}"></span>`;
-      }
-      h+=`<div class="crt ${ourCourts.has(String(c.court))?"ours":""} ${idle?"idle-c":""}">${dot}
-        <div class="n">Ct ${esc(c.court)}</div>
-        <div class="it">${idle?"—":esc(c.item||"·")}</div>
-        <div class="st">${idle?"not sitting":esc(c.status||"hearing")}</div></div>`;
+  if(boardErr && boardErr!=="relay-unset")
+    h+=`<div class="notice"><b>Can't reach the board.</b> Retrying every 15s.</div>`;
+  if(!rows.length){
+    h+=`<div class="empty">No chamber matters on today's sheet.</div>`;
+  } else {
+    if(imminent.length){
+      h+=`<div class="section-h">Now &amp; coming up</div>`;
+      h+=imminent.map(x=>matterCard(x.e,x.k)).join("");
+    } else if(later.length){
+      h+=`<div class="empty" style="padding:22px 20px">Nothing close right now — next matters below.</div>`;
     }
-    h+=`</div>`;
+    if(later.length){
+      h+=`<div class="section-h" style="margin-top:14px">Later today (${later.length})</div>`;
+      h+=later.map(x=>matterRow(x.e,x.k)).join("");
+    }
+    if(done.length){
+      h+=`<button class="collapse-h" data-collapse="done"><i class="ti ti-chevron-${uiExp.done?"down":"right"}"></i> Done / not sitting (${done.length})</button>`;
+      if(uiExp.done) h+=done.map(x=>matterRow(x.e,x.k)).join("");
+    }
+  }
+  // full board — reference only, collapsed by default
+  if(board.length){
+    h+=`<button class="collapse-h" data-collapse="board"><i class="ti ti-chevron-${uiExp.board?"down":"right"}"></i> Full board · ${board.length} courts</button>`;
+    if(uiExp.board){
+      const ourCourts=new Set(myMatters().map(e=>String(e.courtNo)));
+      const sorted=[...board].sort((a,b)=>(parseInt(a.court)||99)-(parseInt(b.court)||99));
+      h+=`<div class="grid">`;
+      for(const c of sorted){
+        const idle=/not in session/i.test(c.status||"");
+        let dot="";
+        if(ourCourts.has(String(c.court))){
+          const e=myMatters().find(x=>String(x.courtNo)===String(c.court));
+          const k=classify(e,c); if(["now","soon","later"].includes(k.tier)) dot=`<span class="dot ${k.tier}"></span>`;
+        }
+        h+=`<div class="crt ${ourCourts.has(String(c.court))?"ours":""} ${idle?"idle-c":""}">${dot}
+          <div class="n">Ct ${esc(c.court)}</div>
+          <div class="it">${idle?"—":esc(c.item||"·")}</div>
+          <div class="st">${idle?"not sitting":esc(c.status||"hearing")}</div></div>`;
+      }
+      h+=`</div>`;
+    }
   }
   $("main").innerHTML=h;
 }
@@ -631,9 +724,11 @@ document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>{
   render();
 });
 $("main").addEventListener("click",ev=>{
+  const cc=ev.target.closest("[data-collapse]"); if(cc){ uiExp[cc.dataset.collapse]=!uiExp[cc.dataset.collapse]; renderBoard(); return; }
   const h=ev.target.closest("[data-here]"); if(h){ setSeniorCourt(h.dataset.here); }
 });
 $("snSet").onclick=()=>{ const v=$("snPick").value; if(v) setSeniorCourt(v); };
+$("btnRefresh").onclick=hardRefresh;
 $("btnOut").onclick=()=>auth.signOut();
 
 /* login form */
