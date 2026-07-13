@@ -26,7 +26,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;
   -webkit-text-size-adjust:100%;touch-action:manipulation}
-body{background:var(--navy);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;overflow:hidden;position:fixed;inset:0}
 .mono{font-family:'IBM Plex Mono',monospace}
 button{font-family:inherit;cursor:pointer}
@@ -145,7 +145,7 @@ select.mini{appearance:none}
 .cell[data-setcourt]{cursor:pointer}
 .cell[data-setcourt]:active{transform:scale(.97)}
 
-main{flex:1;overflow-y:auto;padding:10px 12px 12px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+main{flex:1;overflow-y:auto;padding:10px 12px calc(64px + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 /* legend */
 .legend{display:flex;gap:12px;font-size:10px;color:var(--mut);margin:0 2px 8px;flex-wrap:wrap}
@@ -221,7 +221,12 @@ main{flex:1;overflow-y:auto;padding:10px 12px 12px;-webkit-overflow-scrolling:to
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
 
 /* ===== bottom navigation (mobile-standard) ===== */
-nav.botnav{flex:none;display:flex;background:var(--panel);border-top:1px solid var(--line)}
+/* ASD-style bottom nav: fixed to the real screen bottom; its background
+   extends through the home-indicator inset so it always touches the edge. */
+nav.botnav{position:fixed;left:0;right:0;bottom:0;display:flex;max-width:760px;margin:0 auto;
+  background:var(--panel);border-top:1px solid var(--line);z-index:30;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  will-change:transform;transform:translateZ(0);-webkit-transform:translateZ(0)}
 nav.botnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
   background:transparent;border:none;color:var(--mut);font-size:11px;font-weight:600;
   padding:9px 4px 8px;position:relative}
