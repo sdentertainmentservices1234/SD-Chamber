@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SD War Room — live court board</title>
+<link rel="manifest" href="board-manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
+<style>
+/* ---- SD War Room — standalone live board. Shares the chamber Firebase.
+   Navy/gold institutional system, matched to the main app. ---- */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+:root{
+  --bg:#0d1014; --panel:#151a20; --panel2:#1b222b; --ink:#eef1f4; --mut:#93a0ad;
+  --line:#28313c; --accent:#3a5a8c; --gold:#cbb682; --navy:#101418;
+  --now:#e0564f; --soon:#d9a441; --later:#5aa06e; --idle:#5b6674; --passed:#6f7c8c;
+  --shadow:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+.mono{font-family:'IBM Plex Mono',monospace}
+.fr{font-family:Fraunces,serif}
+button{font-family:inherit;cursor:pointer}
+.hidden{display:none!important}
+
+/* ---- login ---- */
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 100% at 50% 0%,#182029 0%,#0d1014 70%);padding:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  padding:30px 26px;width:min(400px,100%);box-shadow:var(--shadow)}
+.seal{width:60px;height:60px;border-radius:50%;background:var(--navy);border:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+  font-family:Fraunces,serif;color:var(--gold);font-weight:600;font-size:24px}
+.card h1{font-family:Fraunces,serif;font-weight:600;font-size:22px;margin:0 0 2px;text-align:center}
+.card .sub{color:var(--mut);text-align:center;font-size:13px;margin-bottom:20px}
+.card label{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;font-weight:500}
+.card input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--ink);font-size:15px}
+.card input:focus{outline:none;border-color:var(--accent)}
+.btn{width:100%;padding:12px;border:none;border-radius:10px;background:var(--accent);color:#fff;
+  font-weight:600;font-size:15px;margin-top:18px}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--mut);margin-top:9px}
+.err{color:var(--now);font-size:13px;margin-top:12px;min-height:16px;text-align:center}
+
+/* ---- app shell ---- */
+/* Mobile-first: full-bleed column. On desktop, cap to a centred phone-width
+   column so it doesn't stretch across a monitor (mobile is the primary target). */
+#app{display:flex;flex-direction:column;height:100%;max-width:720px;width:100%;margin-inline:auto}
+@media(min-width:721px){ body{background:#07090c} #app{border-inline:1px solid var(--line)} }
+header.top{display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;
+  background:var(--navy);border-bottom:1px solid var(--line);flex:none}
+.top .brand{font-family:Fraunces,serif;color:var(--gold);font-weight:600;font-size:17px;letter-spacing:.3px}
+.top .brand small{display:block;font-family:Inter;color:var(--mut);font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase}
+.top .spacer{flex:1}
+.freshpill{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:5px}
+.freshdot{width:7px;height:7px;border-radius:50%;background:var(--later);box-shadow:0 0 0 0 rgba(90,160,110,.6);animation:pulse 2s infinite}
+.freshdot.stale{background:var(--soon);animation:none}
+.freshdot.off{background:var(--idle);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(90,160,110,.5)}70%{box-shadow:0 0 0 7px rgba(90,160,110,0)}100%{box-shadow:0 0 0 0 rgba(90,160,110,0)}}
+.iconbtn{background:transparent;border:none;color:var(--mut);font-size:20px;padding:4px;line-height:1}
+
+/* directive banner */
+.directive{margin:12px 16px 0;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;
+  background:linear-gradient(100deg,#1d252e,#171d24);border:1px solid var(--line);flex:none}
+.directive.go{border-color:#5a2b28;background:linear-gradient(100deg,#2a1917,#1c1513)}
+.directive .big{font-family:Fraunces,serif;font-size:20px;font-weight:600;line-height:1.1}
+.directive .sub{color:var(--mut);font-size:12.5px;margin-top:2px}
+.directive .ct{font-family:'IBM Plex Mono';font-size:30px;font-weight:600;color:var(--gold);flex:none;
+  min-width:64px;text-align:center;line-height:1}
+.directive.go .ct{color:var(--now)}
+
+/* senior pill */
+.seniorbar{margin:10px 16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px;flex:none}
+.seniorbar .lab{font-size:12px;color:var(--mut)}
+.seniorbar .loc{font-weight:600;font-size:14px}
+.seniorbar .tag{font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:2px 7px;border-radius:20px;font-weight:600}
+.tag.inferred{background:#2a2416;color:var(--gold)}
+.tag.confirmed{background:#16261b;color:var(--later)}
+.tag.stale{background:#2a2216;color:var(--soon)}
+.seniorbar .spacer{flex:1}
+.mini{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+.mini.gold{border-color:#4a4126;color:var(--gold)}
+
+/* tabs */
+nav.tabs{display:flex;gap:4px;margin:12px 16px 0;flex:none}
+nav.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:var(--panel);color:var(--mut);
+  border-radius:10px;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px}
+nav.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+nav.tabs .badge{background:var(--now);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;min-width:16px}
+
+main{flex:1;overflow-y:auto;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 20px);-webkit-overflow-scrolling:touch}
+.section-h{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);font-weight:600;margin:6px 2px 9px}
+
+/* our matter cards */
+.matter{display:flex;gap:12px;align-items:stretch;background:var(--panel);border:1px solid var(--line);
+  border-radius:13px;padding:12px 14px;margin-bottom:10px;position:relative;overflow:hidden}
+.matter .rail{position:absolute;left:0;top:0;bottom:0;width:4px}
+.matter.now .rail{background:var(--now)} .matter.soon .rail{background:var(--soon)}
+.matter.later .rail{background:var(--later)} .matter.idle .rail{background:var(--idle)}
+.matter.passed .rail{background:var(--passed)} .matter.unknown .rail{background:var(--idle)}
+.matter.now{animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{0%,100%{border-color:var(--line)}50%{border-color:var(--now);box-shadow:0 0 0 1px var(--now)}}
+.matter .cwrap{flex:none;text-align:center;min-width:52px;display:flex;flex-direction:column;justify-content:center}
+.matter .cnum{font-family:'IBM Plex Mono';font-size:26px;font-weight:600;line-height:1}
+.matter .clab{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.matter .body{flex:1;min-width:0}
+.matter .title{font-weight:600;font-size:14px;line-height:1.25;margin-bottom:3px}
+.matter .meta{font-size:12px;color:var(--mut);display:flex;gap:8px;flex-wrap:wrap}
+.matter .status{margin-top:6px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+.matter.now .status{color:var(--now)} .matter.soon .status{color:var(--soon)}
+.matter.later .status{color:var(--later)} .matter.idle .status{color:var(--idle)}
+.matter.passed .status{color:var(--passed)}
+.matter .onnow{font-size:11.5px;color:var(--mut);margin-top:2px}
+.approxtag{font-size:9.5px;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:0 4px;font-weight:500}
+.imhere{margin-top:7px}
+
+/* full board grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px}
+.crt{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 8px;text-align:center;position:relative}
+.crt.ours{border-color:#4a4126;box-shadow:inset 0 0 0 1px #3a3320}
+.crt.idle-c{opacity:.5}
+.crt .n{font-family:'IBM Plex Mono';font-size:15px;font-weight:600;color:var(--mut)}
+.crt .it{font-family:'IBM Plex Mono';font-size:22px;font-weight:600;margin:2px 0}
+.crt .st{font-size:10px;color:var(--mut)}
+.crt .dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%}
+.crt .dot.now{background:var(--now)} .crt .dot.soon{background:var(--soon)} .crt .dot.later{background:var(--later)}
+
+/* our list (causelist) */
+.li{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px;display:flex;gap:12px}
+.li .ci{flex:none;text-align:center;min-width:48px}
+.li .ci .c{font-family:'IBM Plex Mono';font-size:12px;color:var(--mut)}
+.li .ci .i{font-family:'IBM Plex Mono';font-size:20px;font-weight:600}
+.li .d{flex:1;min-width:0}
+.li .t{font-weight:600;font-size:13.5px;margin-bottom:2px}
+.li .m{font-size:11.5px;color:var(--mut);line-height:1.5}
+.li .m b{color:var(--ink);font-weight:600}
+
+/* chat */
+#chatWrap{display:flex;flex-direction:column;height:100%}
+#chatList{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:8px}
+.msg{max-width:82%;padding:8px 12px;border-radius:13px;background:var(--panel);border:1px solid var(--line);align-self:flex-start}
+.msg.mine{align-self:flex-end;background:#22303f;border-color:#2c3e50}
+.msg .who{font-size:11px;color:var(--gold);font-weight:600;margin-bottom:2px}
+.msg.mine .who{color:#9fc0e0}
+.msg .tx{font-size:14px;line-height:1.35;word-wrap:break-word}
+.msg .tm{font-size:10px;color:var(--mut);margin-top:3px;text-align:right}
+.chatbar{display:flex;gap:8px;padding-top:8px;border-top:1px solid var(--line);flex:none}
+.chatbar input{flex:1;padding:11px 14px;border-radius:22px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:15px}
+.chatbar input:focus{outline:none;border-color:var(--accent)}
+.chatbar button{border:none;background:var(--accent);color:#fff;width:44px;height:44px;border-radius:50%;font-size:19px;flex:none}
+
+.empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
+.notice{background:#2a2216;border:1px solid #4a3f22;color:var(--soon);border-radius:11px;padding:12px 14px;font-size:13px;margin-bottom:12px;line-height:1.45}
+.notice b{color:var(--gold)}
+select.mini{appearance:none}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="card">
+    <div class="seal">SD</div>
+    <h1 id="lgName">Chamber War Room</h1>
+    <div class="sub">Live Supreme Court board · for the chamber</div>
+    <label>Email</label>
+    <input id="lgEmail" type="email" autocomplete="username" placeholder="you@example.com">
+    <label>Password</label>
+    <input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn" id="lgGo">Sign in</button>
+    <button class="btn ghost" id="lgReset">Forgot password</button>
+    <div class="err" id="lgErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="brand">SD War Room<small id="topDate">Supreme Court · live</small></div>
+    <div class="spacer"></div>
+    <div class="freshpill"><span class="freshdot off" id="freshDot"></span><span id="freshTxt">connecting…</span></div>
+    <button class="iconbtn" id="btnOut" title="Sign out"><i class="ti ti-logout"></i></button>
+  </header>
+
+  <div id="paneBoard">
+    <div class="directive" id="directive">
+      <div class="ct" id="dirCt">—</div>
+      <div><div class="big" id="dirBig">Reading the board…</div><div class="sub" id="dirSub"></div></div>
+    </div>
+
+    <div class="seniorbar" id="seniorBar">
+      <span class="lab">Senior:</span>
+      <span class="loc" id="snLoc">—</span>
+      <span class="tag inferred" id="snTag">inferred</span>
+      <span class="spacer"></span>
+      <select class="mini" id="snPick" title="Set the court the Senior is in"></select>
+      <button class="mini gold" id="snSet">He's here</button>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button data-tab="board" class="on"><i class="ti ti-broadcast"></i> Live board</button>
+    <button data-tab="list"><i class="ti ti-list-details"></i> Our list</button>
+    <button data-tab="chat"><i class="ti ti-messages"></i> Chat <span class="badge hidden" id="chatBadge">0</span></button>
+  </nav>
+
+  <main id="main"></main>
+</div>
+
+<script type="module">
+/* ============================================================
+   SD War Room — configuration (mirrors index.html exactly)
+   ============================================================ */
+const DEMO = false;
+// Cloudflare Worker relay URL (the *.workers.dev address). Empty until deployed.
+const BOARD_PROXY = "https://sd-board.sdentertainmentservices.workers.dev";
+// Demo/testing only: a saved live board sample to parse instead of the relay.
+const BOARD_SAMPLE = null;
+
+const CHAMBER = {
+  seniorName: "Shyam Divan",
+  designation: "Senior Advocate",
+  court: "Supreme Court of India",
+  adminEmail: "adithdeshmukh@gmail.com"
+};
+const firebaseConfig = {
+  apiKey: "AIzaSyAagQ_-1LLvKtmsfJwSPJvURHWB-FkO-NQ",
+  authDomain: "sd-chamber-1aa78.firebaseapp.com",
+  projectId: "sd-chamber-1aa78",
+  storageBucket: "sd-chamber-1aa78.firebasestorage.app",
+  messagingSenderId: "287957629475",
+  appId: "1:287957629475:web:9c7804acf3060c73abcf96"
+};
+
+/* ---- helpers ---- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const todayISO = () => new Date().toLocaleDateString('en-CA');
+const emailKey = e => (e||"").trim().toLowerCase();
+const tsMs = x => x?._t ?? (x?.toDate ? x.toDate().getTime() : (typeof x==="number"?x:0)) ?? 0;
+const initials = n => (n||"?").replace(/\(.*?\)/g,"").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+const agoTxt = ms => { const s=Math.max(0,Math.round((Date.now()-ms)/1000));
+  if(s<60) return s+"s ago"; const m=Math.round(s/60); if(m<60) return m+"m ago"; return Math.round(m/60)+"h ago"; };
+
+/* ============================================================
+   BOARD ENGINES — validated offline against the live SC sample
+   ============================================================ */
+function parseBoard(html){
+  const strip = s => s.replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&")
+    .replace(/&#039;|&apos;/g,"'").replace(/&quot;/g,'"').replace(/&gt;/g,">").replace(/&lt;/g,"<")
+    .replace(/\s+/g," ").trim();
+  const rows = html.split(/<tr class="record">/i).slice(1);
+  const courts = [];
+  for (let raw of rows){
+    raw = raw.split(/<\/tr>/i)[0];
+    let court=""; let m=raw.match(/btn-primary[^>]*>\s*([0-9]+)/i); if(m) court=m[1];
+    if(!court){ const im=raw.match(/id="cl_(\d+)"/i); if(im) court=im[1]; }
+    const cl=raw.match(/id="cl_\d+"[^>]*>(.*?)<\/td>/is); const cltext=cl?strip(cl[1]):"";
+    let item="", status=cltext; const im2=cltext.match(/^(\d+(?:\.\d+)?)\s+(.*)$/);
+    if(im2){ item=im2[1]; status=im2[2].trim(); }
+    const cn=raw.match(/id="cn_\d+"[^>]*>(.*?)<\/td>/is);
+    const cz=raw.match(/id="cnbz_\d+"[^>]*>(.*?)<\/td>/is);
+    const seqm=raw.match(/title="([^"]*(?:SEQUENCE|SEQ|sequence)[^"]*)"/i);
+    if(!court) continue;
+    courts.push({ court, item, status, caseNo:cn?strip(cn[1]):"", title:cz?strip(cz[1]):"",
+      sequence:seqm?strip(seqm[1]):"" });
+  }
+  return { courts };
+}
+function expandSequence(text){
+  if(!text) return [];
+  const toks=text.toUpperCase().replace(/[^0-9A-Z. ]/g," ").split(/\s+/).filter(Boolean);
+  const out=[], seen=new Set(); const push=n=>{ if(!seen.has(n)){seen.add(n);out.push(n);} };
+  for(let i=0;i<toks.length;i++){
+    const num=toks[i].match(/^(\d+)(?:\.\d+)?$/); if(!num) continue;
+    const a=parseInt(num[1],10);
+    if(toks[i+1]==="TO" && /^\d+$/.test(toks[i+2]||"")){
+      const b=parseInt(toks[i+2],10);
+      if(b>=a && b-a<600){ for(let k=a;k<=b;k++) push(k); } else push(a); i+=2;
+    } else push(a);
+  }
+  return out;
+}
+function proximity(seq,current,ours){
+  current=parseInt(current,10); ours=Math.floor(parseFloat(ours));
+  if(!seq.length||isNaN(current)||isNaN(ours)) return null;
+  const curPos=seq.indexOf(current), ourPos=seq.indexOf(ours);
+  if(curPos<0||ourPos<0) return {gap:null,of:seq.length,ourPos,curPos};
+  return {gap:ourPos-curPos,of:seq.length,ourPos,curPos};
+}
+// classify our matter against its board court -> {tier,label,gap,approx}
+function classify(e, bc){
+  const ours=e.itemNo;
+  if(!bc) return {tier:"unknown",label:"court not on the board"};
+  if(/not in session/i.test(bc.status||"")) return {tier:"idle",label:"court not sitting"};
+  if(!/^\d/.test(String(ours||""))) return {tier:"soon",label:(ours||"—")+" — watch closely",gap:null};
+  const oursNum=parseFloat(ours);
+  const seq=expandSequence(bc.sequence);
+  let gap=null, approx=false;
+  const p=proximity(seq,bc.item,ours);
+  if(p && p.gap!=null) gap=p.gap;
+  else { const c=parseFloat(bc.item); if(!isNaN(c)){ gap=Math.floor(oursNum)-Math.floor(c); approx=true; } }
+  if(gap==null) return {tier:"unknown",label:"position unclear",gap:null};
+  if(gap<0) return {tier:"passed",label:"likely already passed",gap,approx};
+  if(gap<=1) return {tier:"now",label:gap===0?"ITEM ON NOW":"NEXT — get in",gap,approx};
+  if(gap<=4) return {tier:"soon",label:"~"+gap+" items away",gap,approx};
+  return {tier:"later",label:gap+" items away",gap,approx};
+}
+const TIER_RANK={now:0,soon:1,later:2,passed:3,idle:4,unknown:5};
+
+/* ============================================================
+   DATA LAYER — Firebase (prod) / in-memory mock (demo)
+   ============================================================ */
+let db, auth;
+if(DEMO){
+  const now=()=>({_t:Date.now()}); let idc=1; const gid=()=>"g"+(idc++);
+  const store=new Map(); const C=p=>{ if(!store.has(p)) store.set(p,new Map()); return store.get(p); };
+  const subs=[]; const split=p=>{const a=p.split("/");const id=a.pop();return[a.join("/"),id];};
+  const exists=(cp,id)=>C(cp).has(id);
+  function rows(p,order){ let r=[...C(p).entries()].map(([id,d])=>({id,...d}));
+    if(order){const[f,dir]=order;r.sort((a,b)=>{const av=a[f]?._t??a[f]??0,bv=b[f]?._t??b[f]??0;return dir==="desc"?(av<bv?1:av>bv?-1:0):(av>bv?1:av<bv?-1:0);});} return r; }
+  const emitColl=p=>subs.filter(s=>!s.doc&&s.path===p).forEach(s=>s.cb(rows(p,s.order)));
+  const emitDoc=p=>subs.filter(s=>s.doc&&s.path===p).forEach(s=>{const[cp,id]=split(p);s.cb(exists(cp,id)?{id,...C(cp).get(id)}:null);});
+  db={ watchCollection(path,cb,order){const s={path,cb,order,doc:false};subs.push(s);cb(rows(path,order));return()=>subs.splice(subs.indexOf(s),1);},
+    watchDoc(path,cb){const s={path,cb,doc:true};subs.push(s);const[cp,id]=split(path);cb(exists(cp,id)?{id,...C(cp).get(id)}:null);return()=>subs.splice(subs.indexOf(s),1);},
+    async set(path,data,merge){const[cp,id]=split(path);const m=C(cp);m.set(id,merge?{...(m.get(id)||{}),...data}:{...data});emitColl(cp);emitDoc(path);},
+    async add(path,data){const id=gid();C(path).set(id,{...data});emitColl(path);return id;},
+    async update(path,data){const[cp,id]=split(path);const m=C(cp);m.set(id,{...(m.get(id)||{}),...data});emitColl(cp);emitDoc(path);},
+    async remove(path){const[cp,id]=split(path);C(cp).delete(id);emitColl(cp);}, now };
+  let authCb=null,cur={uid:"u_yash"};
+  auth={ onChange(cb){authCb=cb;setTimeout(()=>cb(cur),0);}, signIn(){return Promise.resolve();},
+    resetPassword(){return Promise.resolve();}, signOut(){cur=null;authCb&&authCb(null);},
+    setUser(uid){cur={uid};authCb&&authCb(cur);} };
+  window.__demoSetUser=uid=>auth.setUser(uid);
+  seedDemo(db);
+} else {
+  const [{initializeApp},{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,onAuthStateChanged,signOut,sendPasswordResetEmail},
+    {getFirestore,collection,doc,getDoc,setDoc,addDoc,updateDoc,deleteDoc,onSnapshot,query,orderBy,serverTimestamp}] =
+    await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")
+    ]);
+  const app=initializeApp(firebaseConfig); const fa=getAuth(app); const fs=getFirestore(app);
+  db={ watchCollection(path,cb,order){const c=collection(fs,...path.split("/"));const q=order?query(c,orderBy(order[0],order[1])):c;
+      return onSnapshot(q,s=>{const r=[];s.forEach(d=>r.push({id:d.id,...d.data()}));cb(r);});},
+    watchDoc(path,cb){return onSnapshot(doc(fs,...path.split("/")),s=>cb(s.exists()?{id:s.id,...s.data()}:null));},
+    async set(path,data,merge){await setDoc(doc(fs,...path.split("/")),data,{merge:!!merge});},
+    async add(path,data){const r=await addDoc(collection(fs,...path.split("/")),data);return r.id;},
+    async update(path,data){await updateDoc(doc(fs,...path.split("/")),data);},
+    async remove(path){await deleteDoc(doc(fs,...path.split("/")));}, now:serverTimestamp };
+  auth={ onChange(cb){ onAuthStateChanged(fa,async user=>{
+      if(user){ const uref=doc(fs,"users",user.uid); const snap=await getDoc(uref);
+        if(!snap.exists()){
+          let base={name:user.email.split("@")[0],email:user.email,role:"pending",active:true,createdAt:serverTimestamp()};
+          if(emailKey(user.email)===emailKey(CHAMBER.adminEmail)) base.role="admin";
+          try{ const ap=await getDoc(doc(fs,"approvals",emailKey(user.email)));
+            if(ap.exists()){ const a=ap.data(); base={...base,name:a.name||base.name,role:a.role||base.role,phone:a.phone||"",joinedOn:a.joinedOn||null}; }
+          }catch(e){}
+          try{ await setDoc(uref,base); }catch(e){ try{ await setDoc(uref,{name:user.email.split("@")[0],email:user.email,role:"pending",active:true,createdAt:serverTimestamp()}); }catch(_){} }
+        }
+      } cb(user); }); },
+    signIn(email,pass){return signInWithEmailAndPassword(fa,email,pass);},
+    resetPassword(email){return sendPasswordResetEmail(fa,email);},
+    signOut(){return signOut(fa);}, setUser(){} };
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let me=null, users={}, daysheet=null, live={}, messages={};
+let board=[], boardAt=0, boardErr=null;
+let curTab="board", lastSeenChat=0, userDocUnsub=null, unsub=[], pollId=null, tickId=null;
+
+const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
+const myMatters = () => (daysheet?.entries||[]).filter(e=>e.courtNo);
+
+/* ============================================================
+   BOARD FETCH
+   ============================================================ */
+async function fetchBoard(){
+  try{
+    let html="";
+    if(BOARD_SAMPLE){ html=await (await fetch(BOARD_SAMPLE,{cache:"no-store"})).text(); }
+    else if(BOARD_PROXY){
+      html=await (await fetch(BOARD_PROXY+"?ctype=c",{cache:"no-store"})).text();
+    } else { boardErr="relay-unset"; renderBoard(); return; }
+    const parsed=parseBoard(html);
+    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; }
+    else boardErr="empty";
+  }catch(e){ boardErr=String(e&&e.message||e); }
+  renderBoard();
+}
+function startPolling(){ stopPolling(); fetchBoard(); pollId=setInterval(fetchBoard,15000);
+  tickId=setInterval(()=>{ paintFresh(); if(curTab==="board") renderBoard(); },1000); }
+function stopPolling(){ if(pollId)clearInterval(pollId); if(tickId)clearInterval(tickId); pollId=tickId=null; }
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function paintFresh(){
+  const dot=$("freshDot"), txt=$("freshTxt");
+  if(boardErr==="relay-unset"){ dot.className="freshdot off"; txt.textContent="relay not set"; return; }
+  if(boardErr){ dot.className="freshdot stale"; txt.textContent="board unreachable"; return; }
+  if(!boardAt){ dot.className="freshdot off"; txt.textContent="connecting…"; return; }
+  const age=Date.now()-boardAt;
+  dot.className="freshdot"+(age>45000?" stale":"");
+  txt.textContent="updated "+agoTxt(boardAt);
+}
+
+// senior location: confirmed (config/live.court, fresh <25m) else inferred from board
+function seniorState(){
+  const c=live?.court;
+  const at=c?tsMs(c.at):0;
+  const fresh=at && (Date.now()-at)<25*60*1000;
+  if(c && c.court && fresh){
+    return {court:c.court, mode:"confirmed", at, by:c.by};
+  }
+  // infer: court of our most-imminent sitting matter
+  const bc=boardByCourt(); let best=null;
+  for(const e of myMatters()){
+    const k=classify(e,bc[e.courtNo]);
+    if(k.tier==="now"||k.tier==="soon"){
+      if(!best || (k.gap??99)<(best.gap??99)) best={court:e.courtNo,gap:k.gap};
+    }
+  }
+  if(best) return {court:best.court, mode:"inferred"};
+  if(c && c.court) return {court:c.court, mode:"stale", at};
+  return {court:null, mode:"none"};
+}
+
+function renderSenior(){
+  const s=seniorState();
+  const loc=$("snLoc"), tag=$("snTag");
+  if(s.court){ loc.textContent="Court "+s.court; }
+  else { loc.textContent="not known yet"; }
+  tag.className="tag "+(s.mode==="confirmed"?"confirmed":s.mode==="stale"?"stale":"inferred");
+  tag.textContent = s.mode==="confirmed" ? ("confirmed "+(s.at?agoTxt(s.at):"")) :
+                    s.mode==="stale" ? "last known" :
+                    s.mode==="inferred" ? "inferred" : "unknown";
+  tag.classList.toggle("hidden", s.mode==="none");
+  // populate the picker once
+  const pick=$("snPick");
+  if(!pick.dataset.filled){
+    let opts='<option value="">court…</option>';
+    for(let i=1;i<=17;i++) opts+=`<option value="${i}">Court ${i}</option>`;
+    pick.innerHTML=opts; pick.dataset.filled="1";
+  }
+  if(s.court && !pick.value) pick.value=s.court;
+}
+
+function renderDirective(){
+  const bc=boardByCourt();
+  let pick=null;
+  for(const e of myMatters()){
+    const k=classify(e,bc[e.courtNo]);
+    if(k.tier==="now"||k.tier==="soon"){
+      if(!pick || TIER_RANK[k.tier]<TIER_RANK[pick.k.tier] ||
+        (k.tier===pick.k.tier && (k.gap??99)<(pick.k.gap??99))) pick={e,k};
+    }
+  }
+  const dir=$("directive"), ct=$("dirCt"), big=$("dirBig"), sub=$("dirSub");
+  if(!board.length){ dir.className="directive"; ct.textContent="—";
+    big.textContent = boardErr==="relay-unset" ? "Relay not connected" : "Reading the board…";
+    sub.textContent = boardErr==="relay-unset" ? "Add the Cloudflare Worker URL to go live." : ""; return; }
+  if(!pick){ dir.className="directive"; ct.textContent="✓";
+    big.textContent="Nothing imminent"; sub.textContent="No chamber matter is close in any court right now."; return; }
+  const now = pick.k.tier==="now";
+  dir.className="directive"+(now?" go":"");
+  ct.textContent=pick.e.courtNo;
+  big.textContent = now ? "Head to Court "+pick.e.courtNo : "Get ready — Court "+pick.e.courtNo;
+  sub.innerHTML = "Item "+esc(pick.e.itemNo)+" · "+esc(shortTitle(pick.e))+" · <b style='color:var(--gold)'>"+esc(pick.k.label)+"</b>";
+}
+
+function shortTitle(e){ return e.caseTitle || ("Court "+e.courtNo+" item "+e.itemNo); }
+
+function matterCard(e){
+  const bc=boardByCourt()[e.courtNo];
+  const k=classify(e,bc);
+  const onNow = bc && bc.item && !/not in session/i.test(bc.status||"")
+    ? `Court ${e.courtNo} is on item <b class="mono">${esc(bc.item)}</b>` : (bc? "Court not sitting":"—");
+  const jl=(e.juniorUids||[]).map(u=>users[u]?.name||"").filter(Boolean).map(n=>n.split(" ")[0]).join(", ");
+  return `<div class="matter ${k.tier}">
+    <div class="rail"></div>
+    <div class="cwrap"><div class="cnum">${esc(e.courtNo)}</div><div class="clab">Court</div></div>
+    <div class="body">
+      <div class="title">${esc(shortTitle(e))}</div>
+      <div class="meta"><span>Item <b class="mono" style="color:var(--ink)">${esc(e.itemNo)}</b></span>${e.time?`<span>· ${esc(e.time)}</span>`:""}${jl?`<span>· ${esc(jl)}</span>`:""}</div>
+      <div class="status"><i class="ti ti-${k.tier==="now"?"alert-triangle-filled":k.tier==="soon"?"clock-play":k.tier==="passed"?"check":"clock"}"></i>${esc(k.label)}${k.approx?' <span class="approxtag">approx</span>':''}</div>
+      <div class="onnow">${onNow}</div>
+      ${(k.tier==="now"||k.tier==="soon")?`<div class="imhere"><button class="mini gold" data-here="${esc(e.courtNo)}">Senior is in Court ${esc(e.courtNo)}</button></div>`:""}
+    </div></div>`;
+}
+
+function renderBoard(){
+  paintFresh(); renderDirective(); renderSenior();
+  if(curTab!=="board") return;
+  const bc=boardByCourt();
+  // our matters, sorted by urgency
+  const mine=myMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
+    .sort((a,b)=> (TIER_RANK[a.k.tier]-TIER_RANK[b.k.tier]) || ((a.k.gap??99)-(b.k.gap??99)));
+  let h="";
+  if(boardErr==="relay-unset")
+    h+=`<div class="notice"><b>Live board not connected yet.</b> Deploy the Cloudflare Worker and paste its URL into <span class="mono">BOARD_PROXY</span>. Everything else below already works.</div>`;
+  else if(boardErr)
+    h+=`<div class="notice"><b>Can't reach the board.</b> ${esc(boardErr)}. Retrying every 15s.</div>`;
+  h+=`<div class="section-h">Our matters today (${mine.length})</div>`;
+  h+= mine.length ? mine.map(x=>matterCard(x.e)).join("")
+    : `<div class="empty">No chamber matters on today's sheet.</div>`;
+  // full board
+  if(board.length){
+    h+=`<div class="section-h" style="margin-top:18px">All courts</div><div class="grid">`;
+    const ourCourts=new Set(myMatters().map(e=>String(e.courtNo)));
+    const sorted=[...board].sort((a,b)=>(parseInt(a.court)||99)-(parseInt(b.court)||99));
+    for(const c of sorted){
+      const idle=/not in session/i.test(c.status||"");
+      let dot="";
+      if(ourCourts.has(String(c.court))){
+        const e=myMatters().find(x=>String(x.courtNo)===String(c.court));
+        const k=classify(e,c); if(["now","soon","later"].includes(k.tier)) dot=`<span class="dot ${k.tier}"></span>`;
+      }
+      h+=`<div class="crt ${ourCourts.has(String(c.court))?"ours":""} ${idle?"idle-c":""}">${dot}
+        <div class="n">Ct ${esc(c.court)}</div>
+        <div class="it">${idle?"—":esc(c.item||"·")}</div>
+        <div class="st">${idle?"not sitting":esc(c.status||"hearing")}</div></div>`;
+    }
+    h+=`</div>`;
+  }
+  $("main").innerHTML=h;
+}
+
+function renderList(){
+  const mine=myMatters().slice().sort((a,b)=>(parseInt(a.courtNo)||99)-(parseInt(b.courtNo)||99)||(parseFloat(a.itemNo)||999)-(parseFloat(b.itemNo)||999));
+  let h=`<div class="section-h">Chamber cause list · ${todayISO().split("-").reverse().join(".")}</div>`;
+  if(!mine.length){ $("main").innerHTML=h+`<div class="empty">Today's day sheet is empty.</div>`; return; }
+  for(const e of mine){
+    const jl=(e.juniorUids||[]).map(u=>users[u]?.name||"").filter(Boolean).map(n=>n.split(" ")[0]).join(" / ");
+    h+=`<div class="li"><div class="ci"><div class="c">Ct ${esc(e.courtNo)}</div><div class="i">${esc(e.itemNo)}</div></div>
+      <div class="d"><div class="t">${esc(e.caseTitle||"—")}</div>
+      <div class="m">${e.time?`${esc(e.time)} · `:""}${e.bench?`<b>Bench:</b> ${esc(e.bench)}<br>`:""}${e.counsel?`${esc(e.counsel)}`:""}${jl?` — ${esc(jl)}`:""}${e.confTime?`<br><b>Conf:</b> ${esc(e.confTime)}`:""}</div>
+      </div></div>`;
+  }
+  $("main").innerHTML=h;
+}
+
+function renderChat(){
+  const list=Object.values(messages).sort((a,b)=>tsMs(a.at)-tsMs(b.at));
+  let bubbles = list.length ? list.map(m=>{
+    const mine=m.by===me?.uid;
+    return `<div class="msg ${mine?"mine":""}">${mine?"":`<div class="who">${esc(m.name||"—")}</div>`}
+      <div class="tx">${esc(m.text)}</div><div class="tm">${m.at?agoTxt(tsMs(m.at)):""}</div></div>`;
+  }).join("") : `<div class="empty">No messages yet. Coordinate here — everyone in the chamber sees it live.</div>`;
+  $("main").innerHTML=`<div id="chatWrap"><div id="chatList">${bubbles}</div>
+    <div class="chatbar"><input id="chatIn" placeholder="Message the chamber…" autocomplete="off">
+    <button id="chatSend"><i class="ti ti-send"></i></button></div></div>`;
+  const cl=$("chatList"); cl.scrollTop=cl.scrollHeight;
+  $("chatSend").onclick=sendChat;
+  $("chatIn").onkeydown=ev=>{ if(ev.key==="Enter") sendChat(); };
+  $("chatIn").focus();
+  lastSeenChat=Date.now(); updateChatBadge();
+}
+async function sendChat(){
+  const inp=$("chatIn"); const t=(inp.value||"").trim(); if(!t) return; inp.value="";
+  await db.add("messages",{by:me.uid,name:me.name||"",text:t.slice(0,1000),at:db.now()});
+}
+function updateChatBadge(){
+  const unseen=Object.values(messages).filter(m=>tsMs(m.at)>lastSeenChat && m.by!==me?.uid).length;
+  const b=$("chatBadge");
+  if(unseen>0 && curTab!=="chat"){ b.textContent=unseen; b.classList.remove("hidden"); }
+  else b.classList.add("hidden");
+}
+
+function render(){
+  if(curTab==="board") renderBoard();
+  else if(curTab==="list") renderList();
+  else if(curTab==="chat") renderChat();
+  $("paneBoard").classList.toggle("hidden", curTab!=="board");
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+async function setSeniorCourt(court){
+  if(!court) return;
+  await db.set("config/live",{ court:{court:String(court),at:db.now(),by:me.uid} }, true);
+}
+
+/* ============================================================
+   AUTH + BOOT
+   ============================================================ */
+function boot(user){
+  // tear down old watchers
+  unsub.forEach(u=>u&&u()); unsub=[]; if(userDocUnsub){userDocUnsub();userDocUnsub=null;}
+  if(!user){ me=null; $("app").classList.add("hidden"); $("login").classList.remove("hidden"); stopPolling(); return; }
+  const uid=user.uid;
+  userDocUnsub=db.watchDoc("users/"+uid, u=>{
+    if(!u){ me={uid,role:"pending",name:user.email}; }
+    else me={uid,...u};
+    if(emailKey(me.email||user.email)===emailKey(CHAMBER.adminEmail)) me.role="admin";
+    if(!bootStarted){ bootStarted=true; startWatchers(); }
+    gateUI();
+  });
+}
+let bootStarted=false;
+function startWatchers(){
+  unsub.push(db.watchCollection("users",rows=>{ users={}; rows.forEach(u=>users[u.id]=u); render(); }));
+  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; renderSenior(); renderDirective(); }));
+  unsub.push(db.watchCollection("messages",rows=>{ messages={}; rows.forEach(m=>messages[m.id]=m); updateChatBadge(); if(curTab==="chat") renderChat(); }));
+  unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; render(); }));
+  startPolling();
+}
+function gateUI(){
+  const approved = me && ["admin","senior","clerk","pa","junior"].includes(me.role);
+  $("login").classList.toggle("hidden", !!approved);
+  $("app").classList.toggle("hidden", !approved);
+  if(approved){ $("topDate").textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'}); render(); }
+  else if(me){ $("lgErr").textContent = me.role==="pending" ? "Your account isn't approved yet. Ask Adith to add you." : ""; }
+}
+
+/* tabs + header wiring */
+document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>{
+  curTab=b.dataset.tab;
+  document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  render();
+});
+$("main").addEventListener("click",ev=>{
+  const h=ev.target.closest("[data-here]"); if(h){ setSeniorCourt(h.dataset.here); }
+});
+$("snSet").onclick=()=>{ const v=$("snPick").value; if(v) setSeniorCourt(v); };
+$("btnOut").onclick=()=>auth.signOut();
+
+/* login form */
+$("lgGo").onclick=async()=>{
+  $("lgErr").textContent="";
+  try{ await auth.signIn($("lgEmail").value.trim(), $("lgPass").value); }
+  catch(e){ $("lgErr").textContent = (e.code||"").includes("password")||(e.code||"").includes("credential")
+    ? "Wrong email or password." : (e.message||"Sign-in failed."); }
+};
+$("lgPass").addEventListener("keydown",e=>{ if(e.key==="Enter") $("lgGo").click(); });
+$("lgReset").onclick=async()=>{
+  const em=$("lgEmail").value.trim(); if(!em){ $("lgErr").textContent="Enter your email first."; return; }
+  try{ await auth.resetPassword(em); $("lgErr").textContent="Reset link sent to "+em; }
+  catch(e){ $("lgErr").textContent=e.message||"Could not send reset."; }
+};
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && !DEMO) fetchBoard(); });
+
+auth.onChange(boot);
+$("lgName").textContent = CHAMBER.seniorName ? CHAMBER.seniorName.split(" ")[0]+"'s Chamber — War Room" : "Chamber War Room";
+
+/* ============================================================
+   DEMO SEED (only used when DEMO=true; injected by make-board-test.py)
+   ============================================================ */
+function seedDemo(db){}
+</script>
+</body>
+</html>
