@@ -25,8 +25,8 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;
-  -webkit-text-size-adjust:100%;touch-action:manipulation}
-body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+  -webkit-text-size-adjust:100%;touch-action:manipulation;background:var(--panel)}
+body{color:var(--ink);font-family:Inter,system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;overflow:hidden;position:fixed;inset:0}
 .mono{font-family:'IBM Plex Mono',monospace}
 button{font-family:inherit;cursor:pointer}
@@ -145,7 +145,7 @@ select.mini{appearance:none}
 .cell[data-setcourt]{cursor:pointer}
 .cell[data-setcourt]:active{transform:scale(.97)}
 
-main{flex:1;overflow-y:auto;padding:10px 12px 68px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+main{flex:1;overflow-y:auto;padding:10px 12px calc(60px + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 /* legend */
 .legend{display:flex;gap:12px;font-size:10px;color:var(--mut);margin:0 2px 8px;flex-wrap:wrap}
@@ -225,6 +225,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 68px;-webkit-overflow-scrolling:to
    extends through the home-indicator inset so it always touches the edge. */
 nav.botnav{position:fixed;left:0;right:0;bottom:0;display:flex;max-width:760px;margin:0 auto;
   background:var(--panel);border-top:1px solid var(--line);z-index:30;
+  padding-bottom:env(safe-area-inset-bottom,0px);
   will-change:transform;transform:translateZ(0);-webkit-transform:translateZ(0)}
 nav.botnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
   background:transparent;border:none;color:var(--mut);font-size:11px;font-weight:600;
@@ -281,6 +282,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 </div>
 
 <div id="modalRoot"></div>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("board-sw.js").catch(function(){});});}</script>
 
 <script type="module">
 /* ============================================================
@@ -774,6 +776,8 @@ function render(){
   else if(curTab==="chat") renderChat();
   $("paneTop").classList.toggle("hidden", curTab!=="board");
 }
+let _rafR=null;                       // coalesce the boot burst of watcher callbacks into one paint
+function scheduleRender(){ if(_rafR) return; _rafR=requestAnimationFrame(()=>{ _rafR=null; render(); }); }
 
 /* ============================================================
    DETAIL SHEETS — court island → sequence / passovers / totals /
@@ -883,10 +887,10 @@ function boot(user){
 }
 let bootStarted=false;
 function startWatchers(){
-  unsub.push(db.watchCollection("users",rows=>{ users={}; rows.forEach(u=>users[u.id]=u); render(); }));
-  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; render(); }));
+  unsub.push(db.watchCollection("users",rows=>{ users={}; rows.forEach(u=>users[u.id]=u); scheduleRender(); }));
+  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; scheduleRender(); }));
   unsub.push(db.watchCollection("messages",rows=>{ messages={}; rows.forEach(m=>messages[m.id]=m); updateChatBadge(); if(curTab==="chat") renderChat(); }));
-  unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; render(); }));
+  unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; scheduleRender(); }));
   loadCourtUpdates();
   startPolling();
 }
