@@ -2916,10 +2916,25 @@ function renderToday(){
 async function saveDaysheet(entries,conferences){ await db.set("daysheets/"+dsDate,{date:dsDate,entries,conferences:conferences??(daysheet?.conferences||[]),updatedAt:db.now(),updatedBy:me.uid},true); }
 function dsMove(i,d){const e=[...daysheet.entries];const j=i+d;if(j<0||j>=e.length)return;[e[i],e[j]]=[e[j],e[i]];saveDaysheet(e);}
 function dsDone(i){const e=[...daysheet.entries];e[i]={...e[i],done:!e[i].done};saveDaysheet(e);}
-function dsDel(i){ const e=[...daysheet.entries]; const ent=e[i]; if(!ent)return; const R=resolveEntry(ent,dsDate);
-  confirmAsk({title:"Remove this listing?",danger:true,confirmLabel:"Remove listing",
-    body:`Remove <b>Ct-${esc(ent.courtNo||'?')}#${esc(ent.itemNo||'?')}</b> — ${esc(R.title||'this entry')} — from the day sheet for ${esc(fmtDateY(dsDate))}?<br><br><span class="muted" style="font-size:12px">Only the day-sheet row goes; the matter stays in the register.</span>`,
-    onYes:async()=>{ const arr=[...daysheet.entries]; arr.splice(i,1); await saveDaysheet(arr); toast("Listing removed"); }});
+function dsDel(i){ const ent=daysheet.entries[i]; if(!ent)return; const R=resolveEntry(ent,dsDate);
+  const b=ent.briefId?briefs[ent.briefId]:null;
+  // A case ADDED via the listing (which auto-created its register brief) that
+  // isn't listed on any other day is removed from the register too — it exists
+  // only because of this listing. Established / manually-registered matters, and
+  // matters still listed elsewhere, keep their brief; only the row goes.
+  let alsoBrief=false;
+  if(b && b.fromListing && b.status!=="disposed"){
+    const total=Object.values(dsAll).reduce((n,ds)=>n+((ds?.entries||[]).filter(e=>e.briefId===b.id).length),0);
+    alsoBrief = total<=1;
+  }
+  confirmAsk({title:alsoBrief?"Delete this case?":"Remove this listing?",danger:true,confirmLabel:alsoBrief?"Delete case":"Remove listing",
+    body: alsoBrief
+      ? `Remove <b>Ct-${esc(ent.courtNo||'?')}#${esc(ent.itemNo||'?')}</b> — ${esc(R.title||'this entry')} — and delete it from the register?<br><br><span class="muted" style="font-size:12px">This case was added here and isn't listed on any other day, so it's removed from the register and colleagues' credit for it is cleared.</span>`
+      : `Remove <b>Ct-${esc(ent.courtNo||'?')}#${esc(ent.itemNo||'?')}</b> — ${esc(R.title||'this entry')} — from the day sheet for ${esc(fmtDateY(dsDate))}?<br><br><span class="muted" style="font-size:12px">Only the day-sheet row goes; the matter stays in the register.</span>`,
+    onYes:async()=>{
+      if(alsoBrief){ await purgeBriefEverywhere(b.id); toast("Case deleted"); }
+      else { const arr=[...daysheet.entries]; arr.splice(i,1); await saveDaysheet(arr); toast("Listing removed"); }
+    }});
 }
 
 function confForm(idx=null,prefill=null){
