@@ -2660,14 +2660,22 @@ const causeListHasDate=dateISO=>!!(courtUpdates?.by_date?.[dateISO]&&Object.keys
 const titleCase=s=>String(s||"").toLowerCase().replace(/\b([a-z])/g,m=>m.toUpperCase());
 const cleanCauseSide=side=>{
   side=String(side||"").replace(/^Connected\s+/i,"").trim();          // sub-item marker
-  side=side.replace(/^.*?[\/\-](?:19|20)\d{2}\s+/,"").trim();         // "C.A. No. 283/2022 " -> ""
+  side=side.replace(/^.*?[\/\-](?:19|20)\d{2}\s+/,"").trim();         // "MA 1829/2026 " / "C.A. No. 283/2022 " -> ""
+  // "MA 1829/2026 in C.A. …" / "IA … in SLP(C) No. 283/2022 …": after the
+  // application number, drop the lowercase "in" that links to the PARENT case
+  // plus its case-type reference, so the parties don't get "In C.A." glued on.
+  // Only fires on the lowercase connector, so "IN RE …" and real names stay.
+  if(/^in\s+/.test(side)){
+    side=side.replace(/^in\s+/,"").trim();
+    side=side.replace(/^(?:SLP|W\.?P|CRL\.?A|CRL\.?M\.?P|C\.?A|C\.?C|T\.?P|R\.?P|M\.?A|I\.?A|CONMT|CONT|ARB|CUR|DIARY|SMC)\b\.?(?:\s*\([A-Za-z]+\))?\.?\s*(?:No\.?\s*)?(?:\d[\d\-]*\/(?:19|20)\d{2}|\d+)?\s+/i,"").trim();
+  }
   side=side.replace(/^[A-Z][A-Za-z.()&\/]*\.?\s*No\.?\s+/i,"").trim();// "SLP(C) No. " (number on next line) -> ""
   side=side.replace(/^[0-9IVXLC][0-9IVXLC.\/\-]*\s+/,"").trim();      // stray leading number / roman
   side=side.replace(/\[[^\]]*\]?/g,"").replace(/\{[^}]*\}?/g,"").trim();// [R-1]/[CAVEAT]/{Mention Memo} — advocate-side markers
   side=side.replace(/\s+@\s+.*$/i,"").trim();                         // drop "@ alias ..."
   const m=side.match(/^(.*?\b(?:AND\s+ANR|AND\s+ORS|&\s+ANR|&\s+ORS|ETC)\b\.?)/i);
   if(m) side=m[1];                                                    // cut trailing AoR at "& Ors."/"and Anr."
-  return titleCase(side.trim());
+  return titleCase(side.trim()).replace(/\bM\/S\b/g,"M/s");           // Messrs. convention
 };
 // The two parties of a cause line, cleaned. {pet, resp} (resp "" if no Versus).
 function partiesFromCauseLine(s){
