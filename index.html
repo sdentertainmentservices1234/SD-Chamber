@@ -1490,10 +1490,12 @@ function listingsOf(uid){
   Object.entries(dsAll).forEach(([date,ds])=>{ (ds?.entries||[]).forEach((e,i)=>{
     if(!idIn(jrsOf(e),uid)) return;
     // A listing tied to a register brief is represented BY that brief — the
-    // brief's assignedTo is the source of truth, so it's counted there (whoever
-    // is on the brief) and NOT again here. This also means a matter reassigned
-    // away drops off the old colleague even when the day-sheet name is stale.
-    if(e.briefId && briefs[e.briefId]) return;
+    // brief's assignedTo is the source of truth, counted there, not again here.
+    // ANY listing carrying a briefId is a register matter: if its brief still
+    // exists it's counted via the brief; if the brief was DELETED the matter is
+    // gone and it must NOT resurface as credit here. So only a truly bare
+    // listing (never had a brief) counts as a standalone listing.
+    if(e.briefId) return;
     out.push({date,e,i});   // a bare listing with no brief of its own
   });});
   _listingsCache.set(key,out); return out;
@@ -1779,6 +1781,18 @@ async function syncListingJrs(briefId, assignedTo){
     });
     if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
   }
+}
+// Deleting a matter removes it from the register AND every day-sheet listing +
+// conference tied to it — so no stray credit or ghost conference lingers.
+async function purgeBriefEverywhere(id){
+  for(const [date,ds] of Object.entries(dsAll)){
+    const entries=(ds.entries||[]).filter(e=>e.briefId!==id);
+    const conferences=(ds.conferences||[]).filter(c=>c.briefId!==id);
+    if(entries.length!==(ds.entries||[]).length || conferences.length!==(ds.conferences||[]).length){
+      try{ await db.set("daysheets/"+date,{...ds,entries,conferences,updatedAt:db.now()},true); }catch(_){}
+    }
+  }
+  await db.remove("briefs/"+id);
 }
 async function acceptReassign(briefId){
   const b=briefs[briefId]; const rq=b?.reassignReq; if(!rq||!idIn(rq.to,me.uid)){ toast("This request is no longer open","ti-alert-triangle"); return; }
@@ -3605,8 +3619,8 @@ function openBrief(id){
   document.querySelectorAll("[data-brnoteexport]").forEach(x=>x.onclick=()=>{ exportNotesDoc(labelOf(b), `Conference notes${b.chamberNo?` · File #${b.chamberNo}`:''}`, b.confNotes||[], "Conference notes - "+labelOf(b)); });
   document.querySelectorAll("[data-delbrief]").forEach(x=>x.onclick=()=>{ const ld=listingDatesOf(id);
     confirmAsk({title:"Delete this matter?",danger:true,confirmLabel:"Delete matter",
-      body:`<b>${esc(labelOf(b))}</b> will be removed from the register for the whole chamber.${ld.length?`<br><br><span style="color:var(--warn)">It is listed on ${ld.length} day sheet${ld.length>1?'s':''} — those cause-list rows stay in place; remove them from the day sheet if you want them gone too.</span>`:''}`,
-      onYes:async()=>{ await db.remove("briefs/"+id); toast("Matter deleted"); }});
+      body:`<b>${esc(labelOf(b))}</b> will be removed from the register for the whole chamber${ld.length?`, along with its ${ld.length} day-sheet listing${ld.length>1?'s':''} and any conference tied to it`:''}. Colleagues' credit for it is cleared.`,
+      onYes:async()=>{ await purgeBriefEverywhere(id); toast("Matter deleted"); closeSheet(); }});
   });
   document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{const r=await autoAssign(id);if(r)notifyForm(id,r);else{closeSheet();openBrief(id);}});
   document.querySelectorAll("[data-notify]").forEach(x=>x.onclick=()=>notifyForm(x.dataset.notify));
