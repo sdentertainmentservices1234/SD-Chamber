@@ -3626,7 +3626,7 @@ function renderLeave(){
     </div>`).join(""):'<div class="trow"><div class="info muted" style="font-size:13px">No leave logged yet. Tap “Add leave” to record yours.</div></div>'}</div>`;
   $("tab-leave").innerHTML=counters+logPanel;
   if($("tbAddLeave"))$("tbAddLeave").onclick=()=>leaveForm();
-  document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=async()=>{ await db.remove("leaves/"+x.dataset.delleave); toast("Leave entry removed"); });
+  document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=async()=>{ try{ await db.remove("leaves/"+x.dataset.delleave); toast("Leave entry removed"); }catch(e){ toast("Couldn't remove — "+(e&&e.message||e),"ti-alert-triangle"); } });
 }
 function leaveForm(prefillDate){
   const canPickOther=canManage(); const cols=rosterDisplay();
@@ -3642,8 +3642,11 @@ function leaveForm(prefillDate){
   $("lv_save").onclick=async()=>{ const from=$("lv_from").value; if(!from){toast("Pick a from date","ti-alert-triangle");return;}
     const to=$("lv_to").value||from; if(to<from){toast("The 'to' date is before 'from'","ti-alert-triangle");return;}
     const uid=(canPickOther&&$("lv_uid"))?$("lv_uid").value:me.uid;
-    await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
-    closeSheet(); toast("Leave logged","ti-plane-departure");
+    const btn=$("lv_save"); btn.disabled=true;
+    try{
+      await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
+      closeSheet(); toast("Leave logged","ti-plane-departure");
+    }catch(e){ btn.disabled=false; toast("Couldn't save leave — "+(e&&e.message||e),"ti-alert-triangle"); }
   };
 }
 /* ============================================================
