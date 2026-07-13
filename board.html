@@ -75,15 +75,15 @@ header.top{display:flex;align-items:center;gap:10px;
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* board-tab header strip: nearest directive + senior */
-#paneTop{flex:none;padding:12px 15px 0}
-.headline{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);
-  border-left:5px solid var(--accent);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow)}
+#paneTop{flex:none;padding:9px 12px 0}
+.headline{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);
+  border-left:5px solid var(--accent);border-radius:12px;padding:9px 12px;box-shadow:var(--shadow)}
 .headline.go{border-left-color:var(--now);background:var(--now-bg)}
 .headline.clear{border-left-color:var(--later)}
-.headline .hl-ct{font-family:'IBM Plex Mono';font-size:28px;font-weight:700;color:var(--accent);
+.headline .hl-ct{font-family:'IBM Plex Mono';font-size:24px;font-weight:700;color:var(--accent);
   flex:none;min-width:52px;text-align:center;line-height:1}
 .headline.go .hl-ct{color:var(--now)}
-.headline .hl-main{font-family:Fraunces,serif;font-weight:600;font-size:18px;line-height:1.12}
+.headline .hl-main{font-family:Fraunces,serif;font-weight:600;font-size:17px;line-height:1.12}
 .headline .hl-sub{font-size:12px;color:var(--mut);margin-top:2px}
 
 .seniorbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px;
@@ -103,41 +103,78 @@ select.mini{appearance:none}
 .statusrow{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut);padding:2px 3px 0}
 /* senior location line (colleagues only; the Senior doesn't see it) */
 .seniorLine{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--ink);
-  background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:8px 11px;margin-top:9px;box-shadow:var(--shadow)}
+  background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:7px 10px;margin-top:7px;box-shadow:var(--shadow)}
 .seniorLine i{color:var(--navy);font-size:15px}
 .seniorLine .hint{color:var(--mut);font-size:11px;font-weight:400}
 /* routing plan lines under the directive */
 #plan{display:flex;flex-direction:column;gap:6px}
-#plan:not(:empty){margin-top:8px}
-.plan-line{font-size:12.5px;border-radius:10px;padding:8px 11px;display:flex;align-items:flex-start;gap:8px;line-height:1.35}
+#plan:not(:empty){margin-top:7px}
+.plan-line{font-size:12px;border-radius:10px;padding:7px 10px;display:flex;align-items:flex-start;gap:8px;line-height:1.35}
 .plan-line i{margin-top:1px;font-size:15px;flex:none}
 .plan-line.good{background:var(--later-bg);border:1px solid #c2e2cc;color:#2b6a40}
 .plan-line.good b{color:#22532f}
 .plan-line.warn{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a5a12}
 .plan-line.warn b{color:#6f460a}
+.headline{cursor:pointer}
+.headline:active{transform:scale(.99)}
+
+/* ===== bottom sheet (court / matter details) ===== */
+#modalRoot:empty{display:none}
+.ovl{position:fixed;inset:0;background:rgba(16,20,26,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--panel);width:100%;max-width:760px;max-height:82%;border-radius:18px 18px 0 0;
+  overflow-y:auto;padding:14px 16px 22px;box-shadow:0 -8px 40px rgba(0,0,0,.25)}
+.sheet-grab{width:38px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 12px}
+.sheet h2{font-family:Fraunces,serif;font-size:19px;font-weight:600;margin:0 0 2px;display:flex;align-items:center;gap:9px}
+.sheet h2 .chip{font-family:'IBM Plex Mono';font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
+.sheet .sh-sub{color:var(--mut);font-size:12.5px;margin-bottom:12px}
+.sh-sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);font-weight:700;margin:14px 0 6px}
+.sh-box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5}
+.sh-row{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.sh-row:last-child{border-bottom:none}
+.sh-row .k{color:var(--mut);min-width:86px;flex:none}
+.sh-matter{display:flex;gap:10px;align-items:center;background:var(--panel2);border:1px solid var(--line);
+  border-radius:11px;padding:10px 12px;margin-bottom:7px;cursor:pointer}
+.sh-matter:active{transform:scale(.98)}
+.sh-matter .mi{font-family:'IBM Plex Mono';font-weight:700;font-size:17px;min-width:34px;text-align:center}
+.sh-matter .mt{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh-btn{display:block;width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);
+  color:var(--ink);font-weight:600;font-size:14px;margin-top:8px}
+.sh-btn.navy{background:var(--navy);color:#fff;border-color:var(--navy)}
+.sh-btn.warn2{background:var(--soon-bg);border-color:#e6d29a;color:#7a4f0d}
+.po-row{display:flex;gap:7px;margin-top:8px}
+.po-row select,.po-row input{flex:1;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:14px;color:var(--ink)}
+.sh-x{position:sticky;float:right;top:0;background:transparent;border:none;font-size:20px;color:var(--mut);padding:2px}
 .senpin{position:absolute;top:5px;left:5px;width:21px;height:21px;border-radius:50%;background:var(--navy);
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .cell.sen{box-shadow:var(--shadow),0 0 0 2px var(--navy)}
 .cell[data-setcourt]{cursor:pointer}
 .cell[data-setcourt]:active{transform:scale(.97)}
 
-main{flex:1;overflow-y:auto;padding:12px 15px 16px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+main{flex:1;overflow-y:auto;padding:10px 12px 12px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 /* legend */
-.legend{display:flex;gap:13px;font-size:10.5px;color:var(--mut);margin:0 2px 11px;flex-wrap:wrap}
+.legend{display:flex;gap:12px;font-size:10px;color:var(--mut);margin:0 2px 8px;flex-wrap:wrap}
 .legend span{display:flex;align-items:center;gap:5px}
 .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
 
-/* ===== the display board grid — every court, its current item ===== */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+/* ===== the display board — adaptive islands, all 17 on one screen =====
+   Courts with our matters keep the full tile; the rest shrink to minis. */
+.grid{display:flex;flex-wrap:wrap;gap:6px}
 .cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-  padding:9px 6px 10px;text-align:center;position:relative;min-height:92px;
-  display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  padding:7px 5px 8px;text-align:center;position:relative;min-height:76px;
+  display:flex;flex-direction:column;box-shadow:var(--shadow);cursor:pointer;
+  flex:1 1 calc(33.33% - 4px);max-width:calc(33.33% - 4px)}
+.cell:active{transform:scale(.97)}
 .cell-ct{font-size:10px;font-weight:700;color:var(--navy);letter-spacing:.4px;text-transform:uppercase}
-.cell-item{font-family:'IBM Plex Mono';font-size:30px;font-weight:700;color:var(--ink);line-height:1.02;margin-top:2px}
+.cell-item{font-family:'IBM Plex Mono';font-size:25px;font-weight:700;color:var(--ink);line-height:1.02;margin-top:2px}
 .cell-sub{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px;margin-top:3px}
 .cell.idle{background:var(--idle-bg)}
 .cell.idle .cell-item{color:var(--idle);font-weight:600}
+/* mini tile — no chamber matter in this court */
+.cell.mini{flex:1 1 calc(20% - 6px);max-width:calc(20% - 6px);min-height:0;padding:6px 2px 7px}
+.cell.mini .cell-ct{font-size:9px}
+.cell.mini .cell-item{font-size:17px;margin-top:1px}
+.cell.mini .cell-sub{display:none}
 /* our courts — colour-coded, shifts as our item nears */
 .cell.ours{border-width:2px}
 .cell.ours.now{border-color:var(--now);background:var(--now-bg);animation:blink 1.25s ease-in-out infinite}
@@ -146,7 +183,7 @@ main{flex:1;overflow-y:auto;padding:12px 15px 16px;-webkit-overflow-scrolling:to
 .cell.ours.passed{border-color:var(--passed);background:var(--idle-bg)}
 .cell.ours.idle{border-color:var(--idle)}
 @keyframes blink{0%,100%{box-shadow:0 0 0 0 rgba(210,58,52,0)}50%{box-shadow:0 0 0 4px rgba(210,58,52,.35)}}
-.cell-ours{margin-top:6px;font-size:10.5px;font-weight:700;border-radius:7px;padding:3px 4px;line-height:1.25;color:#fff}
+.cell-ours{margin-top:5px;font-size:10px;font-weight:700;border-radius:7px;padding:3px 4px;line-height:1.25;color:#fff}
 .cell-ours .oi{font-family:'IBM Plex Mono';font-size:12px}
 .cell.ours.now  .cell-ours{background:var(--now)}
 .cell.ours.soon .cell-ours{background:var(--soon)}
@@ -187,8 +224,7 @@ main{flex:1;overflow-y:auto;padding:12px 15px 16px;-webkit-overflow-scrolling:to
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
 
 /* ===== bottom navigation (mobile-standard) ===== */
-nav.botnav{flex:none;display:flex;background:var(--panel);border-top:1px solid var(--line);
-  padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.botnav{flex:none;display:flex;background:var(--panel);border-top:1px solid var(--line)}
 nav.botnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
   background:transparent;border:none;color:var(--mut);font-size:11px;font-weight:600;
   padding:9px 4px 8px;position:relative}
@@ -243,6 +279,8 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
     <button data-tab="chat"><i class="ti ti-messages"></i>Chat<span class="badge hidden" id="chatBadge">0</span></button>
   </nav>
 </div>
+
+<div id="modalRoot"></div>
 
 <script type="module">
 /* ============================================================
@@ -311,19 +349,34 @@ function parseBoard(html){
   }
   return { courts };
 }
-function expandSequence(text){
-  if(!text) return [];
+// Expand a declared sequence; also note WHERE passovers are taken up (the
+// "PASS OVER IF ANY" / "fresh passover then" marker) as an index in that order.
+function seqInfo(text){
+  if(!text) return {seq:[],passIdx:null};
   const toks=text.toUpperCase().replace(/[^0-9A-Z. ]/g," ").split(/\s+/).filter(Boolean);
-  const out=[], seen=new Set(); const push=n=>{ if(!seen.has(n)){seen.add(n);out.push(n);} };
+  const out=[], seen=new Set(); let passIdx=null;
+  const push=n=>{ if(!seen.has(n)){seen.add(n);out.push(n);} };
   for(let i=0;i<toks.length;i++){
-    const num=toks[i].match(/^(\d+)(?:\.\d+)?$/); if(!num) continue;
+    const t=toks[i];
+    if(passIdx==null && (t==="PASSOVER"||t==="PASSOVERS"||t==="PO"||(t==="PASS"&&(toks[i+1]==="OVER"||toks[i+1]==="OVERS")))) passIdx=out.length;
+    const num=t.match(/^(\d+)(?:\.\d+)?$/); if(!num) continue;
     const a=parseInt(num[1],10);
     if(toks[i+1]==="TO" && /^\d+$/.test(toks[i+2]||"")){
       const b=parseInt(toks[i+2],10);
       if(b>=a && b-a<600){ for(let k=a;k<=b;k++) push(k); } else push(a); i+=2;
     } else push(a);
   }
-  return out;
+  return {seq:out, passIdx};
+}
+const expandSequence = text => seqInfo(text).seq;
+// Items the BOARD itself declares passed over ("ITEM NOS 5 12 PASSED OVER" /
+// "PASS OVER: 5, 12"). Best-effort; manual marking covers boards that don't say.
+function boardPOitems(bc){
+  const t=(bc?.sequence||"").toUpperCase(); const set=new Set(); if(!t) return set;
+  let m=t.match(/PASS(?:ED)?\s*OVERS?\s*(?:ITEMS?\s*)?(?:NOS?\.?\s*)?[:\-]?\s*((?:\d+[\s,&]+)*\d+)/);
+  if(!m) m=t.match(/ITEMS?\s*(?:NOS?\.?\s*)?((?:\d+[\s,&]+)*\d+)\s*(?:IS|ARE)?\s*PASS(?:ED)?\s*OVER/);
+  if(m) m[1].split(/[\s,&]+/).forEach(n=>{ if(n) set.add(parseInt(n,10)); });
+  return set;
 }
 function proximity(seq,current,ours){
   current=parseInt(current,10); ours=Math.floor(parseFloat(ours));
@@ -332,7 +385,21 @@ function proximity(seq,current,ours){
   if(curPos<0||ourPos<0) return {gap:null,of:seq.length,ourPos,curPos};
   return {gap:ourPos-curPos,of:seq.length,ourPos,curPos};
 }
-// classify our matter against its board court -> {tier,label,short,gap,approx,ment}
+/* ---- Passover marks: shared live via config/live.po (any colleague marks;
+   auto-cleared when the date turns). Board-declared passovers merge in. ---- */
+const poKey=(court,item)=>String(court)+"_"+String(item);
+const poMarks=()=>(live?.po && live.po.date===todayISO() && live.po.marks)||{};
+const poFor=(court,item)=>poMarks()[poKey(court,item)]||null;
+async function setPO(court,item,mode,after){
+  const marks={...poMarks()}; marks[poKey(court,item)]={mode,after:after||null,by:me.uid,at:Date.now()};
+  await db.set("config/live",{po:{date:todayISO(),marks}},true);
+}
+async function clearPO(court,item){
+  const marks={...poMarks()}; delete marks[poKey(court,item)];
+  await db.set("config/live",{po:{date:todayISO(),marks}},true);
+}
+
+// classify our matter against its board court -> {tier,label,short,gap,approx,ment,po}
 function classify(e, bc){
   const ours=e.itemNo;
   if(!bc) return {tier:"unknown",label:"court not on the board",short:"—"};
@@ -342,7 +409,25 @@ function classify(e, bc){
     return {tier:"soon",label:"mentioning — watch",short:"watch",gap:0,ment:true};
   }
   const oursNum=parseFloat(ours);
-  const seq=expandSequence(bc.sequence);
+  const {seq,passIdx}=seqInfo(bc.sequence);
+  const curPos = seq.length ? seq.indexOf(parseInt(bc.item,10)) : -1;
+  // Passed over? (marked by a colleague, or declared by the board itself)
+  const mark = poFor(e.courtNo,ours) || (boardPOitems(bc).has(Math.floor(oursNum)) ? {mode:"auto"} : null);
+  if(mark){
+    let gap=null;
+    if(mark.mode==="after" && mark.after && seq.length){
+      const tp=seq.indexOf(parseInt(mark.after,10));
+      if(tp>=0 && curPos>=0) gap=Math.max(0,tp-curPos+1);
+    } else if(seq.length && curPos>=0){
+      // recalled where the sequence says passovers are taken, else end of board
+      const tp=(passIdx!=null && passIdx>curPos) ? passIdx : seq.length-1;
+      gap=Math.max(0,tp-curPos);
+    }
+    if(gap==null) return {tier:"later",label:"passed over — recall time unclear",short:"PO",po:true};
+    if(gap<=1) return {tier:"now",label:"PASSED OVER — recall imminent",short:"PO now",gap,po:true};
+    if(gap<=4) return {tier:"soon",label:"passed over — recall ~"+gap+" items",short:"PO "+gap,gap,po:true};
+    return {tier:"later",label:"passed over — recall in ~"+gap+" items",short:"PO "+gap,gap,po:true};
+  }
   let gap=null, approx=false;
   const p=proximity(seq,bc.item,ours);
   if(p && p.gap!=null) gap=p.gap;
@@ -491,7 +576,7 @@ if(DEMO){
    STATE
    ============================================================ */
 let me=null, users={}, daysheet=null, live={}, messages={};
-let board=[], boardAt=0, boardErr=null, paceHist={};
+let board=[], boardAt=0, boardErr=null, paceHist={}, _primaryCourt=null, courtUpdates=null;
 let curTab="board", lastSeenChat=0, userDocUnsub=null, unsub=[], pollId=null, tickId=null;
 
 const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
@@ -566,7 +651,7 @@ function renderSenior(){
   const tagTxt = s.mode==="confirmed"?("confirmed "+(s.at?agoTxt(s.at):"")):s.mode==="stale"?"last known":s.mode==="inferred"?"inferred":"";
   line.innerHTML = `<i class="ti ti-user"></i> Senior: <b>${esc(loc)}</b>`
     + (tagTxt?` <span class="tag ${tagCls}">${esc(tagTxt)}</span>`:"")
-    + ` <span class="hint">— tap the court he's in</span>`;
+    + ` <span class="hint">— tap his court → “Senior is here”</span>`;
 }
 
 // Routing planner: pick the court to head to, then use the oval layout to say
@@ -586,48 +671,45 @@ function renderRoute(){
   if(!cands.length){ dir.className="headline clear"; ct.textContent="✓";
     big.textContent="Nothing imminent"; sub.textContent="No chamber matter is close right now."; return; }
   const primary=cands[0];
+  _primaryCourt=primary.court;
   const now = primary.k.tier==="now" && !primary.k.ment;
   dir.className="headline"+(now?" go":"");
   ct.textContent=primary.court;
   big.textContent = now ? "Head to Court "+primary.court : "Get ready — Court "+primary.court;
-  const ptime = (primary.mins>0.9) ? " · reaches in ~"+Math.round(primary.mins)+" min"+(primary.meas?"":" (est)") : "";
-  sub.innerHTML = "Item "+esc(primary.e.itemNo)+" · "+esc(shortTitle(primary.e))+" — <b>"+esc(primary.k.label)+"</b>"+esc(ptime);
+  // Simple: what's on vs where we are. Tap opens the court's detail sheet.
+  const cur=boardByCourt()[primary.court]?.item;
+  sub.textContent = (cur?`Item ${cur} is going on`:"") + ` · we are item ${primary.e.itemNo}` + (primary.k.po?" (passed over)":"");
   if(!plan) return;
-  const mlabel = c => c.mins==null ? esc(c.k.short||"") : (c.mins<1 ? "reaching now" : "~"+Math.round(c.mins)+" min");
-  let lines="";
-  for(const c of cands.slice(1,5)){
-    const w=walkMin(primary.court,c.court);
-    const soonish = c.mins!=null && c.mins<=18;
-    if(!soonish) continue;
-    if(w<=NEAR_MIN){
-      const near = w<0.7 ? "next door" : Math.round(w*10)/10+" min away";
-      lines+=`<div class="plan-line good"><i class="ti ti-arrows-join"></i> <span>Court <b>${esc(c.court)}</b> is ${near} and reaches in ${mlabel(c)} — <b>take both</b>.</span></div>`;
-    } else {
-      lines+=`<div class="plan-line warn"><i class="ti ti-alert-triangle"></i> <span>Court <b>${esc(c.court)}</b> also reaching (${mlabel(c)}) — ${Math.round(w)} min walk away, <b>hold it / send someone</b>.</span></div>`;
-    }
-  }
+  // One reason line only: why THIS court.
+  const tmin = primary.mins==null?null:Math.round(primary.mins);
+  let reason = primary.k.tier==="now" ? "Our item is on / next" :
+    tmin!=null ? "Closest of our matters — reaching in ~"+tmin+" min"+(primary.meas?"":" (est)") : esc(primary.k.label);
+  // ...plus the take-both bonus if a nearby court is also reaching.
+  const buddy=cands.slice(1,5).find(c=>{ const w=walkMin(primary.court,c.court); return w<=NEAR_MIN && c.mins!=null && c.mins<=18; });
+  let lines=`<div class="plan-line good"><i class="ti ti-route"></i> <span>${reason}${buddy?` — and Court <b>${esc(buddy.court)}</b> next door reaches in ~${Math.round(buddy.mins)} min, <b>take both</b>`:""}.</span></div>`;
   plan.innerHTML=lines;
 }
 
-// one court tile on the display board
-function boardCell(c, senCourt, canSet){
+// one court tile: full island when we have matters there, mini otherwise
+function boardCell(c, senCourt){
   const idle=/not in session/i.test(c.status||"");
   const ours=myMatters().filter(e=>String(e.courtNo)===String(c.court));
-  let tier="", oursHtml="";
-  if(ours.length){
-    const ks=ours.map(e=>({e,k:classify(e,c)})).sort((a,b)=>(TIER_RANK[a.k.tier]-TIER_RANK[b.k.tier])||((a.k.gap??999)-(b.k.gap??999)));
-    tier=ks[0].k.tier;
-    const items=ks.map(x=>esc(x.e.itemNo)).join(" · ");
-    oursHtml=`<div class="cell-ours"><span class="oi">${items}</span><br>${esc(ks[0].k.short||ks[0].k.label)}</div>`;
-  }
   const sen = senCourt && String(senCourt)===String(c.court);
-  const tap = canSet ? ` data-setcourt="${esc(c.court)}"` : "";
-  return `<div class="cell ${ours.length?"ours "+tier:""} ${idle?"idle":""} ${sen?"sen":""}"${tap}>
+  if(!ours.length){
+    return `<div class="cell mini ${idle?"idle":""} ${sen?"sen":""}" data-court="${esc(c.court)}">
+      ${sen?`<span class="senpin"><i class="ti ti-user"></i></span>`:""}
+      <div class="cell-ct">Ct ${esc(c.court)}</div>
+      <div class="cell-item">${idle?"—":esc(c.item||"·")}</div></div>`;
+  }
+  const ks=ours.map(e=>({e,k:classify(e,c)})).sort((a,b)=>(TIER_RANK[a.k.tier]-TIER_RANK[b.k.tier])||((a.k.gap??999)-(b.k.gap??999)));
+  const tier=ks[0].k.tier;
+  const items=ks.map(x=>esc(x.e.itemNo)).join(" · ");
+  return `<div class="cell ours ${tier} ${idle?"idle":""} ${sen?"sen":""}" data-court="${esc(c.court)}">
     ${sen?`<span class="senpin"><i class="ti ti-user"></i></span>`:""}
     <div class="cell-ct">Court ${esc(c.court)}</div>
     <div class="cell-item">${idle?"—":esc(c.item||"·")}</div>
     <div class="cell-sub">${idle?"not sitting":esc(c.status||"hearing")}</div>
-    ${oursHtml}</div>`;
+    <div class="cell-ours"><span class="oi">${items}</span><br>${esc(ks[0].k.short||ks[0].k.label)}</div></div>`;
 }
 function renderBoard(){
   paintFresh(); renderRoute(); renderSenior();
@@ -636,22 +718,22 @@ function renderBoard(){
   if(boardErr && boardErr!=="relay-unset") h+=`<div class="notice"><b>Can't reach the board</b> — retrying every 15 seconds.</div>`;
   if(!board.length){ $("main").innerHTML=h+`<div class="empty">Loading the display board…</div>`; return; }
   const ourCourts=new Set(myMatters().map(e=>String(e.courtNo)));
-  const anyOurs = ourCourts.size>0;
-  if(anyOurs) h+=`<div class="legend">
+  if(ourCourts.size) h+=`<div class="legend">
     <span><i style="background:var(--now)"></i>at our item</span>
     <span><i style="background:var(--soon)"></i>approaching</span>
     <span><i style="background:var(--later)"></i>later</span>
     <span><i style="background:var(--passed)"></i>done</span>
-    <span><i style="background:var(--idle-bg);border:1px solid var(--line)"></i>not sitting</span>
   </div>`;
   // Courts 1–17 always; registrar / extra courts (>17) only when we're in them.
-  const senCourt = seniorState().court, canSet = !isSenior();
-  const sorted=[...board]
-    .filter(c=>{ const n=parseInt(c.court); return (n>=1 && n<=17) || ourCourts.has(String(c.court)); })
-    .sort((a,b)=>(parseInt(a.court)||999)-(parseInt(b.court)||999));
-  h+=`<div class="grid">`;
-  for(const c of sorted) h+=boardCell(c, senCourt, canSet);
-  h+=`</div>`;
+  // Our courts render first at full size; the rest shrink to minis — all fit
+  // one screen, no scrolling.
+  const senCourt = seniorState().court;
+  const shown=[...board].filter(c=>{ const n=parseInt(c.court); return (n>=1 && n<=17) || ourCourts.has(String(c.court)); });
+  const byNo=(a,b)=>(parseInt(a.court)||999)-(parseInt(b.court)||999);
+  const full=shown.filter(c=>ourCourts.has(String(c.court))).sort(byNo);
+  const mini=shown.filter(c=>!ourCourts.has(String(c.court))).sort(byNo);
+  h+=`<div class="grid">`+full.map(c=>boardCell(c,senCourt)).join("")+`</div>`;
+  if(mini.length) h+=`<div class="grid" style="margin-top:7px">`+mini.map(c=>boardCell(c,senCourt)).join("")+`</div>`;
   $("main").innerHTML=h;
 }
 
@@ -706,6 +788,94 @@ function render(){
 }
 
 /* ============================================================
+   DETAIL SHEETS — court island → sequence / passovers / totals /
+   our matters; our matter → full details + passover marking
+   ============================================================ */
+async function loadCourtUpdates(){
+  // totals per court come from the chamber's fetched causelist (same repo)
+  for(const p of ["court-updates.json","../court-updates.json"]){
+    try{ const r=await fetch(p+"?_="+Date.now(),{cache:"no-store"});
+      if(r.ok){ courtUpdates=await r.json(); return; } }catch(e){}
+  }
+}
+function totalsFor(court){
+  const lists=courtUpdates?.by_date?.[todayISO()]?.lists||{};
+  const out=[];
+  for(const [type,courts] of Object.entries(lists)){
+    const rec=courts?.[String(court)];
+    if(rec?.total) out.push(type+": "+rec.total);
+  }
+  return out;
+}
+function closeModal(){ $("modalRoot").innerHTML=""; }
+function openCourtModal(court){
+  court=String(court);
+  const bc=boardByCourt()[court];
+  const idle=bc?/not in session/i.test(bc.status||""):true;
+  const {seq,passIdx}=seqInfo(bc?.sequence||"");
+  const boardPO=bc?[...boardPOitems(bc)]:[];
+  const ours=myMatters().filter(e=>String(e.courtNo)===court);
+  const senCourt=seniorState().court;
+  let h=`<div class="ovl" data-close><div class="sheet"><div class="sheet-grab"></div>
+    <h2>Court ${esc(court)} <span class="chip">${idle?"not sitting":"item "+esc(bc?.item||"·")}</span></h2>
+    <div class="sh-sub">${idle?"Not in session":esc(bc?.status||"Hearing")+(bc?.caseNo?" · "+esc(bc.caseNo):"")}</div>`;
+  if(ours.length){
+    h+=`<div class="sh-sec">Our matters here</div>`;
+    for(const e of ours){
+      const k=classify(e,bc);
+      h+=`<div class="sh-matter" data-matter="${esc(court)}|${esc(e.itemNo)}">
+        <div class="mi">${esc(e.itemNo)}</div><div class="mt">${esc(shortTitle(e))}</div>
+        <span class="badge2 ${k.tier}" style="flex:none">${esc(k.short||"")}</span></div>`;
+    }
+  }
+  h+=`<div class="sh-sec">Declared sequence</div>
+    <div class="sh-box">${bc?.sequence?esc(bc.sequence):"No sequence declared — runs in listed order."}</div>`;
+  h+=`<div class="sh-sec">Passovers</div><div class="sh-box">`;
+  const poHere=Object.entries(poMarks()).filter(([k])=>k.startsWith(court+"_")).map(([k,v])=>({item:k.split("_")[1],...v}));
+  const poBits=[];
+  if(boardPO.length) poBits.push("Board shows passed over: <b>"+boardPO.join(", ")+"</b>");
+  if(poHere.length) poBits.push("Marked by chamber: <b>"+poHere.map(p=>p.item+(p.mode==="after"&&p.after?" (after "+esc(p.after)+")":"")).join(", ")+"</b>");
+  poBits.push(passIdx!=null?"Sequence takes passovers after <b>item "+esc(String(seq[passIdx-1]??"start"))+"</b>.":"Recall position not declared — assumed end of board.");
+  h+=poBits.join("<br>")+`</div>`;
+  const tots=totalsFor(court);
+  if(tots.length) h+=`<div class="sh-sec">Total matters today</div><div class="sh-box">${tots.map(esc).join("<br>")}</div>`;
+  if(!isSenior()) h+=`<button class="sh-btn navy" data-senhere="${esc(court)}">${String(senCourt)===court?"Senior is here ✓":"Senior is in Court "+esc(court)}</button>`;
+  h+=`<button class="sh-btn" data-close>Close</button></div></div>`;
+  $("modalRoot").innerHTML=h;
+}
+function openMatterModal(court,item){
+  const e=myMatters().find(x=>String(x.courtNo)===String(court)&&String(x.itemNo)===String(item));
+  if(!e) return;
+  const bc=boardByCourt()[String(court)];
+  const k=classify(e,bc);
+  const jl=(e.juniorUids||[]).map(u=>users[u]?.name||"").filter(Boolean).join(", ");
+  const mark=poFor(court,item);
+  const mins=reachMinsFor(court,k);
+  let h=`<div class="ovl" data-close><div class="sheet"><div class="sheet-grab"></div>
+    <h2>Item ${esc(item)} <span class="chip">Court ${esc(court)}</span></h2>
+    <div class="sh-sub">${esc(shortTitle(e))}</div>
+    <div class="sh-row"><span class="k">Status</span><span><span class="badge2 ${k.tier}">${esc(k.short||"")}</span> ${esc(k.label)}${mins!=null&&mins>0.9?" · ~"+Math.round(mins)+" min":""}</span></div>
+    ${e.bench?`<div class="sh-row"><span class="k">Bench</span><span>${esc(e.bench)}</span></div>`:""}
+    ${e.counsel?`<div class="sh-row"><span class="k">Counsel</span><span>${esc(e.counsel)}</span></div>`:""}
+    ${jl?`<div class="sh-row"><span class="k">Colleagues</span><span>${esc(jl)}</span></div>`:""}
+    ${e.appearingFor?`<div class="sh-row"><span class="k">For</span><span>${esc(e.appearingFor)}</span></div>`:""}
+    ${e.confTime?`<div class="sh-row"><span class="k">Conference</span><span>${esc(e.confTime)}</span></div>`:""}`;
+  // passover controls — colleagues mark it live for the whole chamber
+  h+=`<div class="sh-sec">Passover</div>`;
+  if(mark){
+    h+=`<div class="sh-box">Marked passed over${mark.mode==="after"&&mark.after?" — recall after item <b>"+esc(mark.after)+"</b>":mark.mode==="auto"?" (from the board)":" — recall at passover slot / end"}.</div>
+      <button class="sh-btn warn2" data-poclear="${esc(court)}|${esc(item)}">Clear passover mark</button>`;
+  } else {
+    h+=`<div class="po-row"><select id="poMode"><option value="slot">Recall at passover slot / end</option><option value="after">Recall after item…</option></select>
+      <input id="poAfter" type="number" placeholder="item no." style="max-width:90px" class="hidden"></div>
+      <button class="sh-btn warn2" data-poset="${esc(court)}|${esc(item)}">Mark passed over</button>`;
+  }
+  h+=`<button class="sh-btn" data-close>Close</button></div></div>`;
+  $("modalRoot").innerHTML=h;
+  const sel=$("poMode"); if(sel) sel.onchange=()=>$("poAfter").classList.toggle("hidden",sel.value!=="after");
+}
+
+/* ============================================================
    ACTIONS + AUTH + BOOT
    ============================================================ */
 async function setSeniorCourt(court){
@@ -729,6 +899,7 @@ function startWatchers(){
   unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; render(); }));
   unsub.push(db.watchCollection("messages",rows=>{ messages={}; rows.forEach(m=>messages[m.id]=m); updateChatBadge(); if(curTab==="chat") renderChat(); }));
   unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; render(); }));
+  loadCourtUpdates();
   startPolling();
 }
 function gateUI(){
@@ -746,8 +917,24 @@ document.querySelectorAll("nav.botnav button").forEach(b=>b.onclick=()=>{
   render();
 });
 $("main").addEventListener("click",ev=>{
-  const sc=ev.target.closest("[data-setcourt]");
-  if(sc && !isSenior()){ setSeniorCourt(sc.dataset.setcourt); }
+  const c=ev.target.closest("[data-court]");
+  if(c) openCourtModal(c.dataset.court);
+});
+$("directive").onclick=()=>{ if(_primaryCourt) openCourtModal(_primaryCourt); };
+$("modalRoot").addEventListener("click",async ev=>{
+  const t=ev.target;
+  if(t.classList.contains("ovl") || t.closest("button[data-close]")){ closeModal(); return; }
+  const m=t.closest("[data-matter]");
+  if(m){ const [ct,it]=m.dataset.matter.split("|"); openMatterModal(ct,it); return; }
+  const sh=t.closest("[data-senhere]");
+  if(sh){ await setSeniorCourt(sh.dataset.senhere); openCourtModal(sh.dataset.senhere); return; }
+  const ps=t.closest("[data-poset]");
+  if(ps){ const [ct,it]=ps.dataset.poset.split("|");
+    const mode=$("poMode").value==="after"?"after":"slot";
+    const after=mode==="after"?($("poAfter").value||"").trim():null;
+    await setPO(ct,it,mode,after); openMatterModal(ct,it); return; }
+  const pc=t.closest("[data-poclear]");
+  if(pc){ const [ct,it]=pc.dataset.poclear.split("|"); await clearPO(ct,it); openMatterModal(ct,it); return; }
 });
 $("btnRefresh").onclick=hardRefresh;
 $("btnOut").onclick=()=>auth.signOut();
