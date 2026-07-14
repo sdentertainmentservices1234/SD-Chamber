@@ -823,7 +823,7 @@ body.demo .topbar{top:34px}
     </div>
     <nav class="sb-nav" id="sbNav">
       <button data-tab="cal" class="active"><span class="ic ti ti-calendar-month"></span>Calendar</button>
-      <button data-tab="now"><span class="ic ti ti-broadcast"></span>Now<span class="now-nav-dot hidden" id="navNowDot"></span></button>
+      <button data-tab="now"><span class="ic ti ti-users-group"></span>Conferences</button>
       <button data-tab="board"><span class="ic ti ti-layout-grid"></span>Work board</button>
       <button data-tab="today"><span class="ic ti ti-list-check"></span>Day sheet</button>
       <button data-tab="briefs"><span class="ic ti ti-folders"></span>Briefs<span class="count" id="cntBriefs"></span></button>
@@ -847,7 +847,6 @@ body.demo .topbar{top:34px}
       </div>
       <div id="topbarAction" class="topbar-action"></div>
       <div class="topbar-icons">
-        <button class="live-pill hidden" id="livePill" title="Where the Senior is now"></button>
         <button class="tbtn icon-only" id="btnBell" title="Notifications" aria-label="Notifications" style="position:relative"><span class="ic ti ti-bell"></span><span id="bellCount" class="bell-badge hidden"></span></button>
         <button class="tbtn icon-only" id="btnRefresh" title="Refresh — fetch the latest data and app version" aria-label="Refresh"><span class="ic ti ti-refresh"></span></button>
         <button class="tbtn icon-only" id="btnView" title="Switch between mobile and desktop view" aria-label="Toggle view"><span class="ic ti ti-device-mobile"></span></button>
@@ -1327,7 +1326,7 @@ applyViewPref();
 if($("navMore")) $("navMore").onclick=()=>{
   openSheet(`<div class="sheet-head"><div><h3>More</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      <button class="btn ghost" data-moretab="now" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-broadcast"></span>Now — live tracker</button>
+      <button class="btn ghost" data-moretab="now" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-users-group"></span>Conference tracking</button>
       <button class="btn ghost" data-moretab="leave" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-plane-departure"></span>Leave</button>
       <button class="btn ghost" data-moretab="team" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-users"></span>Chamber</button>
       <button class="btn ghost" id="moreSignOut" style="width:100%;justify-content:flex-start;color:var(--danger)"><span class="ic ti ti-logout"></span>Sign out</button>
@@ -1373,7 +1372,7 @@ function startApp(){
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); renderActive(); }));   // leave affects roster/board too
   unsub.push(db.watchCollection("notifs", rows=>{ notifs={}; rows.forEach(nn=>notifs[nn.id]=nn); updateBell(); }));
-  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; updateLivePill(); renderActive(); }));
+  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; renderActive(); }));   // doc shared with the SD Court App
   unsub.push(db.watchCollection("confstatus", rows=>{ confStatus={}; rows.forEach(s=>confStatus[s.id]=s); if(curTab==="now")renderNow(); }));
   loadCourtUpdates();
   watchDaysheet();
@@ -1398,7 +1397,7 @@ let curTab="cal";
 // ones a user collapses for the session.
 const uiExp={ balance:true, rosterInfo:false, cardsClosed:new Set() };
 const TITLES={cal:["Calendar","Court days, holidays and the chamber's diary"],
-  now:["Now","Live — where the Senior is and what's on"],
+  now:["Conference tracking","Live conference status, timers and notes"],
   board:["Work board","Distribution and workload across the chamber"],
   today:["Day sheet",""], briefs:["Briefs","The chamber's matter register"],
   leave:["Leave","Chamber leave — logged openly for everyone"], team:["Chamber","Workload, roster, people and availability"]};
@@ -1641,7 +1640,11 @@ function shareForDate(arr, uid, date){
 // Share of a BRIEF for one colleague: a full-credit claim overrides; otherwise
 // split among co-assignees present on the brief's date (its next hearing).
 function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[];
-  if(b.creditClaim&&b.creditClaim.uid) return aliasIds(uid).includes(b.creditClaim.uid)?1:0;
+  // A credit claim only holds while the claimant is STILL ON the matter. A stale
+  // claim (claimant reassigned away / removed from the team) used to swallow the
+  // whole credit — the new assignee scored 0 and the departed claimant wasn't
+  // counted, so the matter credited NOBODY. Ignore stale claims entirely.
+  if(b.creditClaim&&b.creditClaim.uid&&idIn(arr,b.creditClaim.uid)) return aliasIds(uid).includes(b.creditClaim.uid)?1:0;
   return shareForDate(arr, uid, b.nextDate||b.conferenceAt||null);
 }
 const fmtPts=n=>{ n=Math.round(n*10)/10; return Number.isInteger(n)?String(n):n.toFixed(1); };  // tidy fractional display
@@ -1816,6 +1819,8 @@ async function acceptReassign(briefId){
     assignedTo, everAssigned,
     ackBy:[...new Set([...(b.ackBy||[]).filter(u=>assignedTo.includes(u)), me.uid])],
     assignHistory:[...(b.assignHistory||[]),{uid:me.uid,at:Date.now(),mode:"transfer",from:rq.from}],
+    // a credit claim leaves with the person who handed the matter over
+    creditClaim:(b.creditClaim&&b.creditClaim.uid===rq.from)?null:(b.creditClaim||null),
     reassignReq:null, assignedAt:Date.now(), updatedAt:db.now() });
   await syncListingJrs(briefId, assignedTo);   // day-sheet listings now name the new colleague
   pushNotif([rq.from], `${nameOf(me.uid)} accepted your reassignment request — ${labelOf(b)} is now with them.`, "transfer", briefId);
@@ -1968,13 +1973,6 @@ let _confTimerId=0;
 function _tickConfTimers(){ let any=false; document.querySelectorAll("#tab-now [data-since]").forEach(el=>{ const since=+el.dataset.since; if(since){ any=true; el.textContent=fmtElapsed((+el.dataset.accum||0)+(Date.now()-since)); } }); if(!any) stopConfTimer(); }
 function stopConfTimer(){ if(_confTimerId){ clearInterval(_confTimerId); _confTimerId=0; } }
 // topbar pill + sidebar dot — glanceable "where the Senior is" from any tab
-function updateLivePill(){
-  const c=live?.court?.court, p=$("livePill"), dot=$("navNowDot");
-  if(p){ if(c){ p.classList.remove("hidden"); p.innerHTML=`<span class="now-dot"></span>${esc(courtLabel(c))}`; p.onclick=()=>selectTab("now"); }
-         else p.classList.add("hidden"); }
-  if(dot) dot.classList.toggle("hidden",!c);
-}
-const COURT_SPECIALS=["Chamber","Registrar","Away"];
 const fmtClock=ms=>{ try{ return new Date(ms).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"}); }catch(e){ return ""; } };
 // stable per-conference id: date + time + label, sanitised for a Firestore doc id
 const confKey=c=>{ const t=String(c.time||"").replace(/[^\dapm]/gi,""); const l=String(c.label||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,48); return `${c.date||"x"}_${t||"x"}_${l||"x"}`; };
@@ -2000,44 +1998,14 @@ function conferencesOn(dateISO){
   return out;
 }
 
-let nowSub="conf";                 // which sub-tab: "conf" | "court"
+// Conference tracking only — court location lives in the separate SD Court App.
 const nowConfOpen=new Set();        // expanded conference cards (session)
 let _editNote=null;                 // "confKey|index" of the note being edited inline
 function renderNow(){
   stopConfTimer();   // re-established below if a conference is running
-  const seg=`<div class="now-seg">
-    <button data-nowsub="conf" class="${nowSub==="conf"?"on":""}"><span class="ic ti ti-users-group"></span>Conference</button>
-    <button data-nowsub="court" class="${nowSub==="court"?"on":""}"><span class="ic ti ti-map-pin"></span>Court</button></div>`;
-  $("tab-now").innerHTML=`<div class="now-wrap">${seg}${nowSub==="court"?courtSectionHtml():confSectionHtml()}</div>`;
-  document.querySelectorAll("#tab-now [data-nowsub]").forEach(b=>b.onclick=()=>{ nowSub=b.dataset.nowsub; renderNow(); });
-  if(nowSub==="court") wireCourt(); else { wireConf();
-    if(document.querySelector("#tab-now [data-since]")) _confTimerId=setInterval(_tickConfTimers,1000); }
-}
-function courtSectionHtml(){
-  const lc=live?.court||null, hasCourt=!!(lc&&lc.court);
-  const courts=Array.from({length:17},(_,i)=>String(i+1));
-  const courtBtn=c=>`<button class="now-court${String(lc?.court)===String(c)?" on":""}" data-setcourt="${esc(c)}">${esc(c)}</button>`;
-  return `<div class="ncard">
-    <div class="ncard-h"><span class="ic ti ti-map-pin"></span>Senior in court</div>
-    <div class="ncard-b">
-      ${hasCourt
-        ? `<div class="now-live"><span class="now-dot"></span>${esc(courtLabel(lc.court))}</div>
-           <div class="now-meta">Marked by ${esc(nameOf(lc.by))} · ${esc(timeAgo(lc.at))}</div>`
-        : `<div class="now-blank">Not marked yet. Whoever is with the Senior — tap the court he's in and everyone sees it live.</div>`}
-      <div class="now-grid">${courts.map(courtBtn).join("")}</div>
-      <div class="now-grid now-grid-sp">${COURT_SPECIALS.map(courtBtn).join("")}</div>
-      ${hasCourt?`<button class="tbtn sm now-clear" id="nowClear"><span class="ic ti ti-x"></span>Clear</button>`:""}
-    </div></div>
-    <div class="now-note">Live to the whole chamber. Nothing is inferred — it shows exactly what someone last tapped.</div>`;
-}
-function wireCourt(){
-  const lc=live?.court||null;
-  document.querySelectorAll("#tab-now [data-setcourt]").forEach(x=>x.onclick=async()=>{
-    const c=x.dataset.setcourt;
-    if(String(lc?.court)===String(c)){ await db.set("config/live",{court:null},true); toast("Cleared"); return; }
-    await db.set("config/live",{court:{court:c,at:Date.now(),by:me.uid}},true); toast(courtLabel(c)+" — live to everyone","ti-broadcast");
-  });
-  if($("nowClear")) $("nowClear").onclick=async()=>{ await db.set("config/live",{court:null},true); toast("Cleared"); };
+  $("tab-now").innerHTML=`<div class="now-wrap">${confSectionHtml()}</div>`;
+  wireConf();
+  if(document.querySelector("#tab-now [data-since]")) _confTimerId=setInterval(_tickConfTimers,1000);
 }
 function confSectionHtml(){
   const confs=conferencesOn(todayISO());
@@ -3445,7 +3413,7 @@ function renderBriefs(){
       <div class="br-sn">${i+1}</div>
       <button class="br-open" data-brief="${b.id}">
         <div class="br-title-row">${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span>`:''}${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:14px" title="Urgent"></span>':''}<span class="br-title">${esc(labelOf(b))}</span>${mineNew?'<span class="new-chip">New</span>':''}</div>
-        <div class="br-nums">${b.caseNo||b.diaryNo?`<span>${esc(b.caseNo||('Dy. '+b.diaryNo))}</span>`:'<span class="muted">no case no.</span>'}${b.creditClaim?`<span class="claim-chip"><span class="ti ti-award" style="font-size:10px"></span> ${esc(nameOf(b.creditClaim.uid).split(' ')[0])} claimed</span>`:''}${b.detailsAwaited?'<span style="color:var(--warn)">details awaited</span>':''}</div>
+        <div class="br-nums">${b.caseNo||b.diaryNo?`<span>${esc(b.caseNo||('Dy. '+b.diaryNo))}</span>`:'<span class="muted">no case no.</span>'}${(b.creditClaim&&idIn(b.assignedTo,b.creditClaim.uid))?`<span class="claim-chip"><span class="ti ti-award" style="font-size:10px"></span> ${esc(nameOf(b.creditClaim.uid).split(' ')[0])} claimed</span>`:''}${b.detailsAwaited?'<span style="color:var(--warn)">details awaited</span>':''}</div>
       </button>
       <span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>
       ${canManage()?`<button class="tbtn icon-only" data-editbrief="${b.id}" title="Edit this entry"><span class="ic ti ti-pencil"></span></button>`:'<span></span>'}
@@ -3738,7 +3706,8 @@ function renderLeave(){
       const mdays=items.filter(l=>!l.deleted).reduce((s,l)=>s+leaveLen(l),0);
       return `<div class="leave-month"><div class="leave-month-h">${esc(monthName(mk))}<span class="muted" style="font-weight:400"> · ${mdays} day${mdays!==1?'s':''}</span></div>
         ${items.map(l=>{
-          const canDel=(l.uid===me.uid||canManage())&&!l.deleted;
+          const mine=(l.uid===me.uid||canManage());
+          const canDel=mine&&!l.deleted;
           const dates=`${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}`;
           return `<div class="trow leave-reg ${l.deleted?'is-del':''}">
             <div class="leave-sno mono">#${l._sno}</div>
@@ -3748,6 +3717,7 @@ function renderLeave(){
               ${fmtStamp(l.at)?`<div class="leave-by">Entered ${esc(fmtStamp(l.at))}</div>`:''}
               ${l.deleted?`<div class="leave-del">Deleted${fmtStamp(l.deletedAt)?` ${esc(fmtStamp(l.deletedAt))}`:''}</div>`:''}
             </div>
+            ${mine?`<button class="tbtn icon-only" data-editleave="${l.id}" title="${l.deleted?'Edit / restore this entry':'Edit this entry'}"><span class="ic ti ti-pencil"></span></button>`:''}
             ${canDel?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Delete this entry"><span class="ic ti ti-trash"></span></button>`:''}
           </div>`;
         }).join("")}</div>`;
@@ -3756,6 +3726,7 @@ function renderLeave(){
 
   $("tab-leave").innerHTML=counters+regPanel;
   if($("tbAddLeave"))$("tbAddLeave").onclick=()=>leaveForm();
+  document.querySelectorAll("[data-editleave]").forEach(x=>x.onclick=()=>leaveForm(null,x.dataset.editleave));
   document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=()=>{
     const l=leaves[x.dataset.delleave]; if(!l)return;
     confirmAsk({title:"Delete this leave entry?",danger:true,confirmLabel:"Delete entry",
@@ -3763,24 +3734,33 @@ function renderLeave(){
       onYes:async()=>{ try{ await db.update("leaves/"+l.id,{deleted:true,deletedBy:me.uid,deletedAt:Date.now()}); toast("Leave entry deleted"); }catch(e){ toast("Couldn't delete — "+(e&&e.message||e),"ti-alert-triangle"); } }});
   });
 }
-function leaveForm(prefillDate){
+function leaveForm(prefillDate, editId){
+  const ed=editId?leaves[editId]:null;                      // editing (possibly deleted) entry
   const canPickOther=canManage(); const cols=rosterDisplay();
-  openSheet(`<div class="sheet-head"><div><h3>Add leave</h3>${prefillDate?`<div class="sub">${fmtDateY(prefillDate)}</div>`:''}</div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+  openSheet(`<div class="sheet-head"><div><h3>${ed?'Edit leave':'Add leave'}</h3>${ed?`<div class="sub">${esc(nameOf(ed.uid))}${ed.deleted?' · currently deleted':''}</div>`:(prefillDate?`<div class="sub">${fmtDateY(prefillDate)}</div>`:'')}</div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      ${canPickOther?`<label>Colleague</label><select id="lv_uid">${cols.map(m=>`<option value="${m.id}" ${m.id===me.uid?'selected':''}>${esc(m.name)}</option>`).join("")}</select>`:''}
-      <div class="grid2"><div><label>From</label><input type="date" id="lv_from" value="${prefillDate||todayISO()}"></div>
-        <div><label>To <span class="muted" style="font-weight:400">(same day if blank)</span></label><input type="date" id="lv_to"></div></div>
+      ${(canPickOther&&!ed)?`<label>Colleague</label><select id="lv_uid">${cols.map(m=>`<option value="${m.id}" ${m.id===me.uid?'selected':''}>${esc(m.name)}</option>`).join("")}</select>`:''}
+      <div class="grid2"><div><label>From</label><input type="date" id="lv_from" value="${esc(ed?.from||prefillDate||todayISO())}"></div>
+        <div><label>To <span class="muted" style="font-weight:400">(same day if blank)</span></label><input type="date" id="lv_to" value="${esc(ed&&ed.to!==ed.from?ed.to:'')}"></div></div>
       <label>Reason <span class="muted" style="font-weight:400">(optional — leave blank to keep it private)</span></label>
-      <input id="lv_reason" placeholder="e.g. family function, medical, personal">
-      <div class="row" style="margin-top:18px"><button class="btn" id="lv_save"><span class="ic ti ti-plus"></span>Add leave</button></div>
+      <input id="lv_reason" placeholder="e.g. family function, medical, personal" value="${esc(ed?.reason||'')}">
+      ${ed&&ed.deleted?`<label class="chk-row" style="margin-top:12px"><input type="checkbox" id="lv_restore" checked><span>Restore this entry — it counts towards leave again</span></label>`:''}
+      <div class="row" style="margin-top:18px"><button class="btn" id="lv_save"><span class="ic ti ${ed?'ti-check':'ti-plus'}"></span>${ed?'Save changes':'Add leave'}</button></div>
     </div>`);
   $("lv_save").onclick=async()=>{ const from=$("lv_from").value; if(!from){toast("Pick a from date","ti-alert-triangle");return;}
     const to=$("lv_to").value||from; if(to<from){toast("The 'to' date is before 'from'","ti-alert-triangle");return;}
-    const uid=(canPickOther&&$("lv_uid"))?$("lv_uid").value:me.uid;
     const btn=$("lv_save"); btn.disabled=true;
     try{
-      await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
-      closeSheet(); toast("Leave logged","ti-plane-departure");
+      if(ed){
+        const patch={from,to,reason:$("lv_reason").value.trim(),editedBy:me.uid,editedAt:Date.now()};
+        if(ed.deleted&&$("lv_restore")&&$("lv_restore").checked){ patch.deleted=false; patch.restoredBy=me.uid; patch.restoredAt=Date.now(); }
+        await db.update("leaves/"+editId,patch);
+        closeSheet(); toast(patch.deleted===false?"Entry restored":"Leave updated","ti-check");
+      } else {
+        const uid=(canPickOther&&$("lv_uid"))?$("lv_uid").value:me.uid;
+        await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
+        closeSheet(); toast("Leave logged","ti-plane-departure");
+      }
     }catch(e){ btn.disabled=false; toast("Couldn't save leave — "+(e&&e.message||e),"ti-alert-triangle"); }
   };
 }
