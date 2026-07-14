@@ -247,7 +247,15 @@ populate config/holidays the way the cause-list Action populates scindex.
   the brief it falls back to `isSkippable` (on leave today). Every pickNext call
   site now passes the date (autoAssign/objection via `brief.nextDate`; day sheet
   via the listing date; brief form via `b_next`). jsc-verified + live (Vikram on
-  leave 19th → skipped for a 20th matter, still fine for the 18th).
+  leave 19th → skipped for a 20th matter, still fine for the 18th). **The SAME
+  `leaveClash` window governs CREDIT (Jul 2026):** `presentSharers` /
+  `shareForDate` now zero a colleague's share when he's on leave on the matter's
+  date OR the day before (prep day) — so a co-assignee on leave the day before a
+  listing earns no credit even if back on the listing day, and his share
+  redistributes to whoever actually carries it. This flows through `shareFor` →
+  `activeLoad` / `lifetimeCount` / `loadInWindow` (load and credit stay coupled, as
+  before). 12-case jsc suite: leave-prev-day → 0, leave-2-days-before → kept,
+  deleted leave ignored, both-out → nobody credited.
   So standing load decides WHO is next; the cap only limits the RATE of catch-up
   (a returning-light colleague gets ~2 then the rotation moves on, and keeps
   catching up in the next window). Proven with a jsc sim vs the real functions:

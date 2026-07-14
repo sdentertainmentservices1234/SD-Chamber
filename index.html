@@ -1640,14 +1640,16 @@ async function syncRegister(force){
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
 // A matter shared by N colleagues counts 1/N per colleague (owner's decision) —
 // so two colleagues on one brief each carry half its point / half its load.
-// A matter shared by N colleagues splits 1/N — BUT a co-assignee who is ON LEAVE
-// on the matter's date earns NO credit for it (owner's rule Jul 2026); their
-// share redistributes to whoever is actually present that day. So if two are
-// marked and one is on leave, the present colleague carries the whole point.
-function presentSharers(arr, date){ return date ? (arr||[]).filter(u=>!onLeaveOn(u,date)) : (arr||[]); }
+// A matter shared by N colleagues splits 1/N — BUT a co-assignee who can't work
+// it earns NO credit; their share redistributes to whoever actually carries it.
+// "Can't work it" = on leave on the matter's date OR the day before, because the
+// preparation happens the day before the listing (owner's rule Jul 2026) — so a
+// colleague on leave the previous day gets no credit even if back on the listing
+// day itself. Same window as the assignment skip (`leaveClash`).
+function presentSharers(arr, date){ return date ? (arr||[]).filter(u=>!leaveClash(u,date)) : (arr||[]); }
 function shareForDate(arr, uid, date){
   arr=arr||[]; if(!arr.length) return 0;
-  if(date && onLeaveOn(uid,date)) return 0;               // on leave that day → no credit
+  if(date && leaveClash(uid,date)) return 0;              // on leave on/ before the date → no credit
   const present=presentSharers(arr,date);
   return idIn(present,uid) ? 1/present.length : (idIn(arr,uid)?1/arr.length:0);
 }
