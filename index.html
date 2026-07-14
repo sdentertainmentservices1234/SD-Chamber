@@ -1710,6 +1710,17 @@ function loadInWindow(uid, days){
 // Pick the next junior for a brief.
 //   exclude: uids to skip (prior objectors on this brief)
 //   returns {uid, reason} or {uid:null, forced} when everyone's excluded/on-leave
+// Fair-distribution guard (owner's rule): a colleague may absorb at most
+// CATCHUP_MAX fresh matters within CATCHUP_WINDOW_MIN before the rotation moves
+// past him. Standing workload still decides WHO is next; this only caps the RATE
+// of catch-up, so a colleague returning light (0 matters) doesn't get a whole
+// batch dumped on him at once — the batch spreads, and he keeps catching up in
+// the next window.
+const CATCHUP_MAX=2, CATCHUP_WINDOW_MIN=90;
+function recentAssigns(uid){
+  const cut=Date.now()-CATCHUP_WINDOW_MIN*60000;
+  return Object.values(briefs).filter(b=>b.status!=="disposed" && idIn(b.assignedTo,uid) && (b.assignedAt||0)>=cut).length;
+}
 function pickNext(brief, exclude=[]){
   const ros = effectiveRoster();
   if(!ros.length) return {uid:null};
@@ -1717,17 +1728,20 @@ function pickNext(brief, exclude=[]){
   // eligible = in roster, not declined, not on leave, not marked unavailable by Staff
   const eligible = ros.filter(id=>!declined.has(id) && !isSkippable(id));
   if(eligible.length){
-    // Equitable ranking (owner's decision): lightest ACTIVE load first —
-    // day-to-day capacity decides; ties broken by lowest TOTAL (lifetime)
-    // load — career fairness corrects drift; remaining ties by roster turn.
     const start = roster.pointer % ros.length;
-    const ranked = eligible
-      .map(id=>{
-        const pos = (ros.indexOf(id) - start + ros.length) % ros.length; // turn distance
-        return {id, load:activeLoad(id), life:lifetimeCount(id), turn:pos};
-      })
-      .sort((a,b)=> a.load-b.load || a.life-b.life || a.turn-b.turn);
-    return {uid:ranked[0].id, reason:"rotation"};
+    const rows = eligible.map(id=>({
+      id, load:activeLoad(id), recent:recentAssigns(id), life:lifetimeCount(id),
+      turn:(ros.indexOf(id) - start + ros.length) % ros.length      // distance from the roster pointer
+    }));
+    // Hold back anyone who just took his CATCHUP_MAX so a batch spreads round the
+    // chamber — unless that would hold back everyone (then nobody is held back).
+    const fresh = rows.filter(r=>r.recent<CATCHUP_MAX);
+    const pool = fresh.length ? fresh : rows;
+    // Equitable ranking (owner's decision): lightest ACTIVE load first — skip the
+    // busy, go to the least burdened; then who has taken fewest just now (spreads
+    // a batch); then lowest LIFETIME load (career fairness); then plain roster turn.
+    pool.sort((a,b)=> a.load-b.load || a.recent-b.recent || a.life-b.life || a.turn-b.turn);
+    return {uid:pool[0].id, reason:"rotation"};
   }
   // Everyone eligible has declined or is unavailable -> force-assign to lightest active load
   const pool = ros.filter(id=>!isSkippable(id));
@@ -3231,7 +3245,7 @@ function dsForm(idx=null){
   // assignment mode: manual checklist or roster auto-assign (same engine as briefs)
   let fMode="manual";
   const fRenderPick=()=>{ const p=pickNext({declinedBy:[]}); const el=$("fAutoPick"); if(!el)return;
-    el.innerHTML=p.uid?`<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))}`:'<span class="muted" style="font-weight:400">No colleague available</span>'; };
+    el.innerHTML=p.uid?`<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${fmtPts(activeLoad(p.uid))} active${p.forced?'':' — lightest'}</span>`:'<span class="muted" style="font-weight:400">No colleague available</span>'; };
   if($("fAsgnMode")) $("fAsgnMode").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
     fMode=btn.dataset.fmode;
     $("fAsgnMode").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===btn));
@@ -3490,7 +3504,7 @@ function briefForm(b=null){
     const p=pickNext({declinedBy:[]});
     const el=$("autoPickName"); if(!el)return;
     el.innerHTML = p.uid
-      ? `<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))}${p.forced?' <span class="muted" style="font-weight:400;font-size:12px">(all others on leave/declined)</span>':''}`
+      ? `<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${fmtPts(activeLoad(p.uid))} active${p.forced?' (all others on leave/declined)':' — lightest'}</span>`
       : '<span class="muted" style="font-weight:400">No colleague available in the roster</span>';
   };
   if($("asgnMode")) $("asgnMode").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{

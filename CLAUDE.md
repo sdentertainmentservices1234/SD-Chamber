@@ -231,10 +231,21 @@ populate config/holidays the way the cause-list Action populates scindex.
   decision Jul 2026: weightage is only for immediate distribution, not the
   career clock). `totalLoad` (the old weighted-lifetime fn) was removed.
 - `pickNext(brief, exclude)`: eligible = effectiveRoster() (= seniority order)
-  minus declinedBy minus on-leave-today; rank eligible by (activeLoad asc [the
-  ONLY weighted metric], then lifetimeCount asc, then turn-distance from
-  `roster.pointer` asc) — "active → lifetime → turn" equity model. If none eligible → **forced**
-  assign to lightest-loaded non-leave member, `{forced:true}` (flagged toast).
+  minus declinedBy minus on-leave-today. **Fair-distribution cap (Jul 2026,
+  owner's rule):** anyone who has taken **≥ CATCHUP_MAX (2)** fresh matters in
+  the last **CATCHUP_WINDOW_MIN (90 min)** is held out of the pool (unless that
+  empties it), so a batch spreads instead of piling on the lightest person —
+  `recentAssigns(uid)` counts non-disposed assigned briefs with `assignedAt`
+  inside the window. The remaining pool is ranked by (activeLoad asc [lightest
+  first — skips the busy], then recentAssigns asc, then lifetimeCount asc, then
+  turn-distance from `roster.pointer` asc) — "active → recent → lifetime → turn".
+  So standing load decides WHO is next; the cap only limits the RATE of catch-up
+  (a returning-light colleague gets ~2 then the rotation moves on, and keeps
+  catching up in the next window). Proven with a jsc sim vs the real functions:
+  burst 0-vs-5 → gets 2 not 6; 0-vs-20 → still capped at 2; equal loads → clean
+  round-robin. If none eligible → **forced** assign to lightest-loaded non-leave
+  member, `{forced:true}` (flagged toast). Auto-pick previews now show the pick's
+  load ("Name · N active — lightest") for transparency.
 - `autoAssign` sets assignedTo=[pick], status=assigned, resets `ackBy=[]`,
   stamps `assignedAt`, appends assignHistory, then `advancePointer()`.
 - **Objections:** normal brief → auto-advance to next eligible (objector
