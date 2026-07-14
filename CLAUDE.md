@@ -239,6 +239,15 @@ populate config/holidays the way the cause-list Action populates scindex.
   inside the window. The remaining pool is ranked by (activeLoad asc [lightest
   first — skips the busy], then recentAssigns asc, then lifetimeCount asc, then
   turn-distance from `roster.pointer` asc) — "active → recent → lifetime → turn".
+  **Leave-clash skip (Jul 2026, owner's rule):** the matter's hearing date
+  (`brief.nextDate`, or the day-sheet listing date passed in) blocks any colleague
+  on leave that day OR the day before — prep happens the day before, so leave on
+  the 12th bars matters listed on the 12th AND 13th. `leaveClash(uid,hearingDate)`
+  = `onLeaveOn(hearingDate) || onLeaveOn(dayBefore(hearingDate))`; with no date on
+  the brief it falls back to `isSkippable` (on leave today). Every pickNext call
+  site now passes the date (autoAssign/objection via `brief.nextDate`; day sheet
+  via the listing date; brief form via `b_next`). jsc-verified + live (Vikram on
+  leave 19th → skipped for a 20th matter, still fine for the 18th).
   So standing load decides WHO is next; the cap only limits the RATE of catch-up
   (a returning-light colleague gets ~2 then the rotation moves on, and keeps
   catching up in the next window). Proven with a jsc sim vs the real functions:

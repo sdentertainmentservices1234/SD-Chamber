@@ -1466,6 +1466,11 @@ function isOnLeave(uid){ return leaveLogCovers(uid,todayISO()); }
 // (Owner's rule: availability = the leave log, nothing else.)
 function isSkippable(uid){ return isOnLeave(uid); }
 function onLeaveOn(uid,dateISO){ return leaveLogCovers(uid,dateISO); }
+const dayBefore=dateISO=>{ const d=new Date(dateISO+"T00:00"); d.setDate(d.getDate()-1); return d.toLocaleDateString("en-CA"); };
+// Leave clashes with a matter listed on `hearingDate` if the colleague is on
+// leave that day (can't attend) OR the day before (prep happens the day before —
+// owner's rule: leave on D blocks matters dated D and D+1).
+function leaveClash(uid,hearingDate){ return !!hearingDate && (onLeaveOn(uid,hearingDate) || onLeaveOn(uid,dayBefore(hearingDate))); }
 
 // Weighted ACTIVE load (open matters, weighted by matter type).
 // Imminence-aware: a matter listed within the next 4 days counts DOUBLE —
@@ -1725,8 +1730,12 @@ function pickNext(brief, exclude=[]){
   const ros = effectiveRoster();
   if(!ros.length) return {uid:null};
   const declined = new Set([...(brief.declinedBy||[]).map(d=>d.uid), ...exclude]);
-  // eligible = in roster, not declined, not on leave, not marked unavailable by Staff
-  const eligible = ros.filter(id=>!declined.has(id) && !isSkippable(id));
+  // The matter's hearing date decides who's free to prep + attend it. With a date,
+  // block anyone on leave that day OR the day before (prep day); with no date yet,
+  // fall back to "on leave today".
+  const mDate = brief.nextDate || null;
+  const blocked = id => mDate ? leaveClash(id, mDate) : isSkippable(id);
+  const eligible = ros.filter(id=>!declined.has(id) && !blocked(id));
   if(eligible.length){
     const start = roster.pointer % ros.length;
     const rows = eligible.map(id=>({
@@ -1743,10 +1752,11 @@ function pickNext(brief, exclude=[]){
     pool.sort((a,b)=> a.load-b.load || a.recent-b.recent || a.life-b.life || a.turn-b.turn);
     return {uid:pool[0].id, reason:"rotation"};
   }
-  // Everyone eligible has declined or is unavailable -> force-assign to lightest active load
-  const pool = ros.filter(id=>!isSkippable(id));
-  const fallback = (pool.length?pool:ros)
-    .map(id=>({id,load:activeLoad(id)})).sort((a,b)=>a.load-b.load)[0];
+  // Everyone eligible has declined or clashes -> force-assign to lightest active
+  // load, still preferring anyone whose leave doesn't clash with the matter.
+  const clear = ros.filter(id=>!blocked(id));
+  const pool = clear.length?clear:ros;
+  const fallback = pool.map(id=>({id,load:activeLoad(id)})).sort((a,b)=>a.load-b.load)[0];
   return {uid:fallback?fallback.id:null, forced:true};
 }
 
@@ -3244,7 +3254,7 @@ function dsForm(idx=null){
   const fdate=()=>$("f_date").value||dsDate;
   // assignment mode: manual checklist or roster auto-assign (same engine as briefs)
   let fMode="manual";
-  const fRenderPick=()=>{ const p=pickNext({declinedBy:[]}); const el=$("fAutoPick"); if(!el)return;
+  const fRenderPick=()=>{ const p=pickNext({declinedBy:[], nextDate:fdate()}); const el=$("fAutoPick"); if(!el)return;
     el.innerHTML=p.uid?`<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${fmtPts(activeLoad(p.uid))} active${p.forced?'':' — lightest'}</span>`:'<span class="muted" style="font-weight:400">No colleague available</span>'; };
   if($("fAsgnMode")) $("fAsgnMode").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
     fMode=btn.dataset.fmode;
@@ -3289,12 +3299,13 @@ function dsForm(idx=null){
   }
   // typing in title/bench marks them as manually owned (stop auto-fill)
   $("f_title").oninput=()=>{auto.title="\0";}; $("f_bench").oninput=()=>{auto.bench="\0";};
-  $("f_court").oninput=causeFill; $("f_item").oninput=causeFill; $("f_date").onchange=causeFill;
+  $("f_court").oninput=causeFill; $("f_item").oninput=causeFill;
+  $("f_date").onchange=()=>{ causeFill(); if(fMode==="auto") fRenderPick(); };   // date change can change who's leave-free
   $("f_listtype").onchange=()=>{auto.type="\0"; causeFill();}; causeFill();
   $("f_save").onclick=async()=>{
     let juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
     let fAutoPicked=null;
-    if(fMode==="auto"){ const p=pickNext({declinedBy:[]});
+    if(fMode==="auto"){ const p=pickNext({declinedBy:[], nextDate:fdate()});
       if(!p.uid){toast("No colleague available in the roster","ti-alert-triangle");return;}
       juniorUids=[p.uid]; fAutoPicked=p; }
     const listDate=fdate();
@@ -3501,7 +3512,7 @@ function briefForm(b=null){
   // assignment mode: "manual" (tick colleagues) or "auto" (roster + load engine)
   let asgnMode="manual";
   const renderAutoPick=()=>{
-    const p=pickNext({declinedBy:[]});
+    const p=pickNext({declinedBy:[], nextDate:($("b_next")&&$("b_next").value)||null});
     const el=$("autoPickName"); if(!el)return;
     el.innerHTML = p.uid
       ? `<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${fmtPts(activeLoad(p.uid))} active${p.forced?' (all others on leave/declined)':' — lightest'}</span>`
@@ -3514,11 +3525,12 @@ function briefForm(b=null){
     $("asgnAuto").style.display   = asgnMode==="auto"?"":"none";
     if(asgnMode==="auto") renderAutoPick();
   });
+  if($("b_next")) $("b_next").addEventListener("change", ()=>{ if(asgnMode==="auto") renderAutoPick(); });
   $("b_save").onclick=async()=>{
     let assigned=[...document.querySelectorAll("[data-as]:checked")].map(c=>c.dataset.as);
     let autoPick=null;
     if(asgnMode==="auto"){
-      autoPick=pickNext({declinedBy:[]});
+      autoPick=pickNext({declinedBy:[], nextDate:($("b_next")&&$("b_next").value)||null});
       if(!autoPick.uid){toast("No colleagues in the roster to assign to","ti-alert-triangle");return;}
       assigned=[autoPick.uid];
     }
