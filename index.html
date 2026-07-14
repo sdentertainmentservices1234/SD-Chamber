@@ -3745,8 +3745,8 @@ function renderLeave(){
             <div class="info" style="flex:1;min-width:0">
               <div class="nm">${esc(nameOf(l.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${leaveLen(l)} day${leaveLen(l)!==1?'s':''}</span></div>
               <div class="muted" style="font-size:12.5px">${dates}${l.reason?` · ${esc(l.reason)}`:' · <span style="opacity:.7">no reason given</span>'}</div>
-              <div class="leave-by">Entered by ${esc(nameOf(l.by))}${fmtStamp(l.at)?` · ${esc(fmtStamp(l.at))}`:''}</div>
-              ${l.deleted?`<div class="leave-del">Deleted by ${esc(nameOf(l.deletedBy))}${fmtStamp(l.deletedAt)?` · ${esc(fmtStamp(l.deletedAt))}`:''}</div>`:''}
+              ${fmtStamp(l.at)?`<div class="leave-by">Entered ${esc(fmtStamp(l.at))}</div>`:''}
+              ${l.deleted?`<div class="leave-del">Deleted${fmtStamp(l.deletedAt)?` ${esc(fmtStamp(l.deletedAt))}`:''}</div>`:''}
             </div>
             ${canDel?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Delete this entry"><span class="ic ti ti-trash"></span></button>`:''}
           </div>`;
