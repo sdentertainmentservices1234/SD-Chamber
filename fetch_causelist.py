@@ -51,7 +51,7 @@ OUTPUT_FILE = "court-updates.json"
 # based change-detection reuses a cached parse when the PDF is unchanged; without
 # this, a parser FIX never reaches already-cached dates (their PDFs don't change).
 # A version mismatch forces a full re-parse of every date in the window.
-PARSER_VERSION = 5
+PARSER_VERSION = 6
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; sd-chamber-causelist-bot/1.0)"}
 
 COURT_RE = re.compile(r"COURT\s*NO\.?\s*[:\-]?\s*([0-9]+)", re.I)
@@ -282,6 +282,15 @@ def upcoming_days(n):
     return days
 
 
+def n_matters(items):
+    """Count only serially-numbered matters. Connected matters are captured as
+    sub-items ("4.1", "102.2") so a clerk can look them up, but the court lists
+    them UNDER their main item — they are not separate serial matters, so they
+    must NOT inflate a court's total/main/supp counts (Court 5's 30 matters were
+    reading 32 because of two connected sub-items)."""
+    return sum(1 for k in items if "." not in k)
+
+
 def build_for_date(date_str, prev_day=None, prev_sizes=None):
     """Returns (lists_found, lists, sizes, reused). Probes every list URL with a
     1KB ranged GET first; if the sizes all match the previous run, the previous
@@ -317,16 +326,17 @@ def build_for_date(date_str, prev_day=None, prev_sizes=None):
                 # printout can show the breakup ("Main 50 · Supp 10").
                 ex = merged.setdefault(court, {"coram": "", "total": "", "fresh": "",
                                                "items": {}, "main": 0, "supp": 0})
-                before = len(ex["items"])
+                before = n_matters(ex["items"])
                 ex["items"].update(info.get("items", {}))
-                ex[variant] = ex.get(variant, 0) + (len(ex["items"]) - before)
+                # count only the NEW serial matters this list added (not sub-items)
+                ex[variant] = ex.get(variant, 0) + (n_matters(ex["items"]) - before)
                 if not ex.get("coram") and info.get("coram"):
                     ex["coram"] = info["coram"]
                 if not ex.get("fresh") and info.get("fresh"):
                     ex["fresh"] = info["fresh"]
-        # SC lists carry no total line — total is the merged item count
+        # SC lists carry no total line — total is the merged serial-matter count
         for c in merged.values():
-            c["total"] = str(len(c["items"]))
+            c["total"] = str(n_matters(c["items"]))
         if merged:
             lists[human] = merged
     return lists_found, lists, sizes, False

@@ -352,8 +352,12 @@ court,item)` searches ALL list types (item-number ranges differ so court+item is
 unique) and fills case title (`titleFromCauseLine`), list type, and bench.
 Everything else on the form is optional.
 - Item capture (Jul 2026): parse_courts grabs the petitioner line + the line
-  after "Versus" (`caseLine` = "PET .. VERSUS RESP .."); `court["total"]` =
-  item count. App `titleFromCauseLine` strips the case-no prefix, splits on
+  after "Versus" (`caseLine` = "PET .. VERSUS RESP .."). **total/main/supp count
+  only SERIAL matters** via `n_matters()` = keys without a "." — connected matters
+  are stored as sub-items ("4.1", "102.2") for lookup but the court lists them
+  UNDER their main item, so counting them (old `len(items)`) over-reported every
+  court (Court 5's 30 read 32). PARSER_VERSION bumped so the Action re-parses all
+  cached dates. App `titleFromCauseLine` strips the case-no prefix, splits on
   VERSUS, trims each side at "& Ors./and Anr." (drops the trailing AoR),
   title-cases → "Petitioner vs Respondent". Bug fixed: the entry form tracks
   what IT auto-filled (`auto{title,bench,type}`) so typing item "3"→"30" lands
