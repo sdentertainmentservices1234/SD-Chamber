@@ -358,9 +358,15 @@ Everything else on the form is optional.
   `CAUSELIST_TYPES` order (`_typeRank`). Within a type: court, then item. An entry
   carrying a `listType` is used directly; a court+item-only entry resolves its type
   via `resolveEntry(e,date)`. Single sort → day sheet display, print AND share all
-  follow it. **Print conferences are two-column** (`.confcols{column-count:2}`) so a
-  long conference list fills the free space bottom-right instead of spilling to
-  page 2 (owner's 12-matter 15th case).
+  follow it. **Print fits one page for a busy day** (owner's 12-matter 15th + two
+  conference days): top margin cut (`@page margin:6mm 11mm 8mm`, `body margin:0`
+  — header sits at the top edge) and the table tightened (padding 1.5px,
+  line-heights ~1.15, nm 12px, jg/ad 9.5px, compact seq box). Conferences use a
+  DETERMINISTIC two-column flex (`.cfsplit`/`.cfcol`), NOT CSS multicol (which
+  balanced unpredictably and fragmented onto page 2): one conference day → its
+  rows split left/right; two+ days → each day fills a column (14th-evening left,
+  15th-morning right). Measured faithfully against an A4 box: 12 tall rows + 10
+  conferences = ~947px vs ~1070px printable → ~120px headroom.
 - Jul 2026 (2nd pass): Add-matter form order = **Causelist type FIRST**, then
   court+item (lookup is scoped to the chosen type — `lookupCauselistItem(...,
   preferType)`). Fetcher captures **sub-items** (ITEM_LINE_RE = `N` or `N.M`,

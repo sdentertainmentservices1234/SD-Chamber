@@ -3058,39 +3058,53 @@ function printCauseList(iso){
     return `<tr><td class="ci">${ci}</td><td class="tm">${q(e.time||"")}</td><td class="nm">${q(R.title)}</td><td class="jg">${judges}</td><td class="ad">${adv}</td><td class="last">${last}</td></tr>`;
   }).join("");
   const confGroups=conferenceList(iso);
-  const confHtml=confGroups.length?`<div class="confs"><div class="ch">Conferences</div><div class="confcols">${confGroups.map(g=>`<div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(c=>`<div class="cf"><span class="t">${q(fmtConfTime(c.time)||"—")}</span><span>-</span><span class="l">${q(c.label||"")}</span></div>`).join("")}`).join("")}</div></div>`:"";
+  // Two deterministic columns (no multicol balancing, which fragmented onto page 2):
+  // one conference day → split its rows left/right; two+ days → each day fills a
+  // column (e.g. the 14th-night list on the left, the 15th-morning list on the right).
+  const cfRow=c=>`<div class="cf"><span class="t">${q(fmtConfTime(c.time)||"—")}</span><span>-</span><span class="l">${q(c.label||"")}</span></div>`;
+  let confHtml="";
+  if(confGroups.length===1){
+    const g=confGroups[0], it=g.items, mid=Math.ceil(it.length/2);
+    confHtml=`<div class="confs"><div class="ch">Conferences</div><div class="cfday">${q(confDateHeading(g.iso))}</div>`
+      +`<div class="cfsplit"><div class="cfcol">${it.slice(0,mid).map(cfRow).join("")}</div><div class="cfcol">${it.slice(mid).map(cfRow).join("")}</div></div></div>`;
+  } else if(confGroups.length){
+    confHtml=`<div class="confs"><div class="ch">Conferences</div><div class="cfsplit">`
+      +confGroups.map(g=>`<div class="cfcol"><div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(cfRow).join("")}</div>`).join("")
+      +`</div></div>`;
+  }
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>SD Causelist ${dt}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}
-body{font-family:"EB Garamond",Garamond,"Times New Roman",serif;font-size:13px;color:#000;margin:12px 16px}
-.name{text-align:center;font-size:23px;font-weight:600;letter-spacing:1.5px;line-height:1.1}
+body{font-family:"EB Garamond",Garamond,"Times New Roman",serif;font-size:13px;color:#000;margin:0}
+.name{text-align:center;font-size:21px;font-weight:600;letter-spacing:1.5px;line-height:1.05}
 .role{text-align:center;font-style:italic;font-size:12.5px;margin-top:0}
-.court{text-align:center;text-decoration:underline;font-weight:600;margin:5px 0 7px;font-size:13.5px}
+.court{text-align:center;text-decoration:underline;font-weight:600;margin:2px 0 5px;font-size:13.5px}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
-th,td{border:1px solid #000;padding:3px 5px;vertical-align:top;text-align:left;line-height:1.28;overflow-wrap:break-word}
-th{font-weight:600;font-size:11px;white-space:normal}
-td.ci,th.ci{width:56px;white-space:nowrap;font-size:13px;font-weight:600}   /* court/item — a touch larger */
+th,td{border:1px solid #000;padding:1.5px 5px;vertical-align:top;text-align:left;line-height:1.12;overflow-wrap:break-word}
+th{font-weight:600;font-size:10.5px;white-space:normal}
+td.ci,th.ci{width:56px;white-space:nowrap;font-size:12.5px;font-weight:600}   /* court/item — a touch larger */
 td.tm,th.tm{width:32px;white-space:nowrap;font-size:11px}
-td.nm{font-size:13px;line-height:1.32}            /* the cause title — reduced */
-td.jg,th.jg{width:108px;font-size:10px;line-height:1.4}    /* judges — wide enough for one name per row */
-td.ad,th.ad{width:114px;font-size:10px;line-height:1.4}    /* advocates — wide enough for one name per row */
+td.nm{font-size:12px;line-height:1.16}            /* the cause title */
+td.jg,th.jg{width:108px;font-size:9.5px;line-height:1.2}    /* judges — one name per row */
+td.ad,th.ad{width:114px;font-size:9.5px;line-height:1.2}    /* advocates — one name per row */
 td.last,th.last{width:92px;font-size:10px}
 .brk{font-size:10px;margin-top:1px;white-space:nowrap}   /* Main N · Supp N on one line */
-.seqbox{margin-top:6px}
-.seqlab{font-size:9.5px;letter-spacing:.03em;text-align:center}
-.seqline{border-bottom:1px solid #000;min-height:15px;line-height:15px;font-size:12.5px;font-weight:600;text-align:center}   /* full-width rule to hand-fill the sequence */
-.confs{margin-top:14px}
-.ch{text-decoration:underline;margin-bottom:5px;font-weight:600}
-/* two columns so the conference timings fill the free space on the right instead
-   of running down onto a second page — left column first, then the right. */
-.confcols{column-count:2;column-gap:40px}
-.cfday{font-weight:600;margin:6px 0 2px;break-after:avoid}
-.cf{display:flex;gap:10px;margin:2px 0 2px 14px;break-inside:avoid}
+.seqbox{margin-top:2px}
+.seqlab{font-size:9px;letter-spacing:.03em;text-align:center}
+.seqline{border-bottom:1px solid #000;min-height:11px;line-height:11px;font-size:12px;font-weight:600;text-align:center}   /* full-width rule to hand-fill the sequence */
+.confs{margin-top:5px}
+.ch{text-decoration:underline;margin-bottom:3px;font-weight:600}
+/* two side-by-side columns filling the free width, so a long conference list (or
+   a second day) uses the right side instead of running onto page 2. */
+.cfsplit{display:flex;flex-wrap:wrap;gap:0 40px;align-items:flex-start}
+.cfcol{flex:1 1 calc(50% - 20px);min-width:calc(50% - 20px)}
+.cfday{font-weight:600;margin:2px 0 1px}
+.cf{display:flex;gap:10px;margin:0 0 0 14px}
 .cf .t{min-width:46px}
 .cf .l{overflow-wrap:anywhere}
-@page{size:A4;margin:10mm}
+@page{size:A4;margin:6mm 11mm 8mm}
 </style></head><body>
 <div class="name">${q(CHAMBER.seniorName.toUpperCase())}</div>
 <div class="role">Senior Advocate</div>
