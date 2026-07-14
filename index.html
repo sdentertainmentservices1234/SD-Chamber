@@ -397,6 +397,15 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .li-lab{font-size:10px;color:var(--ink-3);margin-top:3px}
 .leave-island{cursor:default}
 .li-year{font-size:11px;color:var(--muted);margin-top:5px;padding-top:5px;border-top:1px solid var(--line)}
+/* leave register */
+.leave-month-h{font-size:12px;font-weight:600;color:var(--ink-2);padding:9px 12px 4px;background:var(--surface);border-top:1px solid var(--line)}
+.leave-reg{align-items:flex-start}
+.leave-sno{font-size:12px;color:var(--muted);min-width:36px;flex:none;padding-top:2px}
+.leave-by{font-size:11px;color:var(--muted);opacity:.85;margin-top:2px}
+.leave-del{font-size:11px;color:var(--danger);font-weight:500;margin-top:1px}
+.leave-reg.is-del{opacity:.72}
+.leave-reg.is-del .nm{text-decoration:line-through}
+.leave-reg.is-del .leave-sno::after{content:" ✕";color:var(--danger)}
 .li-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .leave-bar{height:5px;background:var(--surface-2);border-radius:3px;margin-top:6px;max-width:200px;overflow:hidden}
 .leave-bar span{display:block;height:100%;background:var(--accent-ink);border-radius:3px}
@@ -898,6 +907,8 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 const todayISO = () => new Date().toLocaleDateString('en-CA');
 const fmtDate = iso => iso ? new Date(iso+"T00:00").toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : "—";
 const fmtDateY = iso => iso ? new Date(iso+"T00:00").toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : "—";
+// a stored timestamp (ms number, or Firestore Timestamp) -> "14 Jul 2026, 3:45 pm"
+const fmtStamp = t => { const ms=t?._t ?? (t?.toDate?t.toDate().getTime():t); return (typeof ms==="number"&&ms) ? new Date(ms).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}) : ""; };
 const initials = n => (n||"?").replace(/\(.*?\)/g,"").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
 const STATUS = {
@@ -1447,7 +1458,7 @@ function confirmAsk({title,body,confirmLabel,danger,onYes}){
 // logs in. Their assignments migrate to the real uid on first login (syncRegister).
 function effectiveRoster(){ return rosterDisplay().map(m=>m.id); }
 // a logged leave (Leave tab / calendar) covering this date
-function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>l.uid===uid&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
+function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>!l.deleted&&l.uid===uid&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
 // A colleague is "available" whenever they are NOT on leave — there is no other
 // status to mark (owner's call Jul 2026). Leave is the leave log alone.
 function isOnLeave(uid){ return leaveLogCovers(uid,todayISO()); }
@@ -2614,7 +2625,8 @@ function jbrief(b){
     <div class="jbrief-t"><span class="dotu" style="background:var(--s-${b.status})"></span>
       <span class="nm">${esc(labelOf(b))}</span>
       ${b.directed?'<span class="ti ti-pin" style="color:var(--accent-ink);font-size:12px;flex-shrink:0" title="On Senior\u2019s direction"></span>':''}
-      ${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px;flex-shrink:0" title="Urgent"></span>':''}</div>
+      ${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px;flex-shrink:0" title="Urgent"></span>':''}
+      ${b.legalAid?'<span class="chip st-conf" style="flex-shrink:0;font-size:10px"><span class="ti ti-scale" style="font-size:10px"></span> Legal aid</span>':''}</div>
     <div class="jbrief-m">${esc(b.caseNo||b.diaryNo||b.matterType)} · ${st.label}${hasWeight(b)?` · ${weightOf(b)}×`:''}${isImminent(b)?` · <span class="crunch" title="Listed within 4 days — counts double"><span class="ti ti-flame"></span>${b.nextDate?fmtDate(b.nextDate):''}</span>`:b.nextDate?` · ${fmtDate(b.nextDate)}`:''}${b.detailsAwaited?' · <span style="color:var(--warn)">details awaited</span>':''}${un?` · <span style="color:var(--warn)"><span class="ti ti-clock" style="font-size:11px"></span> unseen${age!==null&&age>0?' '+age+'d':''}</span>`:''}</div>
   </button>`;
 }
@@ -3406,7 +3418,7 @@ function importCauseList(){
    ============================================================ */
 let briefFilter="", briefSearch="";
 function renderBriefs(){
-  $("topbarAction").innerHTML = canManage()? `<button class="btn ghost sm" id="tbSyncReg" title="Add any listed matter that isn't in the register yet"><span class="ic ti ti-refresh"></span>Sync listings</button> <button class="btn" id="tbNewBrief2"><span class="ic ti ti-plus"></span>New brief</button>`:"";
+  $("topbarAction").innerHTML = canManage()? `<button class="btn ghost sm" id="tbLegalAid" title="Record a legal-aid opinion given to a colleague"><span class="ic ti ti-scale"></span>Legal aid</button> <button class="btn ghost sm" id="tbSyncReg" title="Add any listed matter that isn't in the register yet"><span class="ic ti ti-refresh"></span>Sync listings</button> <button class="btn" id="tbNewBrief2"><span class="ic ti ti-plus"></span>New brief</button>`:"";
   const filters=[["","Active"],["mine","Mine"],["urgent","Urgent"],["awaited","Incomplete"],["listed","Listed"],["disposed","Disposed"]];
   const bar=`<div class="filters">
     <div class="search"><span class="ic ti ti-search"></span><input id="bSearch" placeholder="Search title, diary or case number" value="${esc(briefSearch)}"></div>
@@ -3444,6 +3456,7 @@ function renderBriefs(){
   document.querySelectorAll("[data-bf]").forEach(x=>x.onclick=()=>{briefFilter=x.dataset.bf;renderBriefs();});
   document.querySelectorAll("#tab-briefs [data-editbrief]").forEach(x=>x.onclick=e=>{e.stopPropagation();briefForm(briefs[x.dataset.editbrief]);});
   if($("tbNewBrief2"))$("tbNewBrief2").onclick=()=>briefForm();
+  if($("tbLegalAid"))$("tbLegalAid").onclick=()=>legalAidForm();
   if($("tbSyncReg"))$("tbSyncReg").onclick=async()=>{ $("tbSyncReg").disabled=true; await syncRegister(true); toast("Register synced with the listings","ti-check"); renderBriefs(); };
   bindClicks($("tab-briefs"));
 }
@@ -3692,14 +3705,15 @@ function objectForm(id){
 function overlapDays(from,to,start,end){ const a=from>start?from:start, b=to<end?to:end; if(!a||!b||a>b) return 0; return Math.round((new Date(b+"T00:00")-new Date(a+"T00:00"))/864e5)+1; }
 const leaveLen=l=>overlapDays(l.from,l.to,l.from,l.to);
 function renderLeave(){
-  $("pageTitle").textContent="Leave"; $("pageSub").textContent="Chamber leave — logged openly for everyone to see";
+  $("pageTitle").textContent="Leave"; $("pageSub").textContent="Chamber leave register — open to all";
   $("topbarAction").innerHTML=`<button class="btn" id="tbAddLeave"><span class="ic ti ti-plus"></span>Add leave</button>`;
   const now=todayISO(); const d=new Date(now+"T00:00");
   const mStart=now.slice(0,7)+"-01", mEnd=new Date(d.getFullYear(),d.getMonth()+1,0).toLocaleDateString("en-CA");
   const yStart=now.slice(0,4)+"-01-01", yEnd=now.slice(0,4)+"-12-31";
-  const all=Object.values(leaves); const cols=rosterDisplay();
-  const mDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,mStart,mEnd),0);
-  const yDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
+  const cols=rosterDisplay();
+  const live=Object.values(leaves).filter(l=>!l.deleted);   // deleted entries don't count
+  const mDays=uid=>live.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,mStart,mEnd),0);
+  const yDays=uid=>live.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
   const counters=`<div class="panel"><div class="panel-head">Leave taken <span class="muted" style="font-weight:400;font-size:12px">this month · this year</span></div>
     <div style="padding:14px 12px"><div class="load-islands">${cols.map(m=>{const md=mDays(m.id),yd=yDays(m.id);
       return `<div class="load-island leave-island">
@@ -3709,17 +3723,45 @@ function renderLeave(){
         <div class="li-lab">day${md!==1?'s':''} this month</div>
         <div class="li-year">${yd} day${yd!==1?'s':''} this year</div>
       </div>`;}).join("")||'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}</div></div></div>`;
-  const log=all.slice().sort((a,b)=>(b.from||"").localeCompare(a.from||""));
-  const logPanel=`<div class="panel" style="margin-top:16px"><div class="panel-head">Leave log</div>
-    ${log.length?log.map(l=>`<div class="trow">
-      <div class="sb-ava" style="background:var(--surface-2);color:var(--ink-3)">${esc(initials(nameOf(l.uid)))}</div>
-      <div class="info" style="flex:1;min-width:0"><div class="nm">${esc(nameOf(l.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${leaveLen(l)} day${leaveLen(l)!==1?'s':''}</span></div>
-        <div class="muted" style="font-size:12.5px">${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}${l.reason?` · ${esc(l.reason)}`:' · <span style="opacity:.7">no reason given</span>'}</div></div>
-      ${(l.uid===me.uid||canManage())?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Remove"><span class="ic ti ti-trash"></span></button>`:''}
-    </div>`).join(""):'<div class="trow"><div class="info muted" style="font-size:13px">No leave logged yet. Tap “Add leave” to record yours.</div></div>'}</div>`;
-  $("tab-leave").innerHTML=counters+logPanel;
+
+  // Serially-numbered register, catalogued by month. Serial by leave date so the
+  // numbering is stable; deleted entries stay on record (struck, with who/when).
+  const reg=Object.values(leaves).slice().sort((a,b)=>(a.from||"").localeCompare(b.from||"")||((a.at?._t??a.at??0)-(b.at?._t??b.at??0)));
+  reg.forEach((l,i)=>l._sno=i+1);
+  const byMonth={}; reg.forEach(l=>{ const mk=(l.from||"0000-00").slice(0,7); (byMonth[mk]=byMonth[mk]||[]).push(l); });
+  const monthName=mk=>{ try{ return new Date(mk+"-01T00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"}); }catch(e){ return mk; } };
+  const months=Object.keys(byMonth).sort().reverse();
+  const yearDays=live.reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
+  const regPanel=`<div class="panel" style="margin-top:16px"><div class="panel-head">Leave register <span class="muted" style="font-weight:400;font-size:12px">every entry, numbered — open to all</span></div>
+    ${reg.length? months.map(mk=>{
+      const items=byMonth[mk].slice().sort((a,b)=>(b.from||"").localeCompare(a.from||"")||(b._sno-a._sno));
+      const mdays=items.filter(l=>!l.deleted).reduce((s,l)=>s+leaveLen(l),0);
+      return `<div class="leave-month"><div class="leave-month-h">${esc(monthName(mk))}<span class="muted" style="font-weight:400"> · ${mdays} day${mdays!==1?'s':''}</span></div>
+        ${items.map(l=>{
+          const canDel=(l.uid===me.uid||canManage())&&!l.deleted;
+          const dates=`${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}`;
+          return `<div class="trow leave-reg ${l.deleted?'is-del':''}">
+            <div class="leave-sno mono">#${l._sno}</div>
+            <div class="info" style="flex:1;min-width:0">
+              <div class="nm">${esc(nameOf(l.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${leaveLen(l)} day${leaveLen(l)!==1?'s':''}</span></div>
+              <div class="muted" style="font-size:12.5px">${dates}${l.reason?` · ${esc(l.reason)}`:' · <span style="opacity:.7">no reason given</span>'}</div>
+              <div class="leave-by">Entered by ${esc(nameOf(l.by))}${fmtStamp(l.at)?` · ${esc(fmtStamp(l.at))}`:''}</div>
+              ${l.deleted?`<div class="leave-del">Deleted by ${esc(nameOf(l.deletedBy))}${fmtStamp(l.deletedAt)?` · ${esc(fmtStamp(l.deletedAt))}`:''}</div>`:''}
+            </div>
+            ${canDel?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Delete this entry"><span class="ic ti ti-trash"></span></button>`:''}
+          </div>`;
+        }).join("")}</div>`;
+    }).join("") : '<div class="trow"><div class="info muted" style="font-size:13px">No leave logged yet. Tap “Add leave” to record yours.</div></div>'}
+    ${reg.length?`<div class="muted" style="font-size:11.5px;padding:10px 12px 2px">${yStart.slice(0,4)} total: <b>${yearDays}</b> day${yearDays!==1?'s':''} · deleted entries stay on record for transparency.</div>`:''}</div>`;
+
+  $("tab-leave").innerHTML=counters+regPanel;
   if($("tbAddLeave"))$("tbAddLeave").onclick=()=>leaveForm();
-  document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=async()=>{ try{ await db.remove("leaves/"+x.dataset.delleave); toast("Leave entry removed"); }catch(e){ toast("Couldn't remove — "+(e&&e.message||e),"ti-alert-triangle"); } });
+  document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=()=>{
+    const l=leaves[x.dataset.delleave]; if(!l)return;
+    confirmAsk({title:"Delete this leave entry?",danger:true,confirmLabel:"Delete entry",
+      body:`Remove <b>${esc(nameOf(l.uid))}</b>'s leave (${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}) from the counts?<br><br><span class="muted" style="font-size:12px">It stays in the register marked deleted — showing your name and the time — so the record is transparent.</span>`,
+      onYes:async()=>{ try{ await db.update("leaves/"+l.id,{deleted:true,deletedBy:me.uid,deletedAt:Date.now()}); toast("Leave entry deleted"); }catch(e){ toast("Couldn't delete — "+(e&&e.message||e),"ti-alert-triangle"); } }});
+  });
 }
 function leaveForm(prefillDate){
   const canPickOther=canManage(); const cols=rosterDisplay();
@@ -3740,6 +3782,37 @@ function leaveForm(prefillDate){
       await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
       closeSheet(); toast("Leave logged","ti-plane-departure");
     }catch(e){ btn.disabled=false; toast("Couldn't save leave — "+(e&&e.message||e),"ti-alert-triangle"); }
+  };
+}
+// A legal-aid opinion given to a colleague — recorded as a register matter that
+// counts as ONE credit, split equally among whoever it's given to (via shareFor,
+// same as any shared brief). No court/item; mark it disposed when the opinion is in.
+function legalAidForm(){
+  const cols=chamberColleagues();
+  openSheet(`<div class="sheet-head"><div><h3>Add legal-aid matter</h3><div class="sub">Counts as one credit, split between the colleagues it's given to</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <label>Matter / party <span class="muted" style="font-weight:400">(what the opinion is on)</span></label>
+      <input id="la_title" placeholder="e.g. Legal aid — Ramesh v. State (opinion)">
+      <label>Given to <span class="muted" style="font-weight:400">(one or more — the single credit splits equally between them)</span></label>
+      <div id="la_jrs">${cols.map(j=>`<label class="chk-row"><input type="checkbox" data-laj="${j.id}"><span class="mini-ava">${esc(initials(j.name))}</span>${esc(j.name)}${j.pending?' <span class="chip st-prep" style="margin-left:auto;font-size:10px">yet to sign in</span>':''}</label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
+      <label>Note <span class="muted" style="font-weight:400">(optional)</span></label>
+      <input id="la_note" placeholder="e.g. counter-affidavit, seat allocation query">
+      <div style="margin-top:18px"><button class="btn" id="la_save"><span class="ic ti ti-scale"></span>Add legal-aid matter</button></div>
+    </div>`);
+  $("la_save").onclick=async()=>{
+    const title=$("la_title").value.trim(); if(!title){toast("Add the matter / party","ti-alert-triangle");return;}
+    const jrs=[...document.querySelectorAll("#la_jrs [data-laj]:checked")].map(c=>c.dataset.laj);
+    if(!jrs.length){toast("Pick at least one colleague","ti-alert-triangle");return;}
+    const btn=$("la_save"); btn.disabled=true;
+    try{
+      await db.add("briefs",{caseTitle:title, legalAid:true, matterType:"Legal Aid (opinion)",
+        appearingFor:"", aor:"", chamberNo:"", diaryNo:"", caseNo:"", note:$("la_note").value.trim(),
+        assignedTo:jrs.slice(), everAssigned:jrs.slice(), ackBy:jrs.slice(), declinedBy:[],
+        assignHistory:jrs.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:"legalaid"})),
+        status:"assigned", priority:false, detailsAwaited:false,
+        createdBy:me.uid, createdAt:db.now(), updatedAt:db.now()});
+      closeSheet(); toast("Legal-aid matter added — 1 credit split "+jrs.length+" way"+(jrs.length>1?"s":""),"ti-scale");
+    }catch(e){ btn.disabled=false; toast("Couldn't add — "+(e&&e.message||e),"ti-alert-triangle"); }
   };
 }
 /* ============================================================
