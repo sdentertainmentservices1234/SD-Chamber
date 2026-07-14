@@ -256,6 +256,16 @@ populate config/holidays the way the cause-list Action populates scindex.
   `activeLoad` / `lifetimeCount` / `loadInWindow` (load and credit stay coupled, as
   before). 12-case jsc suite: leave-prev-day → 0, leave-2-days-before → kept,
   deleted leave ignored, both-out → nobody credited.
+- **Workload snapshot is a CALENDAR period (Jul 2026 fix), not a rolling ±window.**
+  The Chamber-tab week/month/year tally (`loadInWindow`/`casesInWindow` via
+  `periodRange`) attributes a matter to the calendar week (Mon–Sun) / month / year
+  of its **listing date**, NOT by `assignedAt`. Old bug: a ±30-day "month" window
+  from mid-July spanned into August AND counted by assign date, so a matter listed
+  4 Aug showed in July's tally. Now: listed 4 Aug → counts only in August's
+  week/month (and the current year); a matter with a July listing + an August next
+  hearing counts once in each month (per appearance); an undated active matter
+  counts in the current period. jsc-verified (10 cases) + live (week ≤ month ≤ year
+  monotonic, drill-down works, no errors).
   So standing load decides WHO is next; the cap only limits the RATE of catch-up
   (a returning-light colleague gets ~2 then the rotation moves on, and keeps
   catching up in the next window). Proven with a jsc sim vs the real functions:

@@ -1692,32 +1692,40 @@ function lifetimeCount(uid){
 // Workload a colleague carried over the last `days` days — share-split points from
 // briefs (assigned / heard / listed in the window) plus bare causelist listings.
 let loadPeriod="month";   // week | month | year — the Chamber-tab snapshot toggle
-// the actual matters counted in a colleague's window load (for the island drill-down)
-function casesInWindow(uid, days){
-  const now=todayISO();
-  const b0=new Date(now+"T00:00"); b0.setDate(b0.getDate()-days); const start=b0.toLocaleDateString("en-CA");
-  const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
-  const inWin=d=>d&&d>=start&&d<=end;
+// The tally is a CALENDAR period, not a rolling ±window around today — a matter
+// listed on 4 Aug belongs to August's week/month, NOT to July's (owner's rule).
+// "this week" = Mon–Sun containing today; "this month" = 1st–last; "this year".
+function periodRange(period){
+  const now=todayISO(); const d=new Date(now+"T00:00");
+  if(period==="year") return [now.slice(0,4)+"-01-01", now.slice(0,4)+"-12-31"];
+  if(period==="week"){
+    const dow=(d.getDay()+6)%7;                       // 0 = Monday
+    const mon=new Date(d); mon.setDate(d.getDate()-dow);
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    return [mon.toLocaleDateString("en-CA"), sun.toLocaleDateString("en-CA")];
+  }
+  return [now.slice(0,7)+"-01", new Date(d.getFullYear(),d.getMonth()+1,0).toLocaleDateString("en-CA")];  // month
+}
+// A matter is attributed to a period by its LISTING date(s) — when the work is
+// actually done — NOT by when it was assigned. An active matter with no date yet
+// counts in the current period (it's live work now).
+function casesInWindow(uid, period){
+  const [start,end]=periodRange(period);
+  const inWin=x=>x&&x>=start&&x<=end;
   const out=[];
   Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)){
-    const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
-    const ld=listingDatesOf(b.id); const hasDate=ad||b.nextDate||ld.length;
-    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) out.push(b);
+    const ld=listingDatesOf(b.id); const hasDate=b.nextDate||ld.length;
+    if(inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) out.push(b);
   }});
   return out.sort((a,b)=>(b.nextDate||"").localeCompare(a.nextDate||"")||(a.caseTitle||"").localeCompare(b.caseTitle||""));
 }
-function loadInWindow(uid, days){
-  const now=todayISO();
-  const b0=new Date(now+"T00:00"); b0.setDate(b0.getDate()-days); const start=b0.toLocaleDateString("en-CA");
-  const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
-  const inWin=d=>d&&d>=start&&d<=end;   // a window BOTH sides of today, so upcoming matters count
+function loadInWindow(uid, period){
+  const [start,end]=periodRange(period);
+  const inWin=x=>x&&x>=start&&x<=end;
   let pts=0;
   Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)){
-    const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
-    const ld=listingDatesOf(b.id);
-    const hasDate=ad||b.nextDate||ld.length;
-    // count if any date falls in the window, OR it's active work with no date yet
-    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.assignedTo);
+    const ld=listingDatesOf(b.id); const hasDate=b.nextDate||ld.length;
+    if(inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.assignedTo);
   }});
   listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=shareForDate(jrsOf(x.e),uid,x.date); });
   return Math.round(pts*10)/10;
@@ -3872,9 +3880,9 @@ function legalAidForm(){
    TEAM
    ============================================================ */
 // Tap a workload island -> the actual cases making up that colleague's load.
-function islandSheet(uid, days, plab){
-  const cs=casesInWindow(uid, days);
-  openSheet(`<div class="sheet-head"><div><h3>${esc(nameOf(uid))}</h3><div class="sub">${cs.length} matter${cs.length===1?'':'s'} · ${esc(plab)} · load ${fmtPts(loadInWindow(uid,days))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+function islandSheet(uid, period, plab){
+  const cs=casesInWindow(uid, period);
+  openSheet(`<div class="sheet-head"><div><h3>${esc(nameOf(uid))}</h3><div class="sub">${cs.length} matter${cs.length===1?'':'s'} · ${esc(plab)} · load ${fmtPts(loadInWindow(uid,period))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       ${cs.length? cs.map((b,i)=>{const st=STATUS[b.status];const imm=isImminent(b)&&b.status!=='disposed';
         // show THIS colleague's actual share of the matter (honours a full-credit
@@ -3935,8 +3943,7 @@ function renderSnapshotBody(){
 
   // workload snapshot — colour-coded islands per colleague; weekly/monthly/yearly
   const _disp=rosterDisplay();
-  const _days=loadPeriod==="week"?7:loadPeriod==="year"?365:30;
-  const _loads=_disp.map(m=>({m,pts:loadInWindow(m.id,_days)}));
+  const _loads=_disp.map(m=>({m,pts:loadInWindow(m.id,loadPeriod)}));
   const _max=Math.max(1,..._loads.map(l=>l.pts));
   const _col=pts=>pts<=_max*0.4?"ld-green":pts<=_max*0.75?"ld-yellow":"ld-red";
   const _plab=loadPeriod==="week"?"this week":loadPeriod==="year"?"this year":"this month";
@@ -3947,7 +3954,7 @@ function renderSnapshotBody(){
       <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`;
   $("teamBody").innerHTML=loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
   document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderSnapshotBody(); });
-  document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,_days,_plab));
+  document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,loadPeriod,_plab));
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
   document.querySelectorAll("[data-editinvite]").forEach(x=>x.onclick=()=>inviteForm(x.dataset.editinvite));
   document.querySelectorAll("[data-delinvite]").forEach(x=>x.onclick=async()=>{await db.remove("approvals/"+x.dataset.delinvite);toast("Invite removed");});
