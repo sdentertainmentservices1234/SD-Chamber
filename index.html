@@ -1245,13 +1245,22 @@ function chamberColleagues(){ return rosterDisplay().map(m=>({id:m.id,name:m.nam
 // no AM/PM). Courts/conferences never sit before 8am, so 1-7 always means PM.
 const toClock=t=>{ t=String(t||"").trim(); const m=t.match(/^(\d{1,2})[.:](\d{2})$/)||t.match(/^(\d{1,2})$/); if(!m) return ""; let h=+m[1]; const mm=m[2]||"00"; if(h>=1&&h<=7) h+=12; return String(h).padStart(2,"0")+":"+mm; };
 const toDotted=v=>{ v=String(v||"").trim(); const m=v.match(/^(\d{1,2}):(\d{2})$/); if(!m) return v; let h=+m[1]%12; if(h===0)h=12; return h+"."+m[2]; };
-// The causelist is always ordered by court room number (Court 1 first), then
-// item number. Sort a copy, keeping original order as a stable tiebreak.
+// The causelist is grouped by LIST TYPE first — every court finishes its
+// Miscellaneous list before taking up the Regular list, so ALL Miscellaneous
+// matters (ordered court-wise) come before ANY Regular matter, then the rest.
+// Within a list type: court room number (Court 1 first), then item number.
+// CAUSELIST_TYPES already runs Misc, Regular, then the others — reuse that order.
 const _courtNum=e=>{ const n=parseInt(String(e?.courtNo??"").trim(),10); return isNaN(n)?9999:n; };
 // item key: main + sub as a decimal so a main item sorts ABOVE its sub-items
 // (102 -> 102.000, 102.1 -> 102.001, 102.2 -> 102.002). Non-numeric (MM) -> last.
 const _itemKey=e=>{ const m=String(e?.itemNo??"").trim().match(/^(\d+)(?:\.(\d+))?/); return m? parseInt(m[1],10)+(m[2]?parseInt(m[2],10)/1000:0) : 999999; };
-const byCourt=arr=>arr.map((e,i)=>[e,i]).sort((a,b)=>_courtNum(a[0])-_courtNum(b[0])||_itemKey(a[0])-_itemKey(b[0])||a[1]-b[1]).map(x=>x[0]);
+const _typeRank=lt=>{ const i=CAUSELIST_TYPES.indexOf(lt); return i<0?99:i; };   // Misc 0, Regular 1, … unknown last
+// `date` (optional) lets a court+item-only entry resolve its type from the fetched
+// causelist; an entry that already carries a listType never pays the lookup.
+const byCourt=(arr,date)=>arr
+  .map((e,i)=>({e,i,lt:e.listType||(date?(resolveEntry(e,date).listType||""):"")}))
+  .sort((a,b)=>_typeRank(a.lt)-_typeRank(b.lt)||_courtNum(a.e)-_courtNum(b.e)||_itemKey(a.e)-_itemKey(b.e)||a.i-b.i)
+  .map(x=>x.e);
 // which SC list types publish a supplementary (Curative does not); and whether
 // that supplementary has actually been fetched yet for a date (it's released
 // ~8pm the evening before, so until then the Supp figure is left blank).
@@ -1377,7 +1386,7 @@ function startApp(){
   loadCourtUpdates();
   watchDaysheet();
 }
-function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(daysheet.entries) daysheet.entries=byCourt(daysheet.entries); if(curTab==="today")renderToday(); }); }
+function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(daysheet.entries) daysheet.entries=byCourt(daysheet.entries, dsDate); if(curTab==="today")renderToday(); }); }
 
 function paintChrome(){
   $("sbName").textContent=CHAMBER.seniorName; $("sbCourt").textContent=CHAMBER.court; if($("sbDesig"))$("sbDesig").textContent=CHAMBER.designation;
@@ -2336,7 +2345,7 @@ async function applySCYear(year){
 function dayDetail(iso){
   const d=new Date(iso+"T00:00");
   const wd=d.toLocaleDateString('en-IN',{weekday:'long'});
-  const entries=byCourt((dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]));
+  const entries=byCourt((dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]), iso);
   const confItems=conferencesOn(iso);   // matter-linked + manual, from every sheet — same source as the tracker
   const hol=isHol(iso), off=seniorOff(iso);
   openSheet(`<div class="sheet-head"><div><h3>${wd}, ${fmtDateY(iso)}</h3>
@@ -3027,7 +3036,7 @@ function printCauseList(iso){
   const day=d.toLocaleDateString("en-IN",{weekday:"long"}).toUpperCase();
   const dt=d.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,".");
   // always ordered by court room number, then item
-  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])));
+  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])), iso);
   const q = s => String(s??"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const rows=entries.map((e,i)=>{
     const R=resolveEntry(e,iso);
@@ -3049,7 +3058,7 @@ function printCauseList(iso){
     return `<tr><td class="ci">${ci}</td><td class="tm">${q(e.time||"")}</td><td class="nm">${q(R.title)}</td><td class="jg">${judges}</td><td class="ad">${adv}</td><td class="last">${last}</td></tr>`;
   }).join("");
   const confGroups=conferenceList(iso);
-  const confHtml=confGroups.length?`<div class="confs"><div class="ch">Conferences</div>${confGroups.map(g=>`<div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(c=>`<div class="cf"><span class="t">${q(fmtConfTime(c.time)||"—")}</span><span>-</span><span>${q(c.label||"")}</span></div>`).join("")}`).join("")}</div>`:"";
+  const confHtml=confGroups.length?`<div class="confs"><div class="ch">Conferences</div><div class="confcols">${confGroups.map(g=>`<div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(c=>`<div class="cf"><span class="t">${q(fmtConfTime(c.time)||"—")}</span><span>-</span><span class="l">${q(c.label||"")}</span></div>`).join("")}`).join("")}</div></div>`:"";
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>SD Causelist ${dt}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -3072,11 +3081,15 @@ td.last,th.last{width:92px;font-size:10px}
 .seqbox{margin-top:6px}
 .seqlab{font-size:9.5px;letter-spacing:.03em;text-align:center}
 .seqline{border-bottom:1px solid #000;min-height:15px;line-height:15px;font-size:12.5px;font-weight:600;text-align:center}   /* full-width rule to hand-fill the sequence */
-.confs{margin-top:16px}
+.confs{margin-top:14px}
 .ch{text-decoration:underline;margin-bottom:5px;font-weight:600}
-.cfday{font-weight:600;margin:7px 0 2px}
-.cf{display:flex;gap:10px;margin:2px 0 2px 14px}
+/* two columns so the conference timings fill the free space on the right instead
+   of running down onto a second page — left column first, then the right. */
+.confcols{column-count:2;column-gap:40px}
+.cfday{font-weight:600;margin:6px 0 2px;break-after:avoid}
+.cf{display:flex;gap:10px;margin:2px 0 2px 14px;break-inside:avoid}
 .cf .t{min-width:46px}
+.cf .l{overflow-wrap:anywhere}
 @page{size:A4;margin:10mm}
 </style></head><body>
 <div class="name">${q(CHAMBER.seniorName.toUpperCase())}</div>
@@ -3111,7 +3124,7 @@ async function buildCauselistPdf(iso){
   const d=new Date(iso+"T00:00");
   const day=d.toLocaleDateString("en-IN",{weekday:"long"}).toUpperCase();
   const dt=d.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,".");
-  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])));
+  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])), iso);
   const doc=new jsPDF({unit:"pt",format:"a4"});
   const W=doc.internal.pageSize.getWidth();
   doc.setFont("times","bold").setFontSize(17); doc.text(CHAMBER.seniorName.toUpperCase(),W/2,42,{align:"center"});
@@ -3416,8 +3429,7 @@ function importCauseList(){
       +`<div style="margin-top:14px"><button class="btn" id="cl_add">Add ${found.length} to day sheet</button></div>`;
     $("cl_add").onclick=()=>{ const arr=[...(daysheet?.entries||[])];
       document.querySelectorAll("[data-cl]:checked").forEach(cb=>{const f=found[+cb.dataset.cl];const jrs=f.brief.assignedTo||[];arr.push({briefId:f.brief.id,caseTitle:labelOf(f.brief),courtNo:f.court||"",itemNo:f.item||"",time:"10.30",bench:"",counsel:f.brief.aor||"",juniorUids:jrs,juniorUid:jrs[0]||null,remarks:"",done:false});});
-      arr.sort((a,b)=>(+a.courtNo||99)-(+b.courtNo||99)||(+a.itemNo||999)-(+b.itemNo||999));
-      saveDaysheet(arr); closeSheet(); toast("Matters added to day sheet");
+      saveDaysheet(byCourt(arr, dsDate)); closeSheet(); toast("Matters added to day sheet");
     };
   };
 }

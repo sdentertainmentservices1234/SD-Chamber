@@ -352,6 +352,15 @@ Everything else on the form is optional.
 - Print heading = "SUPREME COURT (DAY) DATE"; `<title>` (= saved PDF file name)
   = "SD Causelist DATE". Columns: Court/Item (one line) | Time | Case Name |
   Judges | Advocates | Total & Seq. (court total + item seq). EB Garamond 14.
+- **Ordering (Jul 2026, owner's rule):** `byCourt(arr, date)` groups by LIST TYPE
+  first — every court finishes its Miscellaneous list before its Regular list, so
+  ALL Misc matters (court-wise) print before ANY Regular matter, then the rest, in
+  `CAUSELIST_TYPES` order (`_typeRank`). Within a type: court, then item. An entry
+  carrying a `listType` is used directly; a court+item-only entry resolves its type
+  via `resolveEntry(e,date)`. Single sort → day sheet display, print AND share all
+  follow it. **Print conferences are two-column** (`.confcols{column-count:2}`) so a
+  long conference list fills the free space bottom-right instead of spilling to
+  page 2 (owner's 12-matter 15th case).
 - Jul 2026 (2nd pass): Add-matter form order = **Causelist type FIRST**, then
   court+item (lookup is scoped to the chosen type — `lookupCauselistItem(...,
   preferType)`). Fetcher captures **sub-items** (ITEM_LINE_RE = `N` or `N.M`,
