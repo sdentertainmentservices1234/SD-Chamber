@@ -77,15 +77,40 @@ header.top{display:flex;align-items:center;gap:10px;
 
 /* board-tab header strip: nearest directive + senior */
 #paneTop{flex:none;padding:9px 12px 0}
-.headline{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);
-  border-left:5px solid var(--accent);border-radius:12px;padding:9px 12px;box-shadow:var(--shadow)}
-.headline.go{border-left-color:var(--now);background:var(--now-bg)}
-.headline.clear{border-left-color:var(--later)}
-.headline .hl-ct{font-family:'IBM Plex Mono';font-size:24px;font-weight:700;color:var(--accent);
-  flex:none;min-width:52px;text-align:center;line-height:1}
-.headline.go .hl-ct{color:var(--now)}
-.headline .hl-main{font-family:Fraunces,serif;font-weight:600;font-size:17px;line-height:1.12}
-.headline .hl-sub{font-size:12px;color:var(--mut);margin-top:2px}
+/* directive balloon — the senior's "where do I go now" card */
+.directive{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--accent);
+  border-radius:14px;padding:11px 13px 12px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s}
+.directive:active{transform:scale(.99)}
+.directive.go{border-left-color:var(--now);background:var(--now-bg)}
+.directive.soon{border-left-color:var(--soon);background:var(--soon-bg)}
+.directive.clear{border-left-color:var(--later);background:var(--later-bg)}
+.dir-top{display:flex;align-items:center;gap:11px}
+.dir-pill{flex:none;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+  padding:4px 10px;border-radius:20px;background:var(--accent);color:#fff;white-space:nowrap}
+.directive.go .dir-pill{background:var(--now);animation:pulsepill 1.25s ease-in-out infinite}
+.directive.soon .dir-pill{background:var(--soon)}
+.directive.clear .dir-pill{background:var(--later)}
+@keyframes pulsepill{0%,100%{opacity:1}50%{opacity:.5}}
+.dir-dest{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.05}
+.dir-lead{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+.dir-ct{font-family:Fraunces,serif;font-weight:600;font-size:21px;color:var(--ink);margin-top:2px}
+.dir-ct b{font-family:'IBM Plex Mono';font-weight:800}
+.directive.go .dir-ct b{color:var(--now)}
+.dir-eta{flex:none;text-align:center;background:rgba(0,0,0,.055);border-radius:11px;padding:5px 12px;min-width:58px}
+.dir-eta b{display:block;font-family:'IBM Plex Mono';font-size:19px;font-weight:800;line-height:1.05;color:var(--ink)}
+.dir-eta span{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.directive.go .dir-eta{background:rgba(210,58,52,.14)} .directive.go .dir-eta b{color:var(--now)}
+.dir-sub{font-size:12.5px;color:var(--ink);margin-top:8px;line-height:1.3}
+.dir-sub b{font-weight:700}
+.dir-sen{margin-top:8px;display:inline-flex;align-items:center;gap:6px;
+  background:var(--navy);color:#fff;border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:600}
+.dir-sen i{font-size:14px}
+.dir-sen.inferred{background:transparent;color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--navy)}
+.dir-sen.hidden,.dir-then.hidden,.dir-eta.hidden{display:none}
+.dir-then{font-size:12px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);
+  display:flex;align-items:flex-start;gap:7px;color:var(--mut);line-height:1.35}
+.dir-then i{font-size:15px;flex:none;margin-top:1px;color:var(--accent)}
+.dir-then b{color:var(--ink)}
 
 .seniorbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px;
   background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:8px 11px}
@@ -102,17 +127,6 @@ select.mini{appearance:none}
 
 /* status row (date + freshness) */
 .statusrow{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut);padding:2px 3px 0}
-/* routing plan lines under the directive */
-#plan{display:flex;flex-direction:column;gap:6px}
-#plan:not(:empty){margin-top:7px}
-.plan-line{font-size:12px;border-radius:10px;padding:7px 10px;display:flex;align-items:flex-start;gap:8px;line-height:1.35}
-.plan-line i{margin-top:1px;font-size:15px;flex:none}
-.plan-line.good{background:var(--later-bg);border:1px solid #c2e2cc;color:#2b6a40}
-.plan-line.good b{color:#22532f}
-.plan-line.warn{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a5a12}
-.plan-line.warn b{color:#6f460a}
-.headline{cursor:pointer}
-.headline:active{transform:scale(.99)}
 
 /* ===== bottom sheet (court / matter details) ===== */
 #modalRoot:empty{display:none}
@@ -140,9 +154,17 @@ select.mini{appearance:none}
 .po-row{display:flex;gap:7px;margin-top:8px}
 .po-row select,.po-row input{flex:1;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:14px;color:var(--ink)}
 .sh-x{position:sticky;float:right;top:0;background:transparent;border:none;font-size:20px;color:var(--mut);padding:2px}
-.senpin{position:absolute;top:5px;left:5px;width:21px;height:21px;border-radius:50%;background:var(--navy);
-  color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+/* senior-here ribbon across the top of a court island (never covers the number) */
+.senpin{display:flex;align-items:center;justify-content:center;gap:4px;align-self:stretch;
+  background:var(--navy);color:#fff;border-radius:7px;margin-bottom:4px;padding:2.5px 6px;
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;line-height:1.15}
+.senpin i{font-size:11px}
+.senpin.inferred{background:#fff;color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--navy)}
+.cell.mini .senpin{font-size:8px;padding:2px 4px;border-radius:5px;gap:2px;margin-bottom:3px}
+.cell.mini .senpin .lab{display:none}
 .cell.sen{box-shadow:var(--shadow),0 0 0 2px var(--navy)}
+.cell.sen.senlive{animation:senglow 1.9s ease-in-out infinite}
+@keyframes senglow{0%,100%{box-shadow:var(--shadow),0 0 0 2px var(--navy)}50%{box-shadow:var(--shadow),0 0 0 5px rgba(16,20,24,.30)}}
 .cell[data-setcourt]{cursor:pointer}
 .cell[data-setcourt]:active{transform:scale(.97)}
 
@@ -268,11 +290,16 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 
   <div id="paneTop">
     <div class="statusrow"><span class="freshdot off" id="freshDot"></span><span id="statusTxt">connecting…</span></div>
-    <div class="headline" id="directive">
-      <div class="hl-ct" id="dirCt">—</div>
-      <div><div class="hl-main" id="dirBig">Reading the board…</div><div class="hl-sub" id="dirSub"></div></div>
+    <div class="directive" id="directive">
+      <div class="dir-top">
+        <span class="dir-pill" id="dirPill">—</span>
+        <div class="dir-dest"><span class="dir-lead" id="dirLead">&nbsp;</span><span class="dir-ct" id="dirCt">—</span></div>
+        <div class="dir-eta hidden" id="dirEta"><b id="dirEtaN"></b><span id="dirEtaU">min</span></div>
+      </div>
+      <div class="dir-sub" id="dirSub"></div>
+      <div class="dir-sen hidden" id="dirSen"></div>
+      <div class="dir-then hidden" id="dirThen"></div>
     </div>
-    <div id="plan"></div>
   </div>
 
   <main id="main"></main>
@@ -680,58 +707,97 @@ function seniorState(){
   return {court:null, mode:"none"};
 }
 
-// Routing planner: pick the court to head to, then use the oval layout to say
-// which nearby matters can be caught together and which far ones will clash.
+// Directive balloon: where to head NOW, when our item there is likely to reach,
+// where the Senior currently is, and what to do next — enough for him to decide.
 function renderRoute(){
-  const dir=$("directive"), ct=$("dirCt"), big=$("dirBig"), sub=$("dirSub"), plan=$("plan");
+  const dir=$("directive"), pill=$("dirPill"), lead=$("dirLead"), ct=$("dirCt"),
+        eta=$("dirEta"), etaN=$("dirEtaN"), etaU=$("dirEtaU"),
+        sub=$("dirSub"), senEl=$("dirSen"), then=$("dirThen");
   if(!dir) return;
-  if(plan) plan.innerHTML="";
-  if(!board.length){ dir.className="headline"; ct.textContent="—";
-    big.textContent = boardErr && boardErr!=="relay-unset" ? "Board offline" : "Reading the board…"; sub.textContent=""; return; }
+  const rest=()=>{ eta.classList.add("hidden"); senEl.classList.add("hidden"); then.classList.add("hidden"); };
+  if(!board.length){
+    dir.className="directive"; pill.textContent="…"; lead.textContent="";
+    ct.textContent = boardErr && boardErr!=="relay-unset" ? "Board offline" : "Reading the board…";
+    sub.textContent=""; rest(); return;
+  }
   const bc=boardByCourt();
   // our actionable matters, soonest first (by estimated minutes to our item)
   const cands=myMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
     .filter(x=>["now","soon","later"].includes(x.k.tier))
     .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMinsFor(x.e.courtNo,x.k), meas:paceMeasured(x.e.courtNo)}))
     .sort((a,b)=>((a.mins==null?999:a.mins)-(b.mins==null?999:b.mins)));
-  if(!cands.length){ dir.className="headline clear"; ct.textContent="✓";
-    big.textContent="Nothing imminent"; sub.textContent="No chamber matter is close right now."; return; }
-  const primary=cands[0];
-  _primaryCourt=primary.court;
-  const now = primary.k.tier==="now" && !primary.k.ment;
-  dir.className="headline"+(now?" go":"");
-  ct.textContent=primary.court;
-  big.textContent = now ? "Head to Court "+primary.court : "Get ready — Court "+primary.court;
-  // Simple: what's on vs where we are. Tap opens the court's detail sheet.
-  const cur=boardByCourt()[primary.court]?.item;
-  sub.textContent = (cur?`Item ${cur} is going on`:"") + ` · we are item ${primary.e.itemNo}` + (primary.k.po?" (passed over)":"");
-  if(!plan) return;
-  // One reason line only: why THIS court.
-  const tmin = primary.mins==null?null:Math.round(primary.mins);
-  let reason = primary.k.tier==="now" ? "Our item is on / next" :
-    tmin!=null ? "Closest of our matters — reaching in ~"+tmin+" min"+(primary.meas?"":" (est)") : esc(primary.k.label);
-  // ...plus the take-both bonus if a nearby court is also reaching.
-  const buddy=cands.slice(1,5).find(c=>{ const w=walkMin(primary.court,c.court); return w<=NEAR_MIN && c.mins!=null && c.mins<=18; });
-  let lines=`<div class="plan-line good"><i class="ti ti-route"></i> <span>${reason}${buddy?` — and Court <b>${esc(buddy.court)}</b> next door reaches in ~${Math.round(buddy.mins)} min, <b>take both</b>`:""}.</span></div>`;
-  plan.innerHTML=lines;
+  if(!cands.length){
+    dir.className="directive clear"; pill.textContent="Clear"; lead.textContent="Nothing imminent";
+    ct.innerHTML="All quiet"; sub.textContent="No chamber matter is close right now."; rest(); return;
+  }
+  const primary=cands[0]; _primaryCourt=primary.court;
+  const isNow = primary.k.tier==="now" && !primary.k.ment;
+  const tier = isNow ? "go" : (primary.k.tier==="soon" ? "soon" : "");
+  dir.className="directive"+(tier?" "+tier:"");
+  pill.textContent = isNow ? "Go now" : (primary.k.tier==="soon" ? "Soon" : "Ahead");
+  lead.textContent = isNow ? "Head to" : "Get ready for";
+  ct.innerHTML = `Court <b>${esc(primary.court)}</b>`;
+
+  // ETA — when our item there is likely to reach
+  const tmin = primary.mins==null ? null : Math.max(0,Math.round(primary.mins));
+  if(isNow || tmin===0){ etaN.textContent="on"; etaU.textContent="now"; eta.classList.remove("hidden"); }
+  else if(tmin!=null){ etaN.textContent="~"+tmin; etaU.textContent="min"; eta.classList.remove("hidden"); }
+  else eta.classList.add("hidden");
+
+  // what's on there vs our item
+  const cur=bc[primary.court]?.item;
+  sub.innerHTML = (cur?`Item <b>${esc(cur)}</b> on · `:"") + `our item <b>${esc(primary.e.itemNo)}</b>`
+    + (primary.k.po ? ` · <b style="color:#8a5a12">passed over</b>`
+        : (!isNow && primary.k.gap!=null ? ` · ${primary.k.gap} item${primary.k.gap===1?"":"s"} away` : ""))
+    + (tmin!=null && tmin>0 && !primary.meas ? ` <span style="opacity:.6">(est)</span>` : "");
+
+  // where the Senior is now (relative to where he should go)
+  const ss=seniorState();
+  if(ss.court){
+    const here=String(ss.court)===String(primary.court);
+    const w=here?0:Math.max(1,Math.round(walkMin(ss.court,primary.court)));
+    const q = ss.mode==="confirmed" ? "" : ss.mode==="inferred" ? " · likely" : " · last seen";
+    senEl.className="dir-sen"+(ss.mode==="confirmed"?"":" inferred");
+    senEl.innerHTML = here
+      ? `<i class="ti ti-user-check"></i> Senior is here${q}`
+      : `<i class="ti ti-user-check"></i> Senior in Court ${esc(ss.court)} · ~${w} min walk${q}`;
+    senEl.classList.remove("hidden");
+  } else senEl.classList.add("hidden");
+
+  // what next — the following matter, and whether to catch both or split up
+  const nextC=cands.slice(1).find(c=>String(c.court)!==String(primary.court));
+  if(nextC){
+    const w=walkMin(primary.court,nextC.court);
+    const nm=nextC.mins==null?null:Math.max(0,Math.round(nextC.mins));
+    const near=w<=NEAR_MIN;
+    const clash = nm!=null && tmin!=null && Math.abs(nm-tmin)<=3 && !near;
+    const advice = near ? "next door, <b>take both</b>"
+      : clash ? "far & reaching together, <b>send someone</b>"
+      : "after this one";
+    then.innerHTML=`<i class="ti ti-arrow-right"></i><span>Then <b>Court ${esc(nextC.court)}</b>${nm!=null?` · ~${nm} min`:""} — ${advice}</span>`;
+    then.classList.remove("hidden");
+  } else then.classList.add("hidden");
 }
 
 // one court tile: full island when we have matters there, mini otherwise
-function boardCell(c, senCourt){
+function boardCell(c, senCourt, senMode){
   const idle=/not in session/i.test(c.status||"");
   const ours=myMatters().filter(e=>String(e.courtNo)===String(c.court));
   const sen = senCourt && String(senCourt)===String(c.court);
+  const live = sen && senMode==="confirmed";
+  const senCls = sen ? " sen"+(live?" senlive":"") : "";
+  const pin = sen ? `<span class="senpin${live?"":" inferred"}"><i class="ti ti-user-check"></i><span class="lab">${live?"Senior here":"Likely here"}</span></span>` : "";
   if(!ours.length){
-    return `<div class="cell mini ${idle?"idle":""} ${sen?"sen":""}" data-court="${esc(c.court)}">
-      ${sen?`<span class="senpin"><i class="ti ti-user"></i></span>`:""}
+    return `<div class="cell mini ${idle?"idle":""}${senCls}" data-court="${esc(c.court)}">
+      ${pin}
       <div class="cell-ct">Court <span class="ctn">${esc(c.court)}</span></div>
       <div class="cell-item">${idle?"—":esc(c.item||"·")}</div></div>`;
   }
   const ks=ours.map(e=>({e,k:classify(e,c)})).sort((a,b)=>(TIER_RANK[a.k.tier]-TIER_RANK[b.k.tier])||((a.k.gap??999)-(b.k.gap??999)));
   const tier=ks[0].k.tier;
   const items=ks.map(x=>esc(x.e.itemNo)).join(" · ");
-  return `<div class="cell ours ${tier} ${idle?"idle":""} ${sen?"sen":""}" data-court="${esc(c.court)}">
-    ${sen?`<span class="senpin"><i class="ti ti-user"></i></span>`:""}
+  return `<div class="cell ours ${tier} ${idle?"idle":""}${senCls}" data-court="${esc(c.court)}">
+    ${pin}
     <div class="cell-ct">Court <span class="ctn">${esc(c.court)}</span></div>
     <div class="cell-item">${idle?"—":esc(c.item||"·")}</div>
     <div class="cell-sub">${idle?"not sitting":esc(c.status||"hearing")}</div>
@@ -753,13 +819,13 @@ function renderBoard(){
   // Courts 1–17 always; registrar / extra courts (>17) only when we're in them.
   // Our courts render first at full size; the rest shrink to minis — all fit
   // one screen, no scrolling.
-  const senCourt = seniorState().court;
+  const ss=seniorState(), senCourt=ss.court, senMode=ss.mode;
   const shown=[...board].filter(c=>{ const n=parseInt(c.court); return (n>=1 && n<=17) || ourCourts.has(String(c.court)); });
   const byNo=(a,b)=>(parseInt(a.court)||999)-(parseInt(b.court)||999);
   const full=shown.filter(c=>ourCourts.has(String(c.court))).sort(byNo);
   const mini=shown.filter(c=>!ourCourts.has(String(c.court))).sort(byNo);
-  h+=`<div class="grid">`+full.map(c=>boardCell(c,senCourt)).join("")+`</div>`;
-  if(mini.length) h+=`<div class="grid" style="margin-top:7px">`+mini.map(c=>boardCell(c,senCourt)).join("")+`</div>`;
+  h+=`<div class="grid">`+full.map(c=>boardCell(c,senCourt,senMode)).join("")+`</div>`;
+  if(mini.length) h+=`<div class="grid" style="margin-top:7px">`+mini.map(c=>boardCell(c,senCourt,senMode)).join("")+`</div>`;
   $("main").innerHTML=h;
 }
 
