@@ -360,13 +360,17 @@ Everything else on the form is optional.
   via `resolveEntry(e,date)`. Single sort → day sheet display, print AND share all
   follow it. **Print fits one page for a busy day** (owner's 12-matter 15th + two
   conference days): top margin cut (`@page margin:6mm 11mm 8mm`, `body margin:0`
-  — header sits at the top edge) and the table tightened (padding 1.5px,
-  line-heights ~1.15, nm 12px, jg/ad 9.5px, compact seq box). Conferences use a
+  — header sits at the top edge). Font sizing balances "one page" against the
+  clerk's **"too small / too faint"** feedback: **weight 500 throughout** (EB
+  Garamond 400 printed faint; headers 700, and the font link now loads the 500
+  weight), case name 13px, judges/advocates 11px (cols widened to 114/120 so names
+  don't wrap), court/item 13.5px, line-heights ~1.2. Conferences use a
   DETERMINISTIC two-column flex (`.cfsplit`/`.cfcol`), NOT CSS multicol (which
   balanced unpredictably and fragmented onto page 2): one conference day → its
-  rows split left/right; two+ days → each day fills a column (14th-evening left,
-  15th-morning right). Measured faithfully against an A4 box: 12 tall rows + 10
-  conferences = ~947px vs ~1070px printable → ~120px headroom.
+  rows split left/right; two+ days → each day fills a column (e.g. 8 on the
+  14th-evening left, 2 on the 15th-morning right). Measured faithfully against an
+  A4 box (REAL print CSS, heavy 12-matter rows): ~1028px vs ~1070px printable →
+  ~42px headroom. **Don't enlarge the font without re-measuring the worst-case fit.**
 - Jul 2026 (2nd pass): Add-matter form order = **Causelist type FIRST**, then
   court+item (lookup is scoped to the chosen type — `lookupCauselistItem(...,
   preferType)`). Fetcher captures **sub-items** (ITEM_LINE_RE = `N` or `N.M`,
