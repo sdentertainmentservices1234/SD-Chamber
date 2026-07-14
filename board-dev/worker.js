@@ -7,7 +7,10 @@
 // Then use the *.workers.dev URL in board.html (BOARD_PROXY).
 
 const SRC = "https://wdb.sci.gov.in/get_board.php";      // ?ctype=c (regular) | v (video)
-const EDGE_TTL = 15;                                     // seconds; source itself updates every 30s
+const EDGE_TTL = 6;                                      // seconds. get_board.php answers live per request (the
+                                                         // court's own old board polls it every 30s); a short edge
+                                                         // TTL still collapses 100 devices to ~10 origin fetches/min
+                                                         // while keeping every client within ~6s of the courtroom.
 
 export default {
   async fetch(req) {
