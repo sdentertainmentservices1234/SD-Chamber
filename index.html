@@ -1754,6 +1754,7 @@ async function autoAssign(briefId){
     assignHistory:[...(b.assignHistory||[]),{uid:pick.uid,at:Date.now(),by:me.uid,mode:pick.forced?"forced":"auto"}],
     updatedAt:db.now()
   });
+  await syncListingJrs(briefId,[pick.uid]);   // cause-list rows follow the assignment instantly
   await advancePointer();
   toast(pick.forced?`Force-assigned to ${nameOf(pick.uid)} (all others unavailable)`:`Assigned to ${nameOf(pick.uid)}`, pick.forced?"ti-alert-triangle":"ti-user-check");
   pushNotif([pick.uid], `New assignment — ${labelOf(b)}${b.nextDate?`, next date ${fmtDateY(b.nextDate)}`:""}`, "assign", briefId);
@@ -1785,13 +1786,18 @@ function reassignForm(briefId){
 // When a matter's assignment changes, every day-sheet listing linked to that
 // brief must name the NEW colleague(s) — otherwise the cause list keeps showing
 // whoever the matter was first given to. Walks all day sheets (past + future).
-async function syncListingJrs(briefId, assignedTo){
-  const jr=(assignedTo||[]).slice();
+async function syncListingJrs(briefId, assignedTo, caseTitle){
+  const jr=assignedTo?assignedTo.slice():null;
+  const today=todayISO();
   for(const [date,ds] of Object.entries(dsAll)){
     let changed=false;
     const entries=(ds.entries||[]).map(e=>{
-      if(e.briefId!==briefId || jrsOf(e).join("|")===jr.join("|")) return e;
-      changed=true; return {...e, juniorUids:jr.slice(), juniorUid:jr[0]||null};
+      if(e.briefId!==briefId) return e;
+      let ne=e;
+      if(jr && jrsOf(e).join("|")!==jr.join("|")){ ne={...ne, juniorUids:jr.slice(), juniorUid:jr[0]||null}; changed=true; }
+      // a renamed matter updates its UPCOMING listings (past sheets stay as printed)
+      if(caseTitle && date>=today && (e.caseTitle||"")!==caseTitle){ ne={...ne, caseTitle}; changed=true; }
+      return ne;
     });
     if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
   }
@@ -1856,11 +1862,13 @@ async function objectAssignment(briefId, ground, note){
     patch.ackBy=[]; patch.assignedAt=Date.now();
     patch.assignHistory.push({uid:next.uid,at:Date.now(),mode:next.forced?"forced":"auto-reassign"});
     await db.update("briefs/"+briefId,patch);
+    await syncListingJrs(briefId,[next.uid]);   // cause-list rows name the new colleague at once
     await advancePointer();
     toast(next.forced?`Re-offered to ${nameOf(next.uid)} — all others unavailable, Staff notified`:`Objection recorded — passed to ${nameOf(next.uid)}`,"ti-arrow-right");
   } else {
     patch.assignedTo=[]; patch.status="received";
     await db.update("briefs/"+briefId,patch);
+    await syncListingJrs(briefId,[]);
     toast("Objection recorded — returned to unassigned queue","ti-inbox");
   }
 }
@@ -2224,7 +2232,11 @@ function renderCal(){
     const dow=new Date(y,m-1,d).getDay();
     const wknd=dow===0||dow===6;
     const n=(byDate[iso]||[]).length, mine=(mineBy[iso]||[]).length;
-    const conf=(dsAll[iso]?.conferences||[]).length;
+    // ALL conferences on this day — matter-linked conference times AND manual
+    // entries, from every day sheet (a conference can sit on a matter listed
+    // for another hearing day). Keeps the calendar in lockstep with the day
+    // sheet, the Conference tracker, print and share.
+    const conf=conferencesOn(iso).length;
     const hol=isHol(iso), part=(!hol&&!wknd)?isPartial(iso):null;
     // workload = matters listed that day; the ONLY strong colour, carried by a
     // small dot beside the count (green <5, amber 5–10, red >10).
@@ -2301,7 +2313,7 @@ function dayDetail(iso){
   const d=new Date(iso+"T00:00");
   const wd=d.toLocaleDateString('en-IN',{weekday:'long'});
   const entries=byCourt((dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]));
-  const confItems=(conferenceList(iso)[0]?.items)||[];
+  const confItems=conferencesOn(iso);   // matter-linked + manual, from every sheet — same source as the tracker
   const hol=isHol(iso), off=seniorOff(iso);
   openSheet(`<div class="sheet-head"><div><h3>${wd}, ${fmtDateY(iso)}</h3>
       <div class="sub">${entries.length?`${entries.length} item${entries.length>1?'s':''} listed`:'Nothing listed yet'}${confItems.length?` · ${confItems.length} conference${confItems.length>1?'s':''}`:''}</div></div>
@@ -3307,6 +3319,9 @@ function dsForm(idx=null){
         if((patch.caseNo||brief.caseNo||patch.diaryNo||brief.diaryNo)) patch.detailsAwaited=false;
         if(["received","assigned"].includes(brief.status)) patch.status="listed";
         patch.nextDate=listDate;
+        // conference set on the listing → the file's conference date follows
+        // (drives the register, calendar suggestions and the Conference tracker)
+        if(entry.confTime||entry.confDate) patch.conferenceAt=entry.confDate||listDate;
         patch.updatedAt=db.now();
         await db.update("briefs/"+brief.id, patch);
         notifyBrief={...brief, ...patch, id:brief.id, assignedTo:patch.assignedTo||brief.assignedTo||[]};
@@ -3318,6 +3333,7 @@ function dsForm(idx=null){
           assignedTo:jr.slice(), everAssigned:jr.slice(), ackBy:jr.slice(), declinedBy:[],
           assignHistory:jr.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:fAutoPicked?"auto":"listed"})),
           status:"listed", priority:false, nextDate:listDate, detailsAwaited:!(refs.caseNo||refs.diaryNo),
+          conferenceAt:(entry.confTime||entry.confDate)?(entry.confDate||listDate):null,
           fromListing:true, createdBy:me.uid, createdAt:db.now(), updatedAt:db.now() };
         entry.briefId = await db.add("briefs", nb);
         notifyBrief={...nb, id:entry.briefId};
@@ -3514,6 +3530,8 @@ function briefForm(b=null){
       data.everAssigned=assigned.slice(); data.declinedBy=[];
       data.assignHistory=assigned.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:asgHistMode}));
       savedId=await db.add("briefs",data); }
+    // keep every cause-list row of this matter in step: team + (upcoming) title
+    if(b) await syncListingJrs(b.id, assigned, data.caseTitle);
     // an auto-assignment consumes a roster turn, just like the standalone auto-assign
     if(autoPick && !autoPick.forced) await advancePointer();
     closeSheet();
