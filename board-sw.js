@@ -3,7 +3,7 @@
    (cache is the offline fallback). Firebase SDK + fonts + icons are CACHE-FIRST
    so the login button is armed instantly. Live data (the SC board relay,
    Firestore, Auth) is NEVER cached. */
-const CACHE = "sdboard-v4";
+const CACHE = "sdboard-v5";
 const SHELL = ["./board.html", "./board-manifest.json",
   "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
@@ -14,6 +14,15 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
   self.clients.claim();
+});
+// Tapping a "head to court X" alert focuses the app (or opens it).
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const cs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of cs) { if ("focus" in c) return c.focus(); }
+    if (self.clients.openWindow) return self.clients.openWindow("./board.html");
+  })());
 });
 self.addEventListener("fetch", e => {
   const req = e.request;

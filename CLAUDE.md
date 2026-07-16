@@ -112,6 +112,24 @@ pronouncement** — classify returns "mentioning is on" / "pronouncement is on" 
 NO gap (our matter just waits). jsc-verified: small/large-Misc, 800→mentioning,
 1500→pronouncement, "N away" not "Reg N".
 
+## Display-board alerts (board.html, Jul 2026 — Phase 1, no backend)
+
+So nobody has to stare at the board. A **bell toggle** in the header
+(`btnNotify`/`toggleNotify`, persisted in `localStorage.boardNotify`) requests
+Notification permission and turns on alerts. On every poll, `runAlerts()` classifies
+each of our matters and, when one crosses into **"get ready"** (tier soon → level 1)
+then **"head now"** (tier now → level 2), fires a system notification via
+`registration.showNotification` (+ vibration), deduped per court+item (`_alerted`,
+re-arms if the matter recedes; skips mentioning). Messages: "⚖️ Head to Court 6 —
+your item 4 is next" / "Get ready — Court 3 — item 6 approaching · ~3 min".
+`board-sw.js` gained a `notificationclick` handler (focus/open the app); cache
+bumped `sdboard-v4→v5`. A **screen wake lock** (`acquireWake`, re-acquired on
+visibilitychange) keeps the app awake so it keeps polling. **Reliable only while the
+app is open/awake** — fully-closed-phone push needs a server (Phase 2: VAPID + a
+Cloudflare-cron/Function poller that reads the chamber's matters and sends Web Push;
+the project's long-standing "FCM push = v2"). jsc-verified level transitions + live
+(enabling fired "Head to Court 6 / Get ready — Court 3/5", no errors).
+
 ## Court-pace study — SEPARATE collector (`pace-collector.html`, Jul 2026)
 
 Goal: learn each court's real disposal speed over ~a week, then replace the flat

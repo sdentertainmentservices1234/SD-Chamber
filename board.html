@@ -71,6 +71,9 @@ header.top{display:flex;align-items:center;gap:10px;
 .freshdot.off{background:#7d8894;animation:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(75,189,107,.5)}70%{box-shadow:0 0 0 7px rgba(75,189,107,0)}100%{box-shadow:0 0 0 0 rgba(75,189,107,0)}}
 .iconbtn{background:transparent;border:none;color:#cdd6df;font-size:21px;padding:5px;line-height:1;border-radius:8px}
+.iconbtn.on{color:var(--gold)}
+@keyframes bellpulse{0%,100%{opacity:1}50%{opacity:.45}}
+.iconbtn.on i{animation:bellpulse 2s ease-in-out infinite}
 .iconbtn:active{background:rgba(255,255,255,.1)}
 .iconbtn.spin i{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -284,6 +287,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
   <header class="top">
     <div class="ttl"><span id="hdrName">Chambers of Shyam Divan</span><small id="hdrSub">Senior Advocate · Supreme Court of India</small></div>
     <div class="spacer"></div>
+    <button class="iconbtn" id="btnNotify" title="Alerts — get pinged when a matter is reaching"><i class="ti ti-bell"></i></button>
     <button class="iconbtn" id="btnRefresh" title="Refresh"><i class="ti ti-refresh"></i></button>
     <button class="iconbtn" id="btnOut" title="Sign out"><i class="ti ti-logout"></i></button>
   </header>
@@ -638,6 +642,60 @@ function reachMinsFor(court,k){
 }
 const paceMeasured = court => paceVel(court)!=null;
 
+/* ---- ALERTS -----------------------------------------------------------------
+   Ping the phone when a chamber matter is reaching, so nobody has to stare at the
+   board. Fires a system notification (+ vibration) as a matter crosses into "get
+   ready" and then "head now"; a keep-awake lock holds the screen on so the app
+   keeps polling. Each level fires once per court+item (re-arms if it recedes).
+   Reliable while the app is OPEN/awake; true closed-phone push needs a server. */
+let notifyOn=false, _alerted={date:"",lv:{}}, _wakeLock=null;
+function alertLevel(k){ if(!k||k.ment) return 0; if(k.tier==="now") return 2; if(k.tier==="soon") return 1; return 0; }
+function runAlerts(){
+  if(!notifyOn || !("Notification" in window) || Notification.permission!=="granted") return;
+  if(_alerted.date!==todayISO()) _alerted={date:todayISO(),lv:{}};
+  const bc=boardByCourt();
+  for(const e of myMatters()){
+    const k=classify(e,bc[e.courtNo]); const lvl=alertLevel(k);
+    const key=e.courtNo+"|"+e.itemNo; const prev=_alerted.lv[key]||0;
+    if(lvl>prev){ _alerted.lv[key]=lvl; fireCourtAlert(e,k,lvl); }
+    else if(lvl===0 && prev>0){ _alerted.lv[key]=0; }   // re-arm once it recedes
+  }
+}
+function fireCourtAlert(e,k,lvl){
+  const head=lvl>=2, mins=reachMinsFor(e.courtNo,k), cur=boardByCourt()[e.courtNo]?.item;
+  const title=head?`⚖️ Head to Court ${e.courtNo}`:`Get ready — Court ${e.courtNo}`;
+  const body=head
+    ? `Your item ${e.itemNo} is ${(k.short==="NOW"||k.gap===0)?"ON now":"next"}.`+(cur?` (item ${cur} on)`:"")
+    : `Item ${e.itemNo} approaching`+(mins!=null&&mins>=1?` · ~${Math.round(mins)} min`:(k.gap!=null?` · ${k.gap} away`:""))+`.`;
+  pushNotify(title,body,"court-"+e.courtNo,head);
+}
+async function pushNotify(title,body,tag,urgent){
+  const opts={body,tag,renotify:true,icon:"icon-192.png",badge:"icon-192.png",
+    vibrate:urgent?[250,120,250,120,250]:[160,90,160],requireInteraction:!!urgent};
+  try{ const reg=await navigator.serviceWorker?.ready; if(reg&&reg.showNotification){ await reg.showNotification(title,opts); return; } }catch(e){}
+  try{ new Notification(title,opts); }catch(e){}
+}
+function updateNotifyBtn(){
+  const b=$("btnNotify"); if(!b) return;
+  const ok="Notification" in window && Notification.permission==="granted" && notifyOn;
+  b.classList.toggle("on",ok);
+  b.querySelector("i").className = ok?"ti ti-bell-ringing":"ti ti-bell";
+  b.title = !("Notification" in window) ? "Alerts not supported here"
+    : Notification.permission==="denied" ? "Alerts blocked — enable in phone/browser settings"
+    : ok ? "Alerts ON — tap to turn off" : "Alerts off — tap to get pinged when a matter is reaching";
+}
+async function acquireWake(){ try{ if("wakeLock" in navigator && !_wakeLock){ _wakeLock=await navigator.wakeLock.request("screen"); _wakeLock.addEventListener("release",()=>{_wakeLock=null;}); } }catch(e){} }
+function releaseWake(){ try{ if(_wakeLock) _wakeLock.release(); }catch(e){} _wakeLock=null; }
+async function toggleNotify(){
+  if(!("Notification" in window)){ alert("This browser doesn't support alerts."); return; }
+  if(Notification.permission==="default"){ try{ await Notification.requestPermission(); }catch(e){} }
+  if(Notification.permission!=="granted"){ alert("Turn on notifications for this site in your phone/browser settings, then tap the bell again."); updateNotifyBtn(); return; }
+  notifyOn=!notifyOn; try{ localStorage.setItem("boardNotify",notifyOn?"1":"0"); }catch(e){}
+  updateNotifyBtn();
+  if(notifyOn){ acquireWake(); pushNotify("Alerts on ⚖️","We'll ping you the moment a chamber matter is reaching — keep this open.","alerts-test",false); runAlerts(); }
+  else releaseWake();
+}
+
 /* ============================================================
    DATA LAYER — Firebase (prod) / in-memory mock (demo)
    ============================================================ */
@@ -720,6 +778,7 @@ async function fetchBoard(){
     if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); }
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
+  runAlerts();
   renderBoard();
 }
 // Adaptive polling — we track the SC board as tightly as it moves. When one of
@@ -1067,7 +1126,7 @@ function gateUI(){
   const approved = me && ["admin","senior","clerk","pa","junior"].includes(me.role);
   $("login").classList.toggle("hidden", !!approved);
   $("app").classList.toggle("hidden", !approved);
-  if(approved){ render(); }
+  if(approved){ render(); initNotify(); }
   else if(me){ $("lgErr").textContent = me.role==="pending" ? "Your account isn't approved yet. Ask Adith to add you." : ""; }
 }
 
@@ -1098,6 +1157,7 @@ $("modalRoot").addEventListener("click",async ev=>{
   if(pc){ const [ct,it]=pc.dataset.poclear.split("|"); await clearPO(ct,it); openMatterModal(ct,it); return; }
 });
 $("btnRefresh").onclick=hardRefresh;
+$("btnNotify").onclick=toggleNotify;
 $("btnOut").onclick=()=>auth.signOut();
 
 /* login form */
@@ -1113,7 +1173,11 @@ $("lgReset").onclick=async()=>{
   try{ await auth.resetPassword(em); $("lgErr").textContent="Reset link sent to "+em; }
   catch(e){ $("lgErr").textContent=e.message||"Could not send reset."; }
 };
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && !DEMO) fetchBoard(); });
+function initNotify(){
+  try{ notifyOn = localStorage.getItem("boardNotify")==="1" && ("Notification" in window) && Notification.permission==="granted"; }catch(e){ notifyOn=false; }
+  updateNotifyBtn(); if(notifyOn) acquireWake();
+}
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && !DEMO) fetchBoard(); if(!document.hidden && notifyOn) acquireWake(); });
 
 auth.onChange(boot);
 $("lgName").textContent = CHAMBER.seniorName ? CHAMBER.seniorName.split(" ")[0]+"'s Chamber — Display Board" : "Chamber Display Board";
