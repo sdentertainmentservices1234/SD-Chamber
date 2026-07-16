@@ -480,6 +480,20 @@ function detailRemark(court,item){
 }
 const isOver     = (court,item)=>/^over$/i.test(detailRemark(court,item));
 const isPassOver = (court,item)=>/pass\s*over/i.test(detailRemark(court,item));
+// Items the court has already finished (OVER) that sit numerically AHEAD of ours,
+// i.e. between the item now on and our item — they were disposed out of turn, so
+// they aren't really ahead of us. Used only to tighten the "how far" count; the
+// list of over items is never shown.
+function overAhead(court,curItem,ours){
+  const r=remarksByCourt[String(court)]; if(!r||!r.items) return 0;
+  const c=parseFloat(curItem), o=parseFloat(ours); if(isNaN(c)||isNaN(o)) return 0;
+  let n=0;
+  for(const k in r.items){
+    if(!/^over$/i.test(r.items[k])) continue;
+    const v=parseFloat(k); if(!isNaN(v) && v>c && v<o) n++;
+  }
+  return n;
+}
 async function fetchRemarksFor(court,token,force){
   if(!token || BOARD_SAMPLE || !BOARD_PROXY) return;       // demo seeds remarksByCourt directly
   const now=Date.now();
@@ -605,6 +619,10 @@ function classify(e, bc){
   const p=proximity(seq,bc.item,ours);
   if(p && p.gap!=null) gap=p.gap;
   else { const c=parseFloat(bc.item); if(!isNaN(c)){ gap=Math.floor(oursNum)-Math.floor(c); approx=true; } }
+  // Discount matters already finished out of turn (the court's list marks them
+  // OVER): they sit between the item now on and ours but won't be called again, so
+  // our real distance is that much shorter.
+  if(gap!=null && gap>0){ const done=overAhead(e.courtNo,bc.item,ours); if(done>0) gap=Math.max(0,gap-done); }
   if(gap==null) return {tier:"unknown",label:"position unclear",short:"—"};
   if(gap<0) return {tier:"passed",label:"matter is over",short:"over",gap,approx};
   if(gap<=1) return {tier:"now",label:gap===0?"ITEM ON NOW":"NEXT — get in",short:gap===0?"NOW":"NEXT",gap,approx};
@@ -1105,30 +1123,16 @@ function openCourtModal(court,_refetched){
         <span class="badge2 ${k.tier}" style="flex:none">${esc(k.short||"")}</span></div>`;
     }
   }
-  // Live remark column from this court's full cause list — OVER / PASS OVER as the
-  // bench itself records it. Only some courts keep it current.
-  {
-    const rmk=remarksByCourt[court], has=rmk&&rmk.items&&Object.keys(rmk.items).length;
-    h+=`<div class="sh-sec">Court remarks · live list</div><div class="sh-box">`;
-    if(has){
-      const ents=Object.entries(rmk.items);
-      const po=ents.filter(([,v])=>/pass\s*over/i.test(v)).map(([i])=>i);
-      const ov=ents.filter(([,v])=>/^over$/i.test(v)).map(([i])=>i);
-      const ot=ents.filter(([,v])=>!/pass\s*over/i.test(v)&&!/^over$/i.test(v));
-      const bits=[];
-      if(po.length) bits.push("Passed over: <b>"+po.map(esc).join(", ")+"</b>");
-      if(ov.length) bits.push("Over: <b>"+ov.map(esc).join(", ")+"</b>");
-      for(const [i,v] of ot) bits.push("Item "+esc(i)+": <b>"+esc(v)+"</b>");
-      h+=bits.length?bits.join("<br>"):"No item marked over or passed over yet.";
-    } else if(bc?.token){ h+=`<span style="color:var(--mut)">Reading the court's list…</span>`; }
-    else h+=`<span style="color:var(--mut)">This court doesn't publish a remark column.</span>`;
-    h+=`</div>`;
-  }
   h+=`<div class="sh-sec">Declared sequence</div>
     <div class="sh-box">${bc?.sequence?esc(bc.sequence):"No sequence declared — runs in listed order."}</div>`;
   h+=`<div class="sh-sec">Passovers</div><div class="sh-box">`;
   const poHere=Object.entries(poMarks()).filter(([k])=>k.startsWith(court+"_")).map(([k,v])=>({item:k.split("_")[1],...v}));
+  // Passed-over items the court itself publishes in its list's remark column.
+  const rmk=remarksByCourt[court];
+  const detailPO = rmk&&rmk.items ? Object.keys(rmk.items).filter(i=>/pass\s*over/i.test(rmk.items[i])) : [];
   const poBits=[];
+  if(detailPO.length) poBits.push("Court's list shows passed over: <b>"+detailPO.map(esc).join(", ")+"</b>");
+  else if(bc?.token && !rmk) poBits.push(`<span style="color:var(--mut)">Reading the court's list…</span>`);
   if(boardPO.length) poBits.push("Board shows passed over: <b>"+boardPO.join(", ")+"</b>");
   if(poHere.length) poBits.push("Marked by chamber: <b>"+poHere.map(p=>p.item+(p.mode==="after"&&p.after?" (after "+esc(p.after)+")":"")).join(", ")+"</b>");
   poBits.push(passIdx!=null?"Sequence takes passovers after <b>item "+esc(String(seq[passIdx-1]??"start"))+"</b>.":"Recall position not declared — assumed end of board.");
