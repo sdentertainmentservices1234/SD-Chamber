@@ -460,9 +460,11 @@ const boardPOhas=(court,item)=>boardPO.date===todayISO() && !!boardPO.marks[poKe
    reached its Regular list (note: Regular can be LONGER than Misc, so item-number
    size alone can't tell the lists apart — we use "past the whole Misc list" or a
    downward item reset instead). */
-// Regular-list matters are numbered from 101 up (Miscellaneous holds 1–100), so
-// an item's place IN the Regular list is itemNo − 100 (item 101 = the 1st Regular
-// matter), and any current board item ≥ 101 means the court has reached Regular.
+// Regular-list matters are numbered in the 101+ series, so an item's PLACE in the
+// Regular list is itemNo − 100 (item 101 = the 1st Regular matter). But the
+// Miscellaneous list runs 1 … 200+ and can itself reach into the 101 range, so a
+// bare item number can't tell the two lists apart — we use the Misc TOTAL plus
+// the tell-tale reset (the item drops from the end of Misc back to 101).
 const REG_BASE=101;
 function miscTotalFor(court){
   const rec=courtUpdates?.by_date?.[todayISO()]?.lists?.["Miscellaneous"]?.[String(court)];
@@ -471,12 +473,21 @@ function miscTotalFor(court){
   const m=parseInt(rec.main,10), s=parseInt(rec.supp,10);
   return isNaN(m)?null:(m+(isNaN(s)?0:s));
 }
+let itemHi={date:todayISO(),max:{}};   // highest raw item seen per court today (Misc→Regular reset detector)
+function noteItemHi(){
+  if(itemHi.date!==todayISO()) itemHi={date:todayISO(),max:{}};
+  for(const c of board){ const n=parseInt(c.item,10); if(!isNaN(n)) itemHi.max[c.court]=Math.max(itemHi.max[c.court]||0,n); }
+}
 // Has the court moved off its Miscellaneous list onto its Regular list?
 function onRegularList(court, miscTotal){
   const bc=boardByCourt()[court]; const cur=bc?parseInt(bc.item,10):NaN;
   if(isNaN(cur)) return false;
-  if(cur>=REG_BASE) return true;                         // Regular items are numbered from 101 up
-  if(miscTotal!=null && cur>miscTotal+2) return true;    // belt-and-braces: past the whole Misc list
+  if(miscTotal==null) return false;                      // no Misc size → can't tell; treat as behind-Misc
+  if(cur>miscTotal+2) return true;                       // item beyond the whole Misc list → Regular (Misc < 101)
+  // Misc itself reaches into the 101+ range: Regular shows as the item RESETTING
+  // from near the end of Misc (≈ miscTotal) back down to the 101 series.
+  const hi=itemHi.max[court]||0;
+  if(hi>=miscTotal-3 && cur>=REG_BASE && cur<hi-5) return true;
   return false;
 }
 
@@ -699,7 +710,7 @@ async function fetchBoard(){
     else if(BOARD_PROXY){ html=await (await fetch(BOARD_PROXY+"?ctype=c",{cache:"no-store"})).text(); }
     else { boardErr="relay-unset"; renderBoard(); return; }
     const parsed=parseBoard(html);
-    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); }
+    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); }
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
   renderBoard();

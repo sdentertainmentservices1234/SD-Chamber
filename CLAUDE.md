@@ -94,16 +94,34 @@ clerk only does day-to-day operational input.**
 
 ## Display board — Regular list is numbered 101+ (board.html)
 
-Regular-list matters are numbered from **101** up (Miscellaneous holds 1–100), and
-the court finishes its whole Misc list (main + supp) before starting Regular. In
-`classify()` for a `listType=Regular` matter: while the court is still on Misc,
-`gap = miscLeft + (regRank − 1)` where `regRank = itemNo − 100` (item 101 = the 1st
-Regular matter, so it's `miscLeft` away, NOT `miscLeft + 101`). `miscLeft` comes
-from the causelist Misc total (`miscTotalFor`, main+supp) or the live sequence
-position. `onRegularList()` treats **any current board item ≥ 101** as "Regular has
-started" (`REG_BASE=101`) and then falls through to normal within-Regular proximity
-(both items are 101+, so they compare directly). Shows "Reg N · Misc: K to go".
-jsc-verified (Reg#101 behind 11 Misc → 11 not 112; reached-Regular → within-list).
+Regular-list matters are numbered in the **101+ series**; a court finishes its
+whole Misc list (main + supp) before starting Regular. In `classify()` for a
+`listType=Regular` matter still behind Misc: `gap = miscLeft + (regRank − 1)` where
+`regRank = itemNo − 100` (item 101 = the 1st Regular matter, so it's `miscLeft`
+away, NOT `miscLeft + 101`). `miscLeft` = causelist Misc total (`miscTotalFor`,
+main+supp) or the live sequence position. **Important (owner Jul 2026): Misc runs
+1…200+ and CAN reach into the 101 range, so item size alone can't tell Misc from
+Regular.** `onRegularList()` therefore detects Regular two ways: current item `>
+miscTotal` (Misc < 101 days), OR the item **resetting** from ≈ the end of Misc back
+down into the 101 series (`itemHi` per-court high vs a big drop; Misc ≥ 101 days).
+Then it uses normal within-Regular proximity. Shows "Reg N · Misc: K to go".
+jsc-verified small-Misc AND large-Misc (200) cases.
+
+## Conference credit + credit register (index.html, Jul 2026)
+
+- A standalone / preliminary / strategy conference (no listed matter, or a matter
+  not yet listed) earns **½ credit**, split equally. Modelled as a brief with
+  `confCredit:true` (status `disposed`, `nextDate`=conference date). `shareFor`'s
+  base is `0.5` for `confCredit` (so solo ½, shared ¼). Added via the **Conference**
+  button next to **Legal aid** on the Briefs topbar (`conferenceCreditForm`), and
+  it counts in lifetime + the period tally like any matter (worth ½).
+- **Credit register**: clicking a Workload-snapshot island opens `renderRegisterSheet`
+  — an itemised, catalogued register (its own Week/Month/Year toggle, `_regPeriod`)
+  with columns **# · Matter/conference · Date · Credit**, tags for conf ½ / legal
+  aid / listing, and a period total. `creditLedger(uid,period)` enumerates the SAME
+  contributions as `loadInWindow` (briefs in the calendar period by listing date +
+  bare listings), so **the register total equals the snapshot number**. jsc-verified
+  (conf = 0.5 / shared 0.25; ledger total == loadInWindow; week ≤ month ≤ year).
 Priorities, in the owner's words:
 
 1. **Primary:** work allocation and distribution among ~10 juniors
