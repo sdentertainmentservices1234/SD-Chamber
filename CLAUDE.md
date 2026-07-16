@@ -333,9 +333,16 @@ populate config/holidays the way the cause-list Action populates scindex.
   the last **CATCHUP_WINDOW_MIN (90 min)** is held out of the pool (unless that
   empties it), so a batch spreads instead of piling on the lightest person —
   `recentAssigns(uid)` counts non-disposed assigned briefs with `assignedAt`
-  inside the window. The remaining pool is ranked by (activeLoad asc [lightest
-  first — skips the busy], then recentAssigns asc, then lifetimeCount asc, then
-  turn-distance from `roster.pointer` asc) — "active → recent → lifetime → turn".
+  inside the window. **Ranking metric = the WORKLOAD SNAPSHOT (owner Jul 2026,
+  changed from activeLoad):** the pool is ranked by (`loadInWindow(id, loadPeriod)`
+  asc [least credit done this period — exactly the number on the Workload snapshot],
+  then recentAssigns asc, then lifetimeCount asc, then turn-distance from
+  `roster.pointer` asc) — "snapshot → recent → lifetime → turn". `loadPeriod` is the
+  shared week/month/year toggle (default month), so whichever period is selected on
+  the snapshot/roster is what assignment uses. The Roster tab is now a **live
+  workload queue** (`rosterQueue()` — lightest snapshot first, leave-today + not-yet-
+  logged-in sink to the bottom); `nextUpUid()` = `pickNext` for a generic undated
+  matter, so the "Next up" marker never disagrees with the engine.
   **Leave-clash skip (Jul 2026, owner's rule):** the matter's hearing date
   (`brief.nextDate`, or the day-sheet listing date passed in) blocks any colleague
   on leave that day OR the day before — prep happens the day before, so leave on

@@ -1768,24 +1768,25 @@ function pickNext(brief, exclude=[]){
   if(eligible.length){
     const start = roster.pointer % ros.length;
     const rows = eligible.map(id=>({
-      id, load:activeLoad(id), recent:recentAssigns(id), life:lifetimeCount(id),
+      id, load:loadInWindow(id, loadPeriod), recent:recentAssigns(id), life:lifetimeCount(id),
       turn:(ros.indexOf(id) - start + ros.length) % ros.length      // distance from the roster pointer
     }));
     // Hold back anyone who just took his CATCHUP_MAX so a batch spreads round the
     // chamber — unless that would hold back everyone (then nobody is held back).
     const fresh = rows.filter(r=>r.recent<CATCHUP_MAX);
     const pool = fresh.length ? fresh : rows;
-    // Equitable ranking (owner's decision): lightest ACTIVE load first — skip the
-    // busy, go to the least burdened; then who has taken fewest just now (spreads
-    // a batch); then lowest LIFETIME load (career fairness); then plain roster turn.
+    // Equitable ranking (owner's decision Jul 2026): least WORKLOAD-SNAPSHOT credit
+    // this period first — whoever has done the least work goes next (this is exactly
+    // the number on the Workload snapshot); then who has taken fewest just now
+    // (spreads a batch); then lowest LIFETIME load (career fairness); then roster turn.
     pool.sort((a,b)=> a.load-b.load || a.recent-b.recent || a.life-b.life || a.turn-b.turn);
     return {uid:pool[0].id, reason:"rotation"};
   }
-  // Everyone eligible has declined or clashes -> force-assign to lightest active
-  // load, still preferring anyone whose leave doesn't clash with the matter.
+  // Everyone eligible has declined or clashes -> force-assign to the least-loaded
+  // (by the snapshot), still preferring anyone whose leave doesn't clash.
   const clear = ros.filter(id=>!blocked(id));
   const pool = clear.length?clear:ros;
-  const fallback = pool.map(id=>({id,load:activeLoad(id)})).sort((a,b)=>a.load-b.load)[0];
+  const fallback = pool.map(id=>({id,load:loadInWindow(id, loadPeriod)})).sort((a,b)=>a.load-b.load)[0];
   return {uid:fallback?fallback.id:null, forced:true};
 }
 
@@ -1793,6 +1794,26 @@ async function advancePointer(){
   const ros = effectiveRoster();
   if(!ros.length) return;
   await db.set("config/roster",{pointer:((roster.pointer||0)+1)%Math.max(ros.length,1)},true);
+}
+// Who the engine would actually pick for the next (generic, undated) new matter —
+// the honest "Next up". Mirrors pickNext (least workload-snapshot credit, skipping
+// anyone on leave today), so the roster marker never disagrees with reality.
+function nextUpUid(){ return pickNext({assignedTo:[],declinedBy:[]}).uid; }
+// The roster as a live WORKLOAD QUEUE (owner Jul 2026): lightest snapshot credit
+// first, then lifetime, then seniority; colleagues on leave today and members who
+// haven't logged in sink to the bottom (they can't take the next matter).
+function rosterQueue(period){
+  period=period||loadPeriod;
+  return rosterDisplay().map(m=>({
+    m, real:m.real,
+    load: m.real?loadInWindow(m.id,period):null,
+    leave: m.real&&onLeaveOn(m.id,todayISO())
+  })).sort((a,b)=>
+    (a.real?0:1)-(b.real?0:1)
+    || (a.leave?1:0)-(b.leave?1:0)
+    || (a.load??1e9)-(b.load??1e9)
+    || (a.real&&b.real ? lifetimeCount(a.m.id)-lifetimeCount(b.m.id) : 0)
+    || (a.m.joinedOn||"9999").localeCompare(b.m.joinedOn||"9999"));
 }
 
 // Auto-assign a brief to the next roster junior. Records assignment + advances pointer.
@@ -4168,50 +4189,52 @@ function rosterDisplay(){
   return [...real,...pending].sort((a,b)=>(a.joinedOn||"9999-99-99").localeCompare(b.joinedOn||"9999-99-99")||(a.name||"").localeCompare(b.name||""));
 }
 function renderRosterBody(){
-  const ros=effectiveRoster();
-  const nextIdx=ros.length? roster.pointer%ros.length : 0;
-  const nextUid=ros.length? ros[nextIdx] : null;
-  const disp=rosterDisplay();
+  const queue=rosterQueue(loadPeriod);           // lightest workload first
+  const nextUid=nextUpUid();                      // the real engine pick
+  const plab={week:"this week",month:"this month",year:"this year"}[loadPeriod];
   const explain=`<div class="roster-explain">
     <div class="clps-head ${uiExp.rosterInfo?'open':''}" id="reToggle">
       <div class="re-title" style="margin:0"><span class="ti ti-info-circle"></span>How assignment works</div>
       <span class="chev ti ti-chevron-down"></span>
     </div>
     <div class="clps-body ${uiExp.rosterInfo?'open':''}" style="margin-top:8px">
-    <p>The roster runs in <b>chamber seniority</b> — date of joining, senior-most first (set each colleague's date on the Workload snapshot). A new matter goes to whoever carries the <b>lightest active load</b> (each matter counts as 1 unless Staff marks it heavier; a matter listed within 4 days counts double). A matter shared by two colleagues counts as <b>half a point</b> each. Ties go to the lower <b>lifetime count</b> — total matters ever assigned (½ each when shared), so career fairness corrects drift — and any remaining tie to whoever is <b>next up</b> in the rotation. Colleagues on leave are skipped; objections pass the matter to the next eligible colleague; if everyone is unavailable it force-assigns to the lightest-loaded and flags you.</p>
+    <p>The roster is a <b>live workload queue</b> — whoever has done the <b>least work ${esc(plab)}</b> (their Workload-snapshot credit) is next for a new matter. Each appearance counts (a matter listed a second time counts again; a matter shared by two colleagues is <b>half each</b>). Ties break by lower <b>lifetime total</b>, then chamber seniority. Colleagues on leave that day (or the prep day before) are skipped and sink to the bottom; objections pass the matter to the next in the queue; if everyone is unavailable it force-assigns to the lightest and flags you.</p>
     </div>
   </div>`;
+  const _seg=`<div class="seg" id="rosterPeriodSeg"><button type="button" data-lp="week" class="${loadPeriod==="week"?"active":""}">Week</button><button type="button" data-lp="month" class="${loadPeriod==="month"?"active":""}">Month</button><button type="button" data-lp="year" class="${loadPeriod==="year"?"active":""}">Year</button></div>`;
   let list;
-  if(!disp.length){
+  if(!queue.length){
     list=`<div class="empty"><span class="ic ti ti-users"></span>No colleagues yet. Use “Add member” on the Workload snapshot.</div>`;
   } else {
     // colleague standing banner — "where am I in the queue?" answered up front
     let standingBanner="";
     if(me.role==="junior"){
-      const myPos=ros.indexOf(me.uid);
-      if(myPos>=0){
-        const turns=(myPos-nextIdx+ros.length)%ros.length;
-        const where = turns===0 ? `<span class="big">You're next up</span> — the next new matter comes to you`
-          : `You're <span class="big">#${myPos+1}</span> in the rotation · next up in <span class="big">${turns}</span> turn${turns>1?'s':''}`;
-        standingBanner=`<div class="roster-standing-banner"><span class="ti ti-user-star" style="color:var(--accent-ink);font-size:18px"></span><div>${where} · carrying ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div></div>`;
+      const myIdx=queue.findIndex(q=>q.m.id===me.uid);
+      if(myIdx>=0){
+        const meRow=queue[myIdx];
+        const ahead=queue.slice(0,myIdx).filter(q=>q.real&&!q.leave).length;   // assignable colleagues before me
+        const where = meRow.leave ? `You're <span class="big">on leave</span> — skipped until you're back`
+          : me.uid===nextUid ? `<span class="big">You're next up</span> — the next new matter comes to you`
+          : `You're <span class="big">#${myIdx+1}</span> in the queue · <span class="big">${ahead}</span> ${ahead===1?'colleague is':'colleagues are'} lighter`;
+        standingBanner=`<div class="roster-standing-banner"><span class="ti ti-user-star" style="color:var(--accent-ink);font-size:18px"></span><div>${where} · ${fmtPts(loadInWindow(me.uid,loadPeriod))} ${esc(plab)} · ${activeCount(me.uid)} active · ${fmtPts(lifetimeCount(me.uid))} lifetime</div></div>`;
       }
     }
-    list=standingBanner+`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates on the Workload snapshot</span></div>
-      ${disp.map((m,i)=>{
-        const isNext=m.real&&m.id===nextUid; const onLeave=m.real&&onLeaveOn(m.id,todayISO());
+    list=standingBanner+`<div class="panel"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload queue <span class="muted" style="font-weight:400;font-size:12px">lightest first — next matter goes to the top</span></span>${_seg}</div>
+      ${queue.map((q,i)=>{
+        const m=q.m; const isNext=m.real&&m.id===nextUid; const onLeave=q.leave;
         const isMe=m.real&&m.id===me.uid;
+        const oc=m.real?Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0):0;
         return `<div class="roster-row ${isNext?'is-next':''} ${isMe?'is-me':''} ${onLeave?'is-leave':''}">
           <div class="roster-pos">${i+1}</div>
           <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
           <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
-            <div class="roster-load muted">${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${fmtPts(activeLoad(m.id))} · ${activeCount(m.id)} live · ${fmtPts(lifetimeCount(m.id))} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
+            <div class="roster-load muted">${m.real?`<b style="color:var(--ink)">${fmtPts(q.load)}</b> ${esc(plab)} · ${activeCount(m.id)} active · ${fmtPts(lifetimeCount(m.id))} lifetime${oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:''}${m.joinedOn?` · joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)"> · no joining date</span>'}`:'awaiting first sign-in'}</div></div>
         </div>`;
-      }).join("")}</div>
-      ${canManage()?`<div class="row" style="margin-top:14px"><button class="btn ghost sm" id="rReset"><span class="ic ti ti-refresh"></span>Reset “next up” to top</button></div>`:''}`;
+      }).join("")}</div>`;
   }
   $("teamBody").innerHTML=explain+list;
   if($("reToggle"))$("reToggle").onclick=()=>{uiExp.rosterInfo=!uiExp.rosterInfo;renderRosterBody();};
-  if($("rReset"))$("rReset").onclick=async()=>{await db.set("config/roster",{pointer:0},true);toast("Rotation reset to the top");};
+  document.querySelectorAll("#rosterPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{loadPeriod=x.dataset.lp;renderRosterBody();});
 }
 
 /* ============================================================
