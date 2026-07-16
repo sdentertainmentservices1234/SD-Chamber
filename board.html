@@ -25,11 +25,15 @@
   --shadow:0 1px 3px rgba(20,26,34,.08),0 4px 16px rgba(20,26,34,.06);
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;
+html,body{margin:0;height:100%;overscroll-behavior:none;
   -webkit-text-size-adjust:100%;touch-action:manipulation;background:var(--panel)}
+/* NORMAL-FLOW shell (matches the chamber app, which fills the iOS home-indicator
+   area correctly). A position:fixed body does NOT reach the physical bottom in an
+   iOS standalone PWA — that was the persistent bottom gap. Here the body is not
+   fixed; #app is exactly one viewport tall and only <main> scrolls inside it, and
+   the fixed bottom nav anchors to the real screen edge. */
 body{color:var(--ink);font-family:Inter,system-ui,sans-serif;
-  -webkit-font-smoothing:antialiased;overflow:hidden;position:fixed;inset:0;
-  display:flex;flex-direction:column}
+  -webkit-font-smoothing:antialiased}
 .mono{font-family:'IBM Plex Mono',monospace}
 button{font-family:inherit;cursor:pointer}
 .hidden{display:none!important}
@@ -59,7 +63,7 @@ button{font-family:inherit;cursor:pointer}
 /* #app fills the fixed, full-screen <body> via flex — no vh/dvh (which iOS
    standalone PWAs report short, leaving a blank strip). Header + nav are flex:none,
    only <main> scrolls; the nav therefore sits on the true screen bottom. */
-#app{flex:1;min-height:0;display:flex;flex-direction:column;
+#app{display:flex;flex-direction:column;height:100vh;
   max-width:760px;width:100%;margin-inline:auto;background:var(--bg);overflow:hidden}
 @media(min-width:761px){ body{background:#d3d8dd} #app{border-inline:1px solid var(--line)} }
 
@@ -175,7 +179,7 @@ select.mini{appearance:none}
 .cell[data-setcourt]{cursor:pointer}
 .cell[data-setcourt]:active{transform:scale(.97)}
 
-main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px 66px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px calc(64px + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 /* legend */
 .legend{display:flex;gap:12px;font-size:10px;color:var(--mut);margin:0 2px 8px;flex-wrap:wrap}
@@ -260,7 +264,8 @@ main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px 66px;-webkit-overflow
    buttons sit flush; the translucent home-indicator bar floats over them. */
 nav.botnav{position:fixed;bottom:0;left:0;right:0;max-width:760px;margin-inline:auto;
   display:flex;z-index:30;
-  background:var(--panel);border-top:1px solid var(--line)}
+  background:var(--panel);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.botnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
   background:transparent;border:none;color:var(--mut);font-size:11px;font-weight:600;
   padding:9px 4px 8px;position:relative}
