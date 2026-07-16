@@ -1687,9 +1687,9 @@ function shareForDate(arr, uid, date){
   const present=presentSharers(arr,date);
   return idIn(present,uid) ? 1/present.length : (idIn(arr,uid)?1/arr.length:0);
 }
-// Share of a BRIEF for one colleague: a full-credit claim overrides; otherwise
-// split among co-assignees present on the brief's date (its next hearing).
-function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[];
+// Share of a BRIEF for one colleague ON A GIVEN DATE: a full-credit claim
+// overrides; otherwise split among co-assignees present that day.
+function shareForOn(b, uid, arr, date){ arr=arr||b.assignedTo||[];
   // A standalone / preliminary / strategy conference (not a listed matter) is
   // worth HALF a credit; a full matter is worth one. Either way it splits equally
   // between the colleagues who did it.
@@ -1699,8 +1699,11 @@ function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[];
   // whole credit — the new assignee scored 0 and the departed claimant wasn't
   // counted, so the matter credited NOBODY. Ignore stale claims entirely.
   if(b.creditClaim&&b.creditClaim.uid&&idIn(arr,b.creditClaim.uid)) return aliasIds(uid).includes(b.creditClaim.uid)?base:0;
-  return base * shareForDate(arr, uid, b.nextDate||b.conferenceAt||null);
+  return base * shareForDate(arr, uid, date);
 }
+// Default single-figure share (activeLoad / lifetimeCount) — keyed on the brief's
+// own next hearing date.
+function shareFor(b, uid, arr){ return shareForOn(b, uid, arr||b.assignedTo||[], b.nextDate||b.conferenceAt||null); }
 const fmtPts=n=>{ n=Math.round(n*10)/10; return Number.isInteger(n)?String(n):n.toFixed(1); };  // tidy fractional display
 function activeLoad(uid){
   const briefLoad=Object.values(briefs)
@@ -1758,14 +1761,32 @@ function casesInWindow(uid, period){
   }});
   return out.sort((a,b)=>(b.nextDate||"").localeCompare(a.nextDate||"")||(a.caseTitle||"").localeCompare(b.caseTitle||""));
 }
+// Each APPEARANCE of a register brief in the window earns its OWN credit — a
+// matter listed twice (relisted / adjourned) is credited for BOTH listings
+// (owner's rule Jul 2026). Returns [{date,credit}] for this colleague: one entry
+// per in-window listing date (plus the scheduled next date when it isn't already
+// a listing), or a single dateless credit for an undated but still-active matter.
+// Mirrors the calendar attribution — a listing counts in the week/month of its
+// own date. Bare (register-less) listings are already per-listing via listingsOf.
+function briefContribs(b, uid, period){
+  const arr=b.assignedTo||[];
+  const [start,end]=periodRange(period); const inWin=x=>x&&x>=start&&x<=end;
+  const ld=listingDatesOf(b.id);
+  const dates=new Set(ld.filter(inWin));
+  if(b.nextDate && inWin(b.nextDate)) dates.add(b.nextDate);
+  const out=[];
+  if(dates.size){
+    [...dates].sort().forEach(d=>{ const c=shareForOn(b,uid,arr,d); if(c>0) out.push({date:d,credit:c}); });
+  } else if(!b.nextDate && !ld.length && b.status!=="disposed"){
+    const c=shareFor(b,uid,arr); if(c>0) out.push({date:null,credit:c});   // undated live work → current period
+  }
+  return out;
+}
 function loadInWindow(uid, period){
   const [start,end]=periodRange(period);
   const inWin=x=>x&&x>=start&&x<=end;
   let pts=0;
-  Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)){
-    const ld=listingDatesOf(b.id); const hasDate=b.nextDate||ld.length;
-    if(inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.assignedTo);
-  }});
+  Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)) briefContribs(b,uid,period).forEach(c=>pts+=c.credit); });
   listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=shareForDate(jrsOf(x.e),uid,x.date); });
   conferenceCreditsOf(uid).forEach(c=>{ if(inWin(c.date)) pts+=c.credit; });
   return Math.round(pts*10)/10;
@@ -3964,12 +3985,12 @@ function creditLedger(uid, period){
   const [start,end]=periodRange(period); const inWin=x=>x&&x>=start&&x<=end;
   const rows=[];
   Object.values(briefs).forEach(b=>{ if(!idIn(b.assignedTo,uid)) return;
-    const ld=listingDatesOf(b.id); const hasDate=b.nextDate||ld.length;
-    if(!(inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed"))) return;
-    const credit=shareFor(b,uid,b.assignedTo); if(credit<=0) return;
-    const d=(ld.filter(inWin).sort()[0])||(inWin(b.nextDate)?b.nextDate:null)||b.nextDate||(ld[0]||null);
-    rows.push({date:d, title:b.caseTitle||labelOf(b), brief:b.id, credit,
-      kind:b.confCredit?"conference":(b.legalAid?"legal aid":"matter")});
+    // one row per in-window appearance — a matter listed twice shows (and is
+    // credited) twice, dated to each listing.
+    briefContribs(b,uid,period).forEach(c=>{
+      rows.push({date:c.date, title:b.caseTitle||labelOf(b), brief:b.id, credit:c.credit,
+        kind:b.confCredit?"conference":(b.legalAid?"legal aid":"matter")});
+    });
   });
   listingsOf(uid).forEach(x=>{ if(!inWin(x.date)) return; const credit=shareForDate(jrsOf(x.e),uid,x.date); if(credit<=0) return;
     rows.push({date:x.date, title:x.e.caseTitle||("Court "+x.e.courtNo+" · item "+x.e.itemNo), credit, kind:"listing"}); });

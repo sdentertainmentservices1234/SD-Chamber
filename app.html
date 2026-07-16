@@ -150,6 +150,28 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .av-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);border-radius:20px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
 .av-btn.on{background:var(--sidebar);color:#f3f2ee;border-color:var(--sidebar)}
 .mw-card{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;cursor:pointer;font-family:inherit}
+/* credit register — a full section (redirected from a workload island) */
+.reg-sec{max-width:760px}
+.reg-top{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.reg-name{font-family:Fraunces,serif;font-size:21px;font-weight:600;line-height:1.05}
+.reg-subt{font-size:12px;color:var(--muted);letter-spacing:.02em}
+.reg-summary{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:16px 2px 14px}
+.reg-big{font-family:Fraunces,serif;font-size:27px;font-weight:600;color:var(--accent-ink)}
+.reg-bits{font-size:12px}
+.reg-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.reg-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.reg-table th,.reg-table td{padding:11px 14px;text-align:left;border-top:1px solid var(--line);font-size:13.5px;vertical-align:top}
+.reg-table thead th{border-top:none;background:var(--surface-2);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-3)}
+.reg-table .c-sn{width:38px;text-align:center;font-family:'IBM Plex Mono';color:var(--muted);font-size:12.5px}
+.reg-table .c-date{width:112px;white-space:nowrap;color:var(--ink-2);font-size:12.5px}
+.reg-table .c-cr{width:70px;text-align:right;font-family:'IBM Plex Mono';font-weight:700}
+.reg-table .c-case{line-height:1.35;min-width:150px}
+.reg-table tbody tr:nth-child(even){background:rgba(0,0,0,.018)}
+.reg-table tr.reg-click{cursor:pointer} .reg-table tr.reg-click:active{background:var(--surface-2)}
+.reg-table tfoot td{border-top:2px solid var(--line-2);background:var(--surface-2);font-weight:700;font-size:14px}
+.reg-empty{font-size:13.5px;text-align:center;padding:26px 4px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.reg-k{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:1.5px 6px;border-radius:5px;margin-left:7px;white-space:nowrap;display:inline-block}
+.k-conf{background:var(--s-conf-bg);color:var(--s-conf)} .k-la{background:#eef3ea;color:#4a6b32} .k-list{background:var(--surface-2);color:var(--ink-3)}
 .mw-card.new{border-color:var(--accent);background:var(--accent-soft)}
 .mw-open{display:block;width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer;font-family:inherit}
 .mw-title{font-family:var(--serif);font-size:15.5px;color:var(--ink);line-height:1.3}
@@ -397,6 +419,15 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .li-lab{font-size:10px;color:var(--ink-3);margin-top:3px}
 .leave-island{cursor:default}
 .li-year{font-size:11px;color:var(--muted);margin-top:5px;padding-top:5px;border-top:1px solid var(--line)}
+/* leave register */
+.leave-month-h{font-size:12px;font-weight:600;color:var(--ink-2);padding:9px 12px 4px;background:var(--surface);border-top:1px solid var(--line)}
+.leave-reg{align-items:flex-start}
+.leave-sno{font-size:12px;color:var(--muted);min-width:36px;flex:none;padding-top:2px}
+.leave-by{font-size:11px;color:var(--muted);opacity:.85;margin-top:2px}
+.leave-del{font-size:11px;color:var(--danger);font-weight:500;margin-top:1px}
+.leave-reg.is-del{opacity:.72}
+.leave-reg.is-del .nm{text-decoration:line-through}
+.leave-reg.is-del .leave-sno::after{content:" ✕";color:var(--danger)}
 .li-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .leave-bar{height:5px;background:var(--surface-2);border-radius:3px;margin-top:6px;max-width:200px;overflow:hidden}
 .leave-bar span{display:block;height:100%;background:var(--accent-ink);border-radius:3px}
@@ -814,7 +845,7 @@ body.demo .topbar{top:34px}
     </div>
     <nav class="sb-nav" id="sbNav">
       <button data-tab="cal" class="active"><span class="ic ti ti-calendar-month"></span>Calendar</button>
-      <button data-tab="now"><span class="ic ti ti-broadcast"></span>Now<span class="now-nav-dot hidden" id="navNowDot"></span></button>
+      <button data-tab="now"><span class="ic ti ti-users-group"></span>Conferences</button>
       <button data-tab="board"><span class="ic ti ti-layout-grid"></span>Work board</button>
       <button data-tab="today"><span class="ic ti ti-list-check"></span>Day sheet</button>
       <button data-tab="briefs"><span class="ic ti ti-folders"></span>Briefs<span class="count" id="cntBriefs"></span></button>
@@ -838,7 +869,6 @@ body.demo .topbar{top:34px}
       </div>
       <div id="topbarAction" class="topbar-action"></div>
       <div class="topbar-icons">
-        <button class="live-pill hidden" id="livePill" title="Where the Senior is now"></button>
         <button class="tbtn icon-only" id="btnBell" title="Notifications" aria-label="Notifications" style="position:relative"><span class="ic ti ti-bell"></span><span id="bellCount" class="bell-badge hidden"></span></button>
         <button class="tbtn icon-only" id="btnRefresh" title="Refresh — fetch the latest data and app version" aria-label="Refresh"><span class="ic ti ti-refresh"></span></button>
         <button class="tbtn icon-only" id="btnView" title="Switch between mobile and desktop view" aria-label="Toggle view"><span class="ic ti ti-device-mobile"></span></button>
@@ -898,6 +928,8 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 const todayISO = () => new Date().toLocaleDateString('en-CA');
 const fmtDate = iso => iso ? new Date(iso+"T00:00").toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : "—";
 const fmtDateY = iso => iso ? new Date(iso+"T00:00").toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : "—";
+// a stored timestamp (ms number, or Firestore Timestamp) -> "14 Jul 2026, 3:45 pm"
+const fmtStamp = t => { const ms=t?._t ?? (t?.toDate?t.toDate().getTime():t); return (typeof ms==="number"&&ms) ? new Date(ms).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}) : ""; };
 const initials = n => (n||"?").replace(/\(.*?\)/g,"").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
 const STATUS = {
@@ -1136,9 +1168,6 @@ function seedDemo(db){
    APP STATE + BOOT
    ============================================================ */
 let me=null, users={}, briefs={}, daysheet={entries:[]}, dsDate=todayISO();
-// staff-set unavailability {colleagueId:{note,until,by,at}} — the colleague is
-// skipped for assignment until Staff revoke it (works for pending ids too).
-let unavailable={};
 // leave log: leaves/{id}={uid,from,to,reason,at,by} — transparent to all
 let leaves={};
 // in-app notifications: notifs/{id}={uid,text,kind,briefId,at,by} — each doc is
@@ -1238,13 +1267,22 @@ function chamberColleagues(){ return rosterDisplay().map(m=>({id:m.id,name:m.nam
 // no AM/PM). Courts/conferences never sit before 8am, so 1-7 always means PM.
 const toClock=t=>{ t=String(t||"").trim(); const m=t.match(/^(\d{1,2})[.:](\d{2})$/)||t.match(/^(\d{1,2})$/); if(!m) return ""; let h=+m[1]; const mm=m[2]||"00"; if(h>=1&&h<=7) h+=12; return String(h).padStart(2,"0")+":"+mm; };
 const toDotted=v=>{ v=String(v||"").trim(); const m=v.match(/^(\d{1,2}):(\d{2})$/); if(!m) return v; let h=+m[1]%12; if(h===0)h=12; return h+"."+m[2]; };
-// The causelist is always ordered by court room number (Court 1 first), then
-// item number. Sort a copy, keeping original order as a stable tiebreak.
+// The causelist is grouped by LIST TYPE first — every court finishes its
+// Miscellaneous list before taking up the Regular list, so ALL Miscellaneous
+// matters (ordered court-wise) come before ANY Regular matter, then the rest.
+// Within a list type: court room number (Court 1 first), then item number.
+// CAUSELIST_TYPES already runs Misc, Regular, then the others — reuse that order.
 const _courtNum=e=>{ const n=parseInt(String(e?.courtNo??"").trim(),10); return isNaN(n)?9999:n; };
 // item key: main + sub as a decimal so a main item sorts ABOVE its sub-items
 // (102 -> 102.000, 102.1 -> 102.001, 102.2 -> 102.002). Non-numeric (MM) -> last.
 const _itemKey=e=>{ const m=String(e?.itemNo??"").trim().match(/^(\d+)(?:\.(\d+))?/); return m? parseInt(m[1],10)+(m[2]?parseInt(m[2],10)/1000:0) : 999999; };
-const byCourt=arr=>arr.map((e,i)=>[e,i]).sort((a,b)=>_courtNum(a[0])-_courtNum(b[0])||_itemKey(a[0])-_itemKey(b[0])||a[1]-b[1]).map(x=>x[0]);
+const _typeRank=lt=>{ const i=CAUSELIST_TYPES.indexOf(lt); return i<0?99:i; };   // Misc 0, Regular 1, … unknown last
+// `date` (optional) lets a court+item-only entry resolve its type from the fetched
+// causelist; an entry that already carries a listType never pays the lookup.
+const byCourt=(arr,date)=>arr
+  .map((e,i)=>({e,i,lt:e.listType||(date?(resolveEntry(e,date).listType||""):"")}))
+  .sort((a,b)=>_typeRank(a.lt)-_typeRank(b.lt)||_courtNum(a.e)-_courtNum(b.e)||_itemKey(a.e)-_itemKey(b.e)||a.i-b.i)
+  .map(x=>x.e);
 // which SC list types publish a supplementary (Curative does not); and whether
 // that supplementary has actually been fetched yet for a date (it's released
 // ~8pm the evening before, so until then the Supp figure is left blank).
@@ -1319,7 +1357,7 @@ applyViewPref();
 if($("navMore")) $("navMore").onclick=()=>{
   openSheet(`<div class="sheet-head"><div><h3>More</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      <button class="btn ghost" data-moretab="now" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-broadcast"></span>Now — live tracker</button>
+      <button class="btn ghost" data-moretab="now" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-users-group"></span>Conference tracking</button>
       <button class="btn ghost" data-moretab="leave" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-plane-departure"></span>Leave</button>
       <button class="btn ghost" data-moretab="team" style="width:100%;justify-content:flex-start;margin-bottom:8px"><span class="ic ti ti-users"></span>Chamber</button>
       <button class="btn ghost" id="moreSignOut" style="width:100%;justify-content:flex-start;color:var(--danger)"><span class="ic ti ti-logout"></span>Sign out</button>
@@ -1361,17 +1399,16 @@ function startApp(){
   unsub.push(db.watchDoc("config/holidays", d=>{ holidays=d||{}; delete holidays.id; renderActive(); }));
   unsub.push(db.watchDoc("config/vacation", d=>{ vacation=d&&Array.isArray(d.ranges)?d:{ranges:[]}; renderActive(); }));
   unsub.push(db.watchDoc("config/senioravail", d=>{ seniorAvail=d||{}; delete seniorAvail.id; renderActive(); }));
-  unsub.push(db.watchDoc("config/unavailable", d=>{ unavailable=d||{}; delete unavailable.id; renderActive(); }));
   unsub.push(db.watchCollection("daysheets", rows=>{ dsAll={}; rows.forEach(d=>dsAll[d.id]=d); _scanVer++; renderActive(); _dsLoaded=true; maybeSyncRegister(); }));
   unsub.push(db.watchCollection("approvals", rows=>{ approvals={}; rows.forEach(a=>approvals[a.id]=a); if(curTab==="team")renderTeam(); }));
   unsub.push(db.watchCollection("leaves", rows=>{ leaves={}; rows.forEach(l=>leaves[l.id]=l); renderActive(); }));   // leave affects roster/board too
   unsub.push(db.watchCollection("notifs", rows=>{ notifs={}; rows.forEach(nn=>notifs[nn.id]=nn); updateBell(); }));
-  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; updateLivePill(); renderActive(); }));
+  unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; renderActive(); }));   // doc shared with the SD Court App
   unsub.push(db.watchCollection("confstatus", rows=>{ confStatus={}; rows.forEach(s=>confStatus[s.id]=s); if(curTab==="now")renderNow(); }));
   loadCourtUpdates();
   watchDaysheet();
 }
-function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(daysheet.entries) daysheet.entries=byCourt(daysheet.entries); if(curTab==="today")renderToday(); }); }
+function watchDaysheet(){ if(dsUnsub)dsUnsub(); dsUnsub=db.watchDoc("daysheets/"+dsDate, d=>{ daysheet=d||{entries:[]}; if(daysheet.entries) daysheet.entries=byCourt(daysheet.entries, dsDate); if(curTab==="today")renderToday(); }); }
 
 function paintChrome(){
   $("sbName").textContent=CHAMBER.seniorName; $("sbCourt").textContent=CHAMBER.court; if($("sbDesig"))$("sbDesig").textContent=CHAMBER.designation;
@@ -1391,7 +1428,7 @@ let curTab="cal";
 // ones a user collapses for the session.
 const uiExp={ balance:true, rosterInfo:false, cardsClosed:new Set() };
 const TITLES={cal:["Calendar","Court days, holidays and the chamber's diary"],
-  now:["Now","Live — where the Senior is and what's on"],
+  now:["Conference tracking","Live conference status, timers and notes"],
   board:["Work board","Distribution and workload across the chamber"],
   today:["Day sheet",""], briefs:["Briefs","The chamber's matter register"],
   leave:["Leave","Chamber leave — logged openly for everyone"], team:["Chamber","Workload, roster, people and availability"]};
@@ -1451,16 +1488,20 @@ function confirmAsk({title,body,confirmLabel,danger,onYes}){
 // logs in. Their assignments migrate to the real uid on first login (syncRegister).
 function effectiveRoster(){ return rosterDisplay().map(m=>m.id); }
 // a logged leave (Leave tab / calendar) covering this date
-function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>l.uid===uid&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
+function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>!l.deleted&&l.uid===uid&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
 // A colleague is "available" whenever they are NOT on leave — there is no other
 // status to mark (owner's call Jul 2026). Leave is the leave log alone.
 function isOnLeave(uid){ return leaveLogCovers(uid,todayISO()); }
 // Staff-set unavailability: active until revoked, or until an optional "until" date.
-function isUnavailable(uid){ const u=unavailable[uid]; if(!u) return false; return !u.until || u.until>=todayISO(); }
-// A colleague is skippable for a NEW assignment if on leave today or marked unavailable.
-function isSkippable(uid){ return isOnLeave(uid) || isUnavailable(uid); }
-async function setUnavailable(uid,note,until){ await db.set("config/unavailable",{[uid]: note===null?null:{note:note||"",until:until||"",by:me.uid,at:Date.now()}},true); }
+// A colleague is skippable for a NEW assignment only if on leave today.
+// (Owner's rule: availability = the leave log, nothing else.)
+function isSkippable(uid){ return isOnLeave(uid); }
 function onLeaveOn(uid,dateISO){ return leaveLogCovers(uid,dateISO); }
+const dayBefore=dateISO=>{ const d=new Date(dateISO+"T00:00"); d.setDate(d.getDate()-1); return d.toLocaleDateString("en-CA"); };
+// Leave clashes with a matter listed on `hearingDate` if the colleague is on
+// leave that day (can't attend) OR the day before (prep happens the day before —
+// owner's rule: leave on D blocks matters dated D and D+1).
+function leaveClash(uid,hearingDate){ return !!hearingDate && (onLeaveOn(uid,hearingDate) || onLeaveOn(uid,dayBefore(hearingDate))); }
 
 // Weighted ACTIVE load (open matters, weighted by matter type).
 // Imminence-aware: a matter listed within the next 4 days counts DOUBLE —
@@ -1495,16 +1536,30 @@ function listingsOf(uid){
   Object.entries(dsAll).forEach(([date,ds])=>{ (ds?.entries||[]).forEach((e,i)=>{
     if(!idIn(jrsOf(e),uid)) return;
     // A listing tied to a register brief is represented BY that brief — the
-    // brief's assignedTo is the source of truth, so it's counted there (whoever
-    // is on the brief) and NOT again here. This also means a matter reassigned
-    // away drops off the old colleague even when the day-sheet name is stale.
-    if(e.briefId && briefs[e.briefId]) return;
+    // brief's assignedTo is the source of truth, counted there, not again here.
+    // ANY listing carrying a briefId is a register matter: if its brief still
+    // exists it's counted via the brief; if the brief was DELETED the matter is
+    // gone and it must NOT resurface as credit here. So only a truly bare
+    // listing (never had a brief) counts as a standalone listing.
+    if(e.briefId) return;
     out.push({date,e,i});   // a bare listing with no brief of its own
   });});
   _listingsCache.set(key,out); return out;
 }
 // upcoming, not-yet-heard listings — the ones that add to current workload
 function activeListings(uid){ const t=todayISO(); return listingsOf(uid).filter(x=>x.date>=t&&!x.e.done); }
+// Ad-hoc / preliminary conferences with a colleague assigned — a conference NOT
+// tied to a listed matter earns ½ a credit (split). We read these from the day
+// sheet's conferences[] (any date), so a colleague added to a PAST conference
+// starts earning for it at once. A conference with no colleague earns nothing.
+function conferenceCreditsOf(uid){
+  const out=[];
+  Object.entries(dsAll).forEach(([date,ds])=>(ds?.conferences||[]).forEach((c,i)=>{
+    const jrs=c.juniorUids||[]; if(!jrs.length||!idIn(jrs,uid)) return;
+    out.push({date:c.date||date, name:c.name||"Conference", note:c.note||"", credit:0.5/jrs.length, id:date+"#c"+i});
+  }));
+  return out;
+}
 // every date a brief appears on a day sheet (its listing history)
 function listingDatesOf(briefId){ _ensureLdIdx(); const s=_ldIdx[briefId]; return s?[...s].sort():[]; }
 // case / diary number pulled out of a causelist item line ("SLP(C) No. 18036/2026 …")
@@ -1587,6 +1642,12 @@ async function syncRegister(force){
       const e={...e0};
       const j=jrsOf(e).map(mapId);
       if(j.join("|")!==jrsOf(e0).join("|")){ e.juniorUids=j; e.juniorUid=j[0]||null; changed=true; }
+      // Retroactively sync PAST reassignments: a listing linked to a brief must
+      // name the brief's CURRENT assignee, not whoever it was first given to.
+      if(e.briefId && briefs[e.briefId] && Array.isArray(briefs[e.briefId].assignedTo)){
+        const ba=briefs[e.briefId].assignedTo;
+        if(ba.length && jrsOf(e).join("|")!==ba.join("|")){ e.juniorUids=ba.slice(); e.juniorUid=ba[0]||null; changed=true; }
+      }
       if(!(e.briefId&&briefs[e.briefId]) && (e.caseTitle||(e.courtNo&&e.itemNo))){
         const hit=(e.courtNo&&e.itemNo)?lookupCauselistItem(date,e.courtNo,e.itemNo,e.listType):null;
         const refs=hit?refsFromCauseLine(hit.caseLine):{caseNo:"",diaryNo:""};
@@ -1613,23 +1674,36 @@ async function syncRegister(force){
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).
 // A matter shared by N colleagues counts 1/N per colleague (owner's decision) —
 // so two colleagues on one brief each carry half its point / half its load.
-// A matter shared by N colleagues splits 1/N — BUT a co-assignee who is ON LEAVE
-// on the matter's date earns NO credit for it (owner's rule Jul 2026); their
-// share redistributes to whoever is actually present that day. So if two are
-// marked and one is on leave, the present colleague carries the whole point.
-function presentSharers(arr, date){ return date ? (arr||[]).filter(u=>!onLeaveOn(u,date)) : (arr||[]); }
+// A matter shared by N colleagues splits 1/N — BUT a co-assignee who can't work
+// it earns NO credit; their share redistributes to whoever actually carries it.
+// "Can't work it" = on leave on the matter's date OR the day before, because the
+// preparation happens the day before the listing (owner's rule Jul 2026) — so a
+// colleague on leave the previous day gets no credit even if back on the listing
+// day itself. Same window as the assignment skip (`leaveClash`).
+function presentSharers(arr, date){ return date ? (arr||[]).filter(u=>!leaveClash(u,date)) : (arr||[]); }
 function shareForDate(arr, uid, date){
   arr=arr||[]; if(!arr.length) return 0;
-  if(date && onLeaveOn(uid,date)) return 0;               // on leave that day → no credit
+  if(date && leaveClash(uid,date)) return 0;              // on leave on/ before the date → no credit
   const present=presentSharers(arr,date);
   return idIn(present,uid) ? 1/present.length : (idIn(arr,uid)?1/arr.length:0);
 }
-// Share of a BRIEF for one colleague: a full-credit claim overrides; otherwise
-// split among co-assignees present on the brief's date (its next hearing).
-function shareFor(b, uid, arr){ arr=arr||b.assignedTo||[];
-  if(b.creditClaim&&b.creditClaim.uid) return aliasIds(uid).includes(b.creditClaim.uid)?1:0;
-  return shareForDate(arr, uid, b.nextDate||b.conferenceAt||null);
+// Share of a BRIEF for one colleague ON A GIVEN DATE: a full-credit claim
+// overrides; otherwise split among co-assignees present that day.
+function shareForOn(b, uid, arr, date){ arr=arr||b.assignedTo||[];
+  // A standalone / preliminary / strategy conference (not a listed matter) is
+  // worth HALF a credit; a full matter is worth one. Either way it splits equally
+  // between the colleagues who did it.
+  const base = b.confCredit ? 0.5 : 1;
+  // A credit claim only holds while the claimant is STILL ON the matter. A stale
+  // claim (claimant reassigned away / removed from the team) used to swallow the
+  // whole credit — the new assignee scored 0 and the departed claimant wasn't
+  // counted, so the matter credited NOBODY. Ignore stale claims entirely.
+  if(b.creditClaim&&b.creditClaim.uid&&idIn(arr,b.creditClaim.uid)) return aliasIds(uid).includes(b.creditClaim.uid)?base:0;
+  return base * shareForDate(arr, uid, date);
 }
+// Default single-figure share (activeLoad / lifetimeCount) — keyed on the brief's
+// own next hearing date.
+function shareFor(b, uid, arr){ return shareForOn(b, uid, arr||b.assignedTo||[], b.nextDate||b.conferenceAt||null); }
 const fmtPts=n=>{ n=Math.round(n*10)/10; return Number.isInteger(n)?String(n):n.toFixed(1); };  // tidy fractional display
 function activeLoad(uid){
   const briefLoad=Object.values(briefs)
@@ -1654,68 +1728,115 @@ function lifetimeCount(uid){
   // Credit follows the CURRENT assignees — a reassigned/objected-away matter
   // carries no residual credit for the person who gave it up (full transfer,
   // owner's rule). assignedTo is the single source of truth for who "has" it.
-  return Object.values(briefs).filter(b=>idIn(b.assignedTo,uid)).reduce((s,b)=>s+shareFor(b,uid,b.assignedTo),0);
+  return Object.values(briefs).filter(b=>idIn(b.assignedTo,uid)).reduce((s,b)=>s+shareFor(b,uid,b.assignedTo),0)
+    + conferenceCreditsOf(uid).reduce((s,c)=>s+c.credit,0);
 }
 // Workload a colleague carried over the last `days` days — share-split points from
 // briefs (assigned / heard / listed in the window) plus bare causelist listings.
 let loadPeriod="month";   // week | month | year — the Chamber-tab snapshot toggle
-// the actual matters counted in a colleague's window load (for the island drill-down)
-function casesInWindow(uid, days){
-  const now=todayISO();
-  const b0=new Date(now+"T00:00"); b0.setDate(b0.getDate()-days); const start=b0.toLocaleDateString("en-CA");
-  const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
-  const inWin=d=>d&&d>=start&&d<=end;
+// The tally is a CALENDAR period, not a rolling ±window around today — a matter
+// listed on 4 Aug belongs to August's week/month, NOT to July's (owner's rule).
+// "this week" = Mon–Sun containing today; "this month" = 1st–last; "this year".
+function periodRange(period){
+  const now=todayISO(); const d=new Date(now+"T00:00");
+  if(period==="year") return [now.slice(0,4)+"-01-01", now.slice(0,4)+"-12-31"];
+  if(period==="week"){
+    const dow=(d.getDay()+6)%7;                       // 0 = Monday
+    const mon=new Date(d); mon.setDate(d.getDate()-dow);
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    return [mon.toLocaleDateString("en-CA"), sun.toLocaleDateString("en-CA")];
+  }
+  return [now.slice(0,7)+"-01", new Date(d.getFullYear(),d.getMonth()+1,0).toLocaleDateString("en-CA")];  // month
+}
+// A matter is attributed to a period by its LISTING date(s) — when the work is
+// actually done — NOT by when it was assigned. An active matter with no date yet
+// counts in the current period (it's live work now).
+function casesInWindow(uid, period){
+  const [start,end]=periodRange(period);
+  const inWin=x=>x&&x>=start&&x<=end;
   const out=[];
   Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)){
-    const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
-    const ld=listingDatesOf(b.id); const hasDate=ad||b.nextDate||ld.length;
-    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) out.push(b);
+    const ld=listingDatesOf(b.id); const hasDate=b.nextDate||ld.length;
+    if(inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) out.push(b);
   }});
   return out.sort((a,b)=>(b.nextDate||"").localeCompare(a.nextDate||"")||(a.caseTitle||"").localeCompare(b.caseTitle||""));
 }
-function loadInWindow(uid, days){
-  const now=todayISO();
-  const b0=new Date(now+"T00:00"); b0.setDate(b0.getDate()-days); const start=b0.toLocaleDateString("en-CA");
-  const f0=new Date(now+"T00:00"); f0.setDate(f0.getDate()+days); const end=f0.toLocaleDateString("en-CA");
-  const inWin=d=>d&&d>=start&&d<=end;   // a window BOTH sides of today, so upcoming matters count
+// Each APPEARANCE of a register brief in the window earns its OWN credit — a
+// matter listed twice (relisted / adjourned) is credited for BOTH listings
+// (owner's rule Jul 2026). Returns [{date,credit}] for this colleague: one entry
+// per in-window listing date (plus the scheduled next date when it isn't already
+// a listing), or a single dateless credit for an undated but still-active matter.
+// Mirrors the calendar attribution — a listing counts in the week/month of its
+// own date. Bare (register-less) listings are already per-listing via listingsOf.
+function briefContribs(b, uid, period){
+  const arr=b.assignedTo||[];
+  const [start,end]=periodRange(period); const inWin=x=>x&&x>=start&&x<=end;
+  const ld=listingDatesOf(b.id);
+  const dates=new Set(ld.filter(inWin));
+  if(b.nextDate && inWin(b.nextDate)) dates.add(b.nextDate);
+  const out=[];
+  if(dates.size){
+    [...dates].sort().forEach(d=>{ const c=shareForOn(b,uid,arr,d); if(c>0) out.push({date:d,credit:c}); });
+  } else if(!b.nextDate && !ld.length && b.status!=="disposed"){
+    const c=shareFor(b,uid,arr); if(c>0) out.push({date:null,credit:c});   // undated live work → current period
+  }
+  return out;
+}
+function loadInWindow(uid, period){
+  const [start,end]=periodRange(period);
+  const inWin=x=>x&&x>=start&&x<=end;
   let pts=0;
-  Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)){
-    const ad=b.assignedAt?new Date(b.assignedAt).toLocaleDateString("en-CA"):null;
-    const ld=listingDatesOf(b.id);
-    const hasDate=ad||b.nextDate||ld.length;
-    // count if any date falls in the window, OR it's active work with no date yet
-    if(inWin(ad)||inWin(b.nextDate)||ld.some(inWin)||(!hasDate&&b.status!=="disposed")) pts+=shareFor(b,uid,b.assignedTo);
-  }});
+  Object.values(briefs).forEach(b=>{ if(idIn(b.assignedTo,uid)) briefContribs(b,uid,period).forEach(c=>pts+=c.credit); });
   listingsOf(uid).forEach(x=>{ if(inWin(x.date)) pts+=shareForDate(jrsOf(x.e),uid,x.date); });
+  conferenceCreditsOf(uid).forEach(c=>{ if(inWin(c.date)) pts+=c.credit; });
   return Math.round(pts*10)/10;
 }
 
 // Pick the next junior for a brief.
 //   exclude: uids to skip (prior objectors on this brief)
 //   returns {uid, reason} or {uid:null, forced} when everyone's excluded/on-leave
+// Fair-distribution guard (owner's rule): a colleague may absorb at most
+// CATCHUP_MAX fresh matters within CATCHUP_WINDOW_MIN before the rotation moves
+// past him. Standing workload still decides WHO is next; this only caps the RATE
+// of catch-up, so a colleague returning light (0 matters) doesn't get a whole
+// batch dumped on him at once — the batch spreads, and he keeps catching up in
+// the next window.
+const CATCHUP_MAX=2, CATCHUP_WINDOW_MIN=90;
+function recentAssigns(uid){
+  const cut=Date.now()-CATCHUP_WINDOW_MIN*60000;
+  return Object.values(briefs).filter(b=>b.status!=="disposed" && idIn(b.assignedTo,uid) && (b.assignedAt||0)>=cut).length;
+}
 function pickNext(brief, exclude=[]){
   const ros = effectiveRoster();
   if(!ros.length) return {uid:null};
   const declined = new Set([...(brief.declinedBy||[]).map(d=>d.uid), ...exclude]);
-  // eligible = in roster, not declined, not on leave, not marked unavailable by Staff
-  const eligible = ros.filter(id=>!declined.has(id) && !isSkippable(id));
+  // The matter's hearing date decides who's free to prep + attend it. With a date,
+  // block anyone on leave that day OR the day before (prep day); with no date yet,
+  // fall back to "on leave today".
+  const mDate = brief.nextDate || null;
+  const blocked = id => mDate ? leaveClash(id, mDate) : isSkippable(id);
+  const eligible = ros.filter(id=>!declined.has(id) && !blocked(id));
   if(eligible.length){
-    // Equitable ranking (owner's decision): lightest ACTIVE load first —
-    // day-to-day capacity decides; ties broken by lowest TOTAL (lifetime)
-    // load — career fairness corrects drift; remaining ties by roster turn.
     const start = roster.pointer % ros.length;
-    const ranked = eligible
-      .map(id=>{
-        const pos = (ros.indexOf(id) - start + ros.length) % ros.length; // turn distance
-        return {id, load:activeLoad(id), life:lifetimeCount(id), turn:pos};
-      })
-      .sort((a,b)=> a.load-b.load || a.life-b.life || a.turn-b.turn);
-    return {uid:ranked[0].id, reason:"rotation"};
+    const rows = eligible.map(id=>({
+      id, load:activeLoad(id), recent:recentAssigns(id), life:lifetimeCount(id),
+      turn:(ros.indexOf(id) - start + ros.length) % ros.length      // distance from the roster pointer
+    }));
+    // Hold back anyone who just took his CATCHUP_MAX so a batch spreads round the
+    // chamber — unless that would hold back everyone (then nobody is held back).
+    const fresh = rows.filter(r=>r.recent<CATCHUP_MAX);
+    const pool = fresh.length ? fresh : rows;
+    // Equitable ranking (owner's decision): lightest ACTIVE load first — skip the
+    // busy, go to the least burdened; then who has taken fewest just now (spreads
+    // a batch); then lowest LIFETIME load (career fairness); then plain roster turn.
+    pool.sort((a,b)=> a.load-b.load || a.recent-b.recent || a.life-b.life || a.turn-b.turn);
+    return {uid:pool[0].id, reason:"rotation"};
   }
-  // Everyone eligible has declined or is unavailable -> force-assign to lightest active load
-  const pool = ros.filter(id=>!isSkippable(id));
-  const fallback = (pool.length?pool:ros)
-    .map(id=>({id,load:activeLoad(id)})).sort((a,b)=>a.load-b.load)[0];
+  // Everyone eligible has declined or clashes -> force-assign to lightest active
+  // load, still preferring anyone whose leave doesn't clash with the matter.
+  const clear = ros.filter(id=>!blocked(id));
+  const pool = clear.length?clear:ros;
+  const fallback = pool.map(id=>({id,load:activeLoad(id)})).sort((a,b)=>a.load-b.load)[0];
   return {uid:fallback?fallback.id:null, forced:true};
 }
 
@@ -1737,6 +1858,7 @@ async function autoAssign(briefId){
     assignHistory:[...(b.assignHistory||[]),{uid:pick.uid,at:Date.now(),by:me.uid,mode:pick.forced?"forced":"auto"}],
     updatedAt:db.now()
   });
+  await syncListingJrs(briefId,[pick.uid]);   // cause-list rows follow the assignment instantly
   await advancePointer();
   toast(pick.forced?`Force-assigned to ${nameOf(pick.uid)} (all others unavailable)`:`Assigned to ${nameOf(pick.uid)}`, pick.forced?"ti-alert-triangle":"ti-user-check");
   pushNotif([pick.uid], `New assignment — ${labelOf(b)}${b.nextDate?`, next date ${fmtDateY(b.nextDate)}`:""}`, "assign", briefId);
@@ -1765,6 +1887,37 @@ function reassignForm(briefId){
     pushNotif(to, `${nameOf(me.uid)} requests you to take over — ${labelOf(b)}${b.nextDate?`, next date ${fmtDateY(b.nextDate)}`:""}`, "reassign", briefId);
     closeSheet(); toast("Request sent — the matter stays with you until someone accepts","ti-arrows-exchange"); };
 }
+// When a matter's assignment changes, every day-sheet listing linked to that
+// brief must name the NEW colleague(s) — otherwise the cause list keeps showing
+// whoever the matter was first given to. Walks all day sheets (past + future).
+async function syncListingJrs(briefId, assignedTo, caseTitle){
+  const jr=assignedTo?assignedTo.slice():null;
+  const today=todayISO();
+  for(const [date,ds] of Object.entries(dsAll)){
+    let changed=false;
+    const entries=(ds.entries||[]).map(e=>{
+      if(e.briefId!==briefId) return e;
+      let ne=e;
+      if(jr && jrsOf(e).join("|")!==jr.join("|")){ ne={...ne, juniorUids:jr.slice(), juniorUid:jr[0]||null}; changed=true; }
+      // a renamed matter updates its UPCOMING listings (past sheets stay as printed)
+      if(caseTitle && date>=today && (e.caseTitle||"")!==caseTitle){ ne={...ne, caseTitle}; changed=true; }
+      return ne;
+    });
+    if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
+  }
+}
+// Deleting a matter removes it from the register AND every day-sheet listing +
+// conference tied to it — so no stray credit or ghost conference lingers.
+async function purgeBriefEverywhere(id){
+  for(const [date,ds] of Object.entries(dsAll)){
+    const entries=(ds.entries||[]).filter(e=>e.briefId!==id);
+    const conferences=(ds.conferences||[]).filter(c=>c.briefId!==id);
+    if(entries.length!==(ds.entries||[]).length || conferences.length!==(ds.conferences||[]).length){
+      try{ await db.set("daysheets/"+date,{...ds,entries,conferences,updatedAt:db.now()},true); }catch(_){}
+    }
+  }
+  await db.remove("briefs/"+id);
+}
 async function acceptReassign(briefId){
   const b=briefs[briefId]; const rq=b?.reassignReq; if(!rq||!idIn(rq.to,me.uid)){ toast("This request is no longer open","ti-alert-triangle"); return; }
   // Full transfer: the requester hands the matter over entirely — drop them from
@@ -1776,7 +1929,10 @@ async function acceptReassign(briefId){
     assignedTo, everAssigned,
     ackBy:[...new Set([...(b.ackBy||[]).filter(u=>assignedTo.includes(u)), me.uid])],
     assignHistory:[...(b.assignHistory||[]),{uid:me.uid,at:Date.now(),mode:"transfer",from:rq.from}],
+    // a credit claim leaves with the person who handed the matter over
+    creditClaim:(b.creditClaim&&b.creditClaim.uid===rq.from)?null:(b.creditClaim||null),
     reassignReq:null, assignedAt:Date.now(), updatedAt:db.now() });
+  await syncListingJrs(briefId, assignedTo);   // day-sheet listings now name the new colleague
   pushNotif([rq.from], `${nameOf(me.uid)} accepted your reassignment request — ${labelOf(b)} is now with them.`, "transfer", briefId);
   toast(`Taken over from ${nameOf(rq.from)}`,"ti-check");
 }
@@ -1810,11 +1966,13 @@ async function objectAssignment(briefId, ground, note){
     patch.ackBy=[]; patch.assignedAt=Date.now();
     patch.assignHistory.push({uid:next.uid,at:Date.now(),mode:next.forced?"forced":"auto-reassign"});
     await db.update("briefs/"+briefId,patch);
+    await syncListingJrs(briefId,[next.uid]);   // cause-list rows name the new colleague at once
     await advancePointer();
     toast(next.forced?`Re-offered to ${nameOf(next.uid)} — all others unavailable, Staff notified`:`Objection recorded — passed to ${nameOf(next.uid)}`,"ti-arrow-right");
   } else {
     patch.assignedTo=[]; patch.status="received";
     await db.update("briefs/"+briefId,patch);
+    await syncListingJrs(briefId,[]);
     toast("Objection recorded — returned to unassigned queue","ti-inbox");
   }
 }
@@ -1927,13 +2085,6 @@ let _confTimerId=0;
 function _tickConfTimers(){ let any=false; document.querySelectorAll("#tab-now [data-since]").forEach(el=>{ const since=+el.dataset.since; if(since){ any=true; el.textContent=fmtElapsed((+el.dataset.accum||0)+(Date.now()-since)); } }); if(!any) stopConfTimer(); }
 function stopConfTimer(){ if(_confTimerId){ clearInterval(_confTimerId); _confTimerId=0; } }
 // topbar pill + sidebar dot — glanceable "where the Senior is" from any tab
-function updateLivePill(){
-  const c=live?.court?.court, p=$("livePill"), dot=$("navNowDot");
-  if(p){ if(c){ p.classList.remove("hidden"); p.innerHTML=`<span class="now-dot"></span>${esc(courtLabel(c))}`; p.onclick=()=>selectTab("now"); }
-         else p.classList.add("hidden"); }
-  if(dot) dot.classList.toggle("hidden",!c);
-}
-const COURT_SPECIALS=["Chamber","Registrar","Away"];
 const fmtClock=ms=>{ try{ return new Date(ms).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"}); }catch(e){ return ""; } };
 // stable per-conference id: date + time + label, sanitised for a Firestore doc id
 const confKey=c=>{ const t=String(c.time||"").replace(/[^\dapm]/gi,""); const l=String(c.label||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,48); return `${c.date||"x"}_${t||"x"}_${l||"x"}`; };
@@ -1959,44 +2110,14 @@ function conferencesOn(dateISO){
   return out;
 }
 
-let nowSub="conf";                 // which sub-tab: "conf" | "court"
+// Conference tracking only — court location lives in the separate SD Court App.
 const nowConfOpen=new Set();        // expanded conference cards (session)
 let _editNote=null;                 // "confKey|index" of the note being edited inline
 function renderNow(){
   stopConfTimer();   // re-established below if a conference is running
-  const seg=`<div class="now-seg">
-    <button data-nowsub="conf" class="${nowSub==="conf"?"on":""}"><span class="ic ti ti-users-group"></span>Conference</button>
-    <button data-nowsub="court" class="${nowSub==="court"?"on":""}"><span class="ic ti ti-map-pin"></span>Court</button></div>`;
-  $("tab-now").innerHTML=`<div class="now-wrap">${seg}${nowSub==="court"?courtSectionHtml():confSectionHtml()}</div>`;
-  document.querySelectorAll("#tab-now [data-nowsub]").forEach(b=>b.onclick=()=>{ nowSub=b.dataset.nowsub; renderNow(); });
-  if(nowSub==="court") wireCourt(); else { wireConf();
-    if(document.querySelector("#tab-now [data-since]")) _confTimerId=setInterval(_tickConfTimers,1000); }
-}
-function courtSectionHtml(){
-  const lc=live?.court||null, hasCourt=!!(lc&&lc.court);
-  const courts=Array.from({length:17},(_,i)=>String(i+1));
-  const courtBtn=c=>`<button class="now-court${String(lc?.court)===String(c)?" on":""}" data-setcourt="${esc(c)}">${esc(c)}</button>`;
-  return `<div class="ncard">
-    <div class="ncard-h"><span class="ic ti ti-map-pin"></span>Senior in court</div>
-    <div class="ncard-b">
-      ${hasCourt
-        ? `<div class="now-live"><span class="now-dot"></span>${esc(courtLabel(lc.court))}</div>
-           <div class="now-meta">Marked by ${esc(nameOf(lc.by))} · ${esc(timeAgo(lc.at))}</div>`
-        : `<div class="now-blank">Not marked yet. Whoever is with the Senior — tap the court he's in and everyone sees it live.</div>`}
-      <div class="now-grid">${courts.map(courtBtn).join("")}</div>
-      <div class="now-grid now-grid-sp">${COURT_SPECIALS.map(courtBtn).join("")}</div>
-      ${hasCourt?`<button class="tbtn sm now-clear" id="nowClear"><span class="ic ti ti-x"></span>Clear</button>`:""}
-    </div></div>
-    <div class="now-note">Live to the whole chamber. Nothing is inferred — it shows exactly what someone last tapped.</div>`;
-}
-function wireCourt(){
-  const lc=live?.court||null;
-  document.querySelectorAll("#tab-now [data-setcourt]").forEach(x=>x.onclick=async()=>{
-    const c=x.dataset.setcourt;
-    if(String(lc?.court)===String(c)){ await db.set("config/live",{court:null},true); toast("Cleared"); return; }
-    await db.set("config/live",{court:{court:c,at:Date.now(),by:me.uid}},true); toast(courtLabel(c)+" — live to everyone","ti-broadcast");
-  });
-  if($("nowClear")) $("nowClear").onclick=async()=>{ await db.set("config/live",{court:null},true); toast("Cleared"); };
+  $("tab-now").innerHTML=`<div class="now-wrap">${confSectionHtml()}</div>`;
+  wireConf();
+  if(document.querySelector("#tab-now [data-since]")) _confTimerId=setInterval(_tickConfTimers,1000);
 }
 function confSectionHtml(){
   const confs=conferencesOn(todayISO());
@@ -2215,7 +2336,11 @@ function renderCal(){
     const dow=new Date(y,m-1,d).getDay();
     const wknd=dow===0||dow===6;
     const n=(byDate[iso]||[]).length, mine=(mineBy[iso]||[]).length;
-    const conf=(dsAll[iso]?.conferences||[]).length;
+    // ALL conferences on this day — matter-linked conference times AND manual
+    // entries, from every day sheet (a conference can sit on a matter listed
+    // for another hearing day). Keeps the calendar in lockstep with the day
+    // sheet, the Conference tracker, print and share.
+    const conf=conferencesOn(iso).length;
     const hol=isHol(iso), part=(!hol&&!wknd)?isPartial(iso):null;
     // workload = matters listed that day; the ONLY strong colour, carried by a
     // small dot beside the count (green <5, amber 5–10, red >10).
@@ -2291,8 +2416,8 @@ async function applySCYear(year){
 function dayDetail(iso){
   const d=new Date(iso+"T00:00");
   const wd=d.toLocaleDateString('en-IN',{weekday:'long'});
-  const entries=byCourt((dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]));
-  const confItems=(conferenceList(iso)[0]?.items)||[];
+  const entries=byCourt((dsAll[iso]?.entries)||(iso===dsDate?(daysheet?.entries||[]):[]), iso);
+  const confItems=conferencesOn(iso);   // matter-linked + manual, from every sheet — same source as the tracker
   const hol=isHol(iso), off=seniorOff(iso);
   openSheet(`<div class="sheet-head"><div><h3>${wd}, ${fmtDateY(iso)}</h3>
       <div class="sub">${entries.length?`${entries.length} item${entries.length>1?'s':''} listed`:'Nothing listed yet'}${confItems.length?` · ${confItems.length} conference${confItems.length>1?'s':''}`:''}</div></div>
@@ -2584,7 +2709,8 @@ function jbrief(b){
     <div class="jbrief-t"><span class="dotu" style="background:var(--s-${b.status})"></span>
       <span class="nm">${esc(labelOf(b))}</span>
       ${b.directed?'<span class="ti ti-pin" style="color:var(--accent-ink);font-size:12px;flex-shrink:0" title="On Senior\u2019s direction"></span>':''}
-      ${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px;flex-shrink:0" title="Urgent"></span>':''}</div>
+      ${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:13px;flex-shrink:0" title="Urgent"></span>':''}
+      ${b.legalAid?'<span class="chip st-conf" style="flex-shrink:0;font-size:10px"><span class="ti ti-scale" style="font-size:10px"></span> Legal aid</span>':''}${b.confCredit?'<span class="chip st-conf" style="flex-shrink:0;font-size:10px"><span class="ti ti-users-group" style="font-size:10px"></span> Conference ½</span>':''}</div>
     <div class="jbrief-m">${esc(b.caseNo||b.diaryNo||b.matterType)} · ${st.label}${hasWeight(b)?` · ${weightOf(b)}×`:''}${isImminent(b)?` · <span class="crunch" title="Listed within 4 days — counts double"><span class="ti ti-flame"></span>${b.nextDate?fmtDate(b.nextDate):''}</span>`:b.nextDate?` · ${fmtDate(b.nextDate)}`:''}${b.detailsAwaited?' · <span style="color:var(--warn)">details awaited</span>':''}${un?` · <span style="color:var(--warn)"><span class="ti ti-clock" style="font-size:11px"></span> unseen${age!==null&&age>0?' '+age+'d':''}</span>`:''}</div>
   </button>`;
 }
@@ -2597,6 +2723,7 @@ async function loadCourtUpdates(){
   courtUpdatesAt=Date.now();
   try{ const r=await fetch("court-updates.json?_="+Date.now(),{cache:"no-store"}); if(r.ok) courtUpdates=await r.json(); }
   catch(e){/* not published yet — the day sheet just won't auto-fill benches */}
+  matchAwaitingListings();
   if(curTab==="today"||curTab==="cal") renderActive();
 }
 const courtUpdatesStale=()=>Date.now()-courtUpdatesAt>COURT_UPDATES_STALE;
@@ -2656,6 +2783,47 @@ function lookupCauselistItem(dateISO, court, item, preferType){
   return null;
 }
 // Does the fetch have ANY data for this date? (to tell "not fetched" apart from "not in this list")
+// REVERSE lookup — find an as-yet-unlisted matter in the fetched causelist by its
+// diary / case number (most reliable) or first party's name. {court,item,listType,coram}|null.
+function findListingByDetails(dateISO, {title, caseNo, diaryNo}){
+  const day=courtUpdates?.by_date?.[dateISO]; if(!day) return null;
+  const norm=x=>String(x||"").toUpperCase().replace(/[^0-9A-Z]/g,"");
+  const numCore=x=>{ const m=String(x||"").match(/\d[\d\-]*\/(?:19|20)\d{2}|\d{4,}/); return m?m[0].replace(/[^0-9]/g,""):""; };
+  const dnum=numCore(diaryNo)||numCore(caseNo);
+  const pet=norm(String(title||"").split(/\bVERSUS\b|\bVS\b/i)[0]).slice(0,16);
+  let byName=null;
+  for(const [lt,courts] of Object.entries(day.lists||{})){
+    for(const [court,rec] of Object.entries(courts||{})){
+      for(const [item,line] of Object.entries(rec.items||{})){
+        const L=norm(line);
+        if(dnum && dnum.length>=6 && L.includes(dnum)) return {court,item,listType:lt,coram:rec.coram||""};
+        if(!byName && pet && pet.length>=6 && L.includes(pet)) byName={court,item,listType:lt,coram:rec.coram||""};
+      }
+    }
+  }
+  return byName;
+}
+// Once a day's (supplementary) list is out, fill court+item+bench for any matter
+// the clerk entered "unlisted" (name / number only). Runs after each causelist fetch.
+async function matchAwaitingListings(){
+  if(!courtUpdates||!canManage()) return; let any=false;
+  for(const [date,ds] of Object.entries(dsAll)){
+    if(!courtUpdates.by_date?.[date]) continue;
+    let changed=false;
+    const entries=(ds.entries||[]).map(e=>{
+      if(e.courtNo && e.itemNo) return e;                        // already listed
+      const b=e.briefId&&briefs[e.briefId];
+      const det={ title:e.caseTitle||(b&&b.caseTitle)||"", caseNo:e.caseNo||(b&&b.caseNo)||"", diaryNo:e.diaryNo||(b&&b.diaryNo)||"" };
+      if(!det.title && !det.caseNo && !det.diaryNo) return e;
+      const hit=findListingByDetails(date,det); if(!hit) return e;
+      changed=true; any=true;
+      return {...e, courtNo:hit.court, itemNo:hit.item, listType:e.listType||hit.listType,
+        bench:e.bench||cleanCoram(hit.coram), awaitingList:false};
+    });
+    if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
+  }
+  if(any){ toast("A pending matter was matched to the SC list","ti-check"); renderActive(); }
+}
 const causeListHasDate=dateISO=>!!(courtUpdates?.by_date?.[dateISO]&&Object.keys(courtUpdates.by_date[dateISO].lists||{}).length);
 const titleCase=s=>String(s||"").toLowerCase().replace(/\b([a-z])/g,m=>m.toUpperCase());
 const cleanCauseSide=side=>{
@@ -2773,6 +2941,7 @@ function renderToday(){
           <div class="rail-top">
             <span class="court-badge">Court ${esc(e.courtNo||"—")}</span>
             <span class="item-badge">Item ${esc(e.itemNo||"—")}</span>
+            ${(!e.courtNo||!e.itemNo)?`<span class="chip st-received" style="font-size:10.5px"><span class="ti ti-clock-hour-9"></span> awaiting list</span>`:''}
             ${R.listType?`<span class="chip st-received" style="font-size:10.5px">${esc(R.listType)}</span>`:''}
             ${e.time?`<span class="mono muted" style="font-size:12px">${esc(e.time)}</span>`:''}
             ${b?.priority?'<span class="chip urgent-tag"><span class="dot"></span>Urgent</span>':''}
@@ -2843,15 +3012,31 @@ function renderToday(){
 async function saveDaysheet(entries,conferences){ await db.set("daysheets/"+dsDate,{date:dsDate,entries,conferences:conferences??(daysheet?.conferences||[]),updatedAt:db.now(),updatedBy:me.uid},true); }
 function dsMove(i,d){const e=[...daysheet.entries];const j=i+d;if(j<0||j>=e.length)return;[e[i],e[j]]=[e[j],e[i]];saveDaysheet(e);}
 function dsDone(i){const e=[...daysheet.entries];e[i]={...e[i],done:!e[i].done};saveDaysheet(e);}
-function dsDel(i){ const e=[...daysheet.entries]; const ent=e[i]; if(!ent)return; const R=resolveEntry(ent,dsDate);
-  confirmAsk({title:"Remove this listing?",danger:true,confirmLabel:"Remove listing",
-    body:`Remove <b>Ct-${esc(ent.courtNo||'?')}#${esc(ent.itemNo||'?')}</b> — ${esc(R.title||'this entry')} — from the day sheet for ${esc(fmtDateY(dsDate))}?<br><br><span class="muted" style="font-size:12px">Only the day-sheet row goes; the matter stays in the register.</span>`,
-    onYes:async()=>{ const arr=[...daysheet.entries]; arr.splice(i,1); await saveDaysheet(arr); toast("Listing removed"); }});
+function dsDel(i){ const ent=daysheet.entries[i]; if(!ent)return; const R=resolveEntry(ent,dsDate);
+  const b=ent.briefId?briefs[ent.briefId]:null;
+  // A case ADDED via the listing (which auto-created its register brief) that
+  // isn't listed on any other day is removed from the register too — it exists
+  // only because of this listing. Established / manually-registered matters, and
+  // matters still listed elsewhere, keep their brief; only the row goes.
+  let alsoBrief=false;
+  if(b && b.fromListing && b.status!=="disposed"){
+    const total=Object.values(dsAll).reduce((n,ds)=>n+((ds?.entries||[]).filter(e=>e.briefId===b.id).length),0);
+    alsoBrief = total<=1;
+  }
+  confirmAsk({title:alsoBrief?"Delete this case?":"Remove this listing?",danger:true,confirmLabel:alsoBrief?"Delete case":"Remove listing",
+    body: alsoBrief
+      ? `Remove <b>Ct-${esc(ent.courtNo||'?')}#${esc(ent.itemNo||'?')}</b> — ${esc(R.title||'this entry')} — and delete it from the register?<br><br><span class="muted" style="font-size:12px">This case was added here and isn't listed on any other day, so it's removed from the register and colleagues' credit for it is cleared.</span>`
+      : `Remove <b>Ct-${esc(ent.courtNo||'?')}#${esc(ent.itemNo||'?')}</b> — ${esc(R.title||'this entry')} — from the day sheet for ${esc(fmtDateY(dsDate))}?<br><br><span class="muted" style="font-size:12px">Only the day-sheet row goes; the matter stays in the register.</span>`,
+    onYes:async()=>{
+      if(alsoBrief){ await purgeBriefEverywhere(b.id); toast("Case deleted"); }
+      else { const arr=[...daysheet.entries]; arr.splice(i,1); await saveDaysheet(arr); toast("Listing removed"); }
+    }});
 }
 
 function confForm(idx=null,prefill=null){
   const c=idx!==null?(daysheet?.conferences||[])[idx]||{}:(prefill||{});
   const opts=Object.values(briefs).filter(b=>b.status!=="disposed").map(b=>`<option value="${b.id}" ${c.briefId===b.id?'selected':''}>${esc(labelOf(b))}</option>`).join("");
+  const cols=chamberColleagues(); const cjrs=c.juniorUids||[];
   openSheet(`<div class="sheet-head"><div><h3>${idx!==null?'Edit':'Add'} conference</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <div class="grid2"><div><label>Date</label><input type="date" id="c_date" value="${esc(c.date||dsDate)}"></div>
@@ -2859,14 +3044,18 @@ function confForm(idx=null,prefill=null){
       <label>Counsel / person</label><input id="c_name" list="lawfirms" value="${esc(c.name||'')}" placeholder="e.g. Mahesh Agarwal">
       <datalist id="lawfirms">${LAW_FIRMS.map(f=>`<option value="${esc(f)}"></option>`).join("")}</datalist>
       <label>Link to a brief (optional)</label><select id="c_brief"><option value="">—</option>${opts}</select>
+      <label>Colleague(s) who held it <span class="muted" style="font-weight:400">(ad-hoc conference — earns ½ credit, split; leave blank if none)</span></label>
+      <div id="c_jrs" class="chk-wrap">${cols.map(j=>`<label class="chk-row"><input type="checkbox" data-cj="${j.id}" ${cjrs.includes(j.id)?'checked':''}><span class="mini-ava">${esc(initials(j.name))}</span>${esc(j.name)}${j.pending?' <span class="chip st-prep" style="margin-left:auto;font-size:10px">yet to sign in</span>':''}</label>`).join("")||'<span class="muted" style="font-size:13px">No colleagues yet</span>'}</div>
       <div style="margin-top:20px"><button class="btn" id="c_save">Save</button></div>
     </div>`);
   $("c_brief").onchange=()=>{const b=briefs[$("c_brief").value];if(b&&!$("c_name").value)$("c_name").value=b.aor||labelOf(b);};
   $("c_save").onclick=()=>{
-    const item={date:$("c_date").value||dsDate,time:readConfTime("c_time"),name:$("c_name").value.trim(),briefId:$("c_brief").value||null};
+    const juniorUids=[...document.querySelectorAll("#c_jrs [data-cj]:checked")].map(x=>x.dataset.cj);
+    const item={date:$("c_date").value||dsDate,time:readConfTime("c_time"),name:$("c_name").value.trim(),briefId:$("c_brief").value||null,juniorUids};
     if(!item.name){toast("Add a name","ti-alert-triangle");return;}
     const arr=[...(daysheet?.conferences||[])]; if(idx!==null)arr[idx]=item;else arr.push(item);
-    saveDaysheet(daysheet?.entries||[],arr); closeSheet(); toast("Conferences updated");
+    saveDaysheet(daysheet?.entries||[],arr); closeSheet();
+    toast(juniorUids.length?`Conference saved — ½ credit to ${juniorUids.length} colleague${juniorUids.length>1?'s':''}`:"Conferences updated","ti-users-group");
   };
 }
 
@@ -2923,7 +3112,7 @@ function printCauseList(iso){
   const day=d.toLocaleDateString("en-IN",{weekday:"long"}).toUpperCase();
   const dt=d.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,".");
   // always ordered by court room number, then item
-  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])));
+  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])), iso);
   const q = s => String(s??"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const rows=entries.map((e,i)=>{
     const R=resolveEntry(e,iso);
@@ -2945,35 +3134,54 @@ function printCauseList(iso){
     return `<tr><td class="ci">${ci}</td><td class="tm">${q(e.time||"")}</td><td class="nm">${q(R.title)}</td><td class="jg">${judges}</td><td class="ad">${adv}</td><td class="last">${last}</td></tr>`;
   }).join("");
   const confGroups=conferenceList(iso);
-  const confHtml=confGroups.length?`<div class="confs"><div class="ch">Conferences</div>${confGroups.map(g=>`<div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(c=>`<div class="cf"><span class="t">${q(fmtConfTime(c.time)||"—")}</span><span>-</span><span>${q(c.label||"")}</span></div>`).join("")}`).join("")}</div>`:"";
+  // Two deterministic columns (no multicol balancing, which fragmented onto page 2):
+  // one conference day → split its rows left/right; two+ days → each day fills a
+  // column (e.g. the 14th-night list on the left, the 15th-morning list on the right).
+  const cfRow=c=>`<div class="cf"><span class="t">${q(fmtConfTime(c.time)||"—")}</span><span>-</span><span class="l">${q(c.label||"")}</span></div>`;
+  let confHtml="";
+  if(confGroups.length===1){
+    const g=confGroups[0], it=g.items, mid=Math.ceil(it.length/2);
+    confHtml=`<div class="confs"><div class="ch">Conferences</div><div class="cfday">${q(confDateHeading(g.iso))}</div>`
+      +`<div class="cfsplit"><div class="cfcol">${it.slice(0,mid).map(cfRow).join("")}</div><div class="cfcol">${it.slice(mid).map(cfRow).join("")}</div></div></div>`;
+  } else if(confGroups.length){
+    confHtml=`<div class="confs"><div class="ch">Conferences</div><div class="cfsplit">`
+      +confGroups.map(g=>`<div class="cfcol"><div class="cfday">${q(confDateHeading(g.iso))}</div>${g.items.map(cfRow).join("")}</div>`).join("")
+      +`</div></div>`;
+  }
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>SD Causelist ${dt}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}
-body{font-family:"EB Garamond",Garamond,"Times New Roman",serif;font-size:13px;color:#000;margin:12px 16px}
-.name{text-align:center;font-size:23px;font-weight:600;letter-spacing:1.5px;line-height:1.1}
+/* weight 500 throughout — EB Garamond at 400 printed too faint for the clerk */
+body{font-family:"EB Garamond",Garamond,"Times New Roman",serif;font-size:13px;font-weight:500;color:#000;margin:0}
+.name{text-align:center;font-size:21px;font-weight:700;letter-spacing:1.5px;line-height:1.05}
 .role{text-align:center;font-style:italic;font-size:12.5px;margin-top:0}
-.court{text-align:center;text-decoration:underline;font-weight:600;margin:5px 0 7px;font-size:13.5px}
+.court{text-align:center;text-decoration:underline;font-weight:700;margin:2px 0 5px;font-size:13.5px}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
-th,td{border:1px solid #000;padding:3px 5px;vertical-align:top;text-align:left;line-height:1.28;overflow-wrap:break-word}
-th{font-weight:600;font-size:11px;white-space:normal}
-td.ci,th.ci{width:56px;white-space:nowrap;font-size:13px;font-weight:600}   /* court/item — a touch larger */
-td.tm,th.tm{width:32px;white-space:nowrap;font-size:11px}
-td.nm{font-size:13px;line-height:1.32}            /* the cause title — reduced */
-td.jg,th.jg{width:108px;font-size:10px;line-height:1.4}    /* judges — wide enough for one name per row */
-td.ad,th.ad{width:114px;font-size:10px;line-height:1.4}    /* advocates — wide enough for one name per row */
-td.last,th.last{width:92px;font-size:10px}
+th,td{border:1px solid #000;padding:2px 5px;vertical-align:top;text-align:left;line-height:1.18;overflow-wrap:break-word;font-weight:500}
+th{font-weight:600;font-size:11.5px;white-space:normal}
+td.ci,th.ci{width:56px;white-space:nowrap;font-size:13.5px;font-weight:600}   /* court/item */
+td.tm,th.tm{width:32px;white-space:nowrap;font-size:11.5px}
+td.nm{font-size:13px;line-height:1.2}            /* the cause title */
+td.jg,th.jg{width:114px;font-size:11px;line-height:1.22}    /* judges — one name per row */
+td.ad,th.ad{width:120px;font-size:11px;line-height:1.22}    /* advocates — one name per row */
+td.last,th.last{width:92px;font-size:10.5px}
 .brk{font-size:10px;margin-top:1px;white-space:nowrap}   /* Main N · Supp N on one line */
-.seqbox{margin-top:6px}
+.seqbox{margin-top:3px}
 .seqlab{font-size:9.5px;letter-spacing:.03em;text-align:center}
-.seqline{border-bottom:1px solid #000;min-height:15px;line-height:15px;font-size:12.5px;font-weight:600;text-align:center}   /* full-width rule to hand-fill the sequence */
-.confs{margin-top:16px}
-.ch{text-decoration:underline;margin-bottom:5px;font-weight:600}
-.cfday{font-weight:600;margin:7px 0 2px}
-.cf{display:flex;gap:10px;margin:2px 0 2px 14px}
+.seqline{border-bottom:1px solid #000;min-height:13px;line-height:13px;font-size:12.5px;font-weight:600;text-align:center}   /* full-width rule to hand-fill the sequence */
+.confs{margin-top:6px}
+.ch{text-decoration:underline;margin-bottom:3px;font-weight:600}
+/* two side-by-side columns filling the free width, so a long conference list (or
+   a second day) uses the right side instead of running onto page 2. */
+.cfsplit{display:flex;flex-wrap:wrap;gap:0 40px;align-items:flex-start}
+.cfcol{flex:1 1 calc(50% - 20px);min-width:calc(50% - 20px)}
+.cfday{font-weight:600;margin:2px 0 1px;font-size:13px}
+.cf{display:flex;gap:10px;margin:0 0 0 14px;font-size:12.5px}
 .cf .t{min-width:46px}
-@page{size:A4;margin:10mm}
+.cf .l{overflow-wrap:anywhere}
+@page{size:A4;margin:6mm 11mm 8mm}
 </style></head><body>
 <div class="name">${q(CHAMBER.seniorName.toUpperCase())}</div>
 <div class="role">Senior Advocate</div>
@@ -3007,7 +3215,7 @@ async function buildCauselistPdf(iso){
   const d=new Date(iso+"T00:00");
   const day=d.toLocaleDateString("en-IN",{weekday:"long"}).toUpperCase();
   const dt=d.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,".");
-  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])));
+  const entries=byCourt((iso===dsDate?(daysheet?.entries||[]):(dsAll[iso]?.entries||[])), iso);
   const doc=new jsPDF({unit:"pt",format:"a4"});
   const W=doc.internal.pageSize.getWidth();
   doc.setFont("times","bold").setFontSize(17); doc.text(CHAMBER.seniorName.toUpperCase(),W/2,42,{align:"center"});
@@ -3077,8 +3285,9 @@ function dsForm(idx=null){
         <div><label>Time</label><input type="time" id="f_time" value="${esc(toClock(e.time??'10.30'))}"></div></div>
       <label>Causelist type <span class="muted" style="font-weight:400">(which SC list to look the item up in)</span></label>
       <select id="f_listtype"><option value="">— select —</option>${CAUSELIST_TYPES.map(t=>`<option ${e.listType===t?'selected':''}>${t}</option>`).join("")}</select>
-      <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(required)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
-        <div><label>Item no. <span class="muted" style="font-weight:400">(required — e.g. 30, MM, 37.1)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or 37.1"></div></div>
+      <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(blank if not listed yet)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
+        <div><label>Item no. <span class="muted" style="font-weight:400">(e.g. 30, MM, 37.1)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or 37.1"></div></div>
+      <p class="muted" style="font-size:11.5px;margin:6px 0 0"><span class="ti ti-clock-hour-9"></span> Not listed yet? Leave court &amp; item blank and add the name + diary/case no — the app fills them automatically once the matter appears in the (supplementary) list.</p>
       <label>Sequence <span class="muted" style="font-weight:400">(optional — the serial at which the item is actually taken up; usually known only at 10:30. If given, it prints on the cause list)</span></label>
       <input id="f_seq" class="mono" value="${esc(e.seq||'')}" placeholder="e.g. 3" inputmode="numeric" style="max-width:120px">
       <div id="f_foundhint" style="margin-top:4px;min-height:16px"></div>
@@ -3086,6 +3295,7 @@ function dsForm(idx=null){
       <div id="dsNewFields">
         <label>Case title <span class="muted" style="font-weight:400">(auto-fills from the SC list — edit freely; your text is kept)</span></label><input id="f_title" value="${esc(e.caseTitle||'')}" placeholder="fills from the causelist — or type it">
         <label>Chamber file no. <span class="muted" style="font-weight:400">(assign one — the register is ordered by it)</span></label><input id="f_chno" class="mono" value="${esc(e.briefId&&briefs[e.briefId]?.chamberNo||'')}" placeholder="e.g. 101" style="max-width:140px">
+        <label>Diary / Case no. <span class="muted" style="font-weight:400">(so an unlisted matter auto-matches once it\'s out)</span></label><input id="f_dno" class="mono" value="${esc((e.briefId&&(briefs[e.briefId]?.diaryNo||briefs[e.briefId]?.caseNo))||e.diaryNo||e.caseNo||'')}" placeholder="e.g. SLP(C) 18036/2026 or D. 12345/2026">
       </div>
       <label>Appearing for <span class="muted" style="font-weight:400">(bolds that party on the list)</span></label>
       <select id="f_appear"><option value="">—</option>${["Petitioner","Respondent","Applicant","Appellant","Caveator","Intervenor"].map(x=>`<option ${e.appearingFor===x?'selected':''}>${x}</option>`).join("")}</select>
@@ -3148,8 +3358,8 @@ function dsForm(idx=null){
   const fdate=()=>$("f_date").value||dsDate;
   // assignment mode: manual checklist or roster auto-assign (same engine as briefs)
   let fMode="manual";
-  const fRenderPick=()=>{ const p=pickNext({declinedBy:[]}); const el=$("fAutoPick"); if(!el)return;
-    el.innerHTML=p.uid?`<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))}`:'<span class="muted" style="font-weight:400">No colleague available</span>'; };
+  const fRenderPick=()=>{ const p=pickNext({declinedBy:[], nextDate:fdate()}); const el=$("fAutoPick"); if(!el)return;
+    el.innerHTML=p.uid?`<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${fmtPts(activeLoad(p.uid))} active${p.forced?'':' — lightest'}</span>`:'<span class="muted" style="font-weight:400">No colleague available</span>'; };
   if($("fAsgnMode")) $("fAsgnMode").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
     fMode=btn.dataset.fmode;
     $("fAsgnMode").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===btn));
@@ -3193,19 +3403,22 @@ function dsForm(idx=null){
   }
   // typing in title/bench marks them as manually owned (stop auto-fill)
   $("f_title").oninput=()=>{auto.title="\0";}; $("f_bench").oninput=()=>{auto.bench="\0";};
-  $("f_court").oninput=causeFill; $("f_item").oninput=causeFill; $("f_date").onchange=causeFill;
+  $("f_court").oninput=causeFill; $("f_item").oninput=causeFill;
+  $("f_date").onchange=()=>{ causeFill(); if(fMode==="auto") fRenderPick(); };   // date change can change who's leave-free
   $("f_listtype").onchange=()=>{auto.type="\0"; causeFill();}; causeFill();
   $("f_save").onclick=async()=>{
     let juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
     let fAutoPicked=null;
-    if(fMode==="auto"){ const p=pickNext({declinedBy:[]});
+    if(fMode==="auto"){ const p=pickNext({declinedBy:[], nextDate:fdate()});
       if(!p.uid){toast("No colleague available in the roster","ti-alert-triangle");return;}
       juniorUids=[p.uid]; fAutoPicked=p; }
     const listDate=fdate();
     // the name comes from the linked file when re-listing an existing matter
     const _pickTitle = pickedBriefId&&briefs[pickedBriefId] ? labelOf(briefs[pickedBriefId]) : "";
+    const typedNo=$("f_dno")?$("f_dno").value.trim():"";
     const entry={briefId:$("f_brief").value||null,caseTitle:(_pickTitle||$("f_title").value.trim()),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
-      listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:readConfTime("f_conf"),confDate:(readConfTime("f_conf")?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),
+      listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:readConfTime("f_conf"),confDate:(readConfTime("f_conf")?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),caseNo:typedNo,
+      awaitingList:!($("f_court").value.trim()&&$("f_item").value.trim()),
       seq:$("f_seq").value.trim(),juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
     if(!((entry.courtNo&&entry.itemNo)||entry.caseTitle||entry.briefId)){toast("Enter the court no + item no (or a case title)","ti-alert-triangle");return;}
     // save-time backfill: whatever the fetched list already knows, store it
@@ -3218,6 +3431,7 @@ function dsForm(idx=null){
     let notifyBrief=null;   // the connected brief, for the share/notify prompt
     if(entry.caseTitle || (entry.courtNo&&entry.itemNo)){
       const refs = hit ? refsFromCauseLine(hit.caseLine) : {caseNo:"",diaryNo:""};
+      if(!refs.caseNo && !refs.diaryNo && typedNo){ if(/^\s*(D\b|DIARY|D\.?\s*NO)/i.test(typedNo)) refs.diaryNo=typedNo; else refs.caseNo=typedNo; }
       const brief = findBriefForListing(entry, refs.caseNo, refs.diaryNo);
       if(brief){
         entry.briefId = brief.id;
@@ -3234,6 +3448,9 @@ function dsForm(idx=null){
         if((patch.caseNo||brief.caseNo||patch.diaryNo||brief.diaryNo)) patch.detailsAwaited=false;
         if(["received","assigned"].includes(brief.status)) patch.status="listed";
         patch.nextDate=listDate;
+        // conference set on the listing → the file's conference date follows
+        // (drives the register, calendar suggestions and the Conference tracker)
+        if(entry.confTime||entry.confDate) patch.conferenceAt=entry.confDate||listDate;
         patch.updatedAt=db.now();
         await db.update("briefs/"+brief.id, patch);
         notifyBrief={...brief, ...patch, id:brief.id, assignedTo:patch.assignedTo||brief.assignedTo||[]};
@@ -3245,6 +3462,7 @@ function dsForm(idx=null){
           assignedTo:jr.slice(), everAssigned:jr.slice(), ackBy:jr.slice(), declinedBy:[],
           assignHistory:jr.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:fAutoPicked?"auto":"listed"})),
           status:"listed", priority:false, nextDate:listDate, detailsAwaited:!(refs.caseNo||refs.diaryNo),
+          conferenceAt:(entry.confTime||entry.confDate)?(entry.confDate||listDate):null,
           fromListing:true, createdBy:me.uid, createdAt:db.now(), updatedAt:db.now() };
         entry.briefId = await db.add("briefs", nb);
         notifyBrief={...nb, id:entry.briefId};
@@ -3302,8 +3520,7 @@ function importCauseList(){
       +`<div style="margin-top:14px"><button class="btn" id="cl_add">Add ${found.length} to day sheet</button></div>`;
     $("cl_add").onclick=()=>{ const arr=[...(daysheet?.entries||[])];
       document.querySelectorAll("[data-cl]:checked").forEach(cb=>{const f=found[+cb.dataset.cl];const jrs=f.brief.assignedTo||[];arr.push({briefId:f.brief.id,caseTitle:labelOf(f.brief),courtNo:f.court||"",itemNo:f.item||"",time:"10.30",bench:"",counsel:f.brief.aor||"",juniorUids:jrs,juniorUid:jrs[0]||null,remarks:"",done:false});});
-      arr.sort((a,b)=>(+a.courtNo||99)-(+b.courtNo||99)||(+a.itemNo||999)-(+b.itemNo||999));
-      saveDaysheet(arr); closeSheet(); toast("Matters added to day sheet");
+      saveDaysheet(byCourt(arr, dsDate)); closeSheet(); toast("Matters added to day sheet");
     };
   };
 }
@@ -3313,7 +3530,7 @@ function importCauseList(){
    ============================================================ */
 let briefFilter="", briefSearch="";
 function renderBriefs(){
-  $("topbarAction").innerHTML = canManage()? `<button class="btn ghost sm" id="tbSyncReg" title="Add any listed matter that isn't in the register yet"><span class="ic ti ti-refresh"></span>Sync listings</button> <button class="btn" id="tbNewBrief2"><span class="ic ti ti-plus"></span>New brief</button>`:"";
+  $("topbarAction").innerHTML = canManage()? `<button class="btn ghost sm" id="tbLegalAid" title="Record a legal-aid opinion given to a colleague"><span class="ic ti ti-scale"></span>Legal aid</button> <button class="btn ghost sm" id="tbSyncReg" title="Add any listed matter that isn't in the register yet"><span class="ic ti ti-refresh"></span>Sync listings</button> <button class="btn" id="tbNewBrief2"><span class="ic ti ti-plus"></span>New brief</button>`:"";
   const filters=[["","Active"],["mine","Mine"],["urgent","Urgent"],["awaited","Incomplete"],["listed","Listed"],["disposed","Disposed"]];
   const bar=`<div class="filters">
     <div class="search"><span class="ic ti ti-search"></span><input id="bSearch" placeholder="Search title, diary or case number" value="${esc(briefSearch)}"></div>
@@ -3340,7 +3557,7 @@ function renderBriefs(){
       <div class="br-sn">${i+1}</div>
       <button class="br-open" data-brief="${b.id}">
         <div class="br-title-row">${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span>`:''}${b.priority?'<span class="ti ti-flag-3" style="color:var(--urgent);font-size:14px" title="Urgent"></span>':''}<span class="br-title">${esc(labelOf(b))}</span>${mineNew?'<span class="new-chip">New</span>':''}</div>
-        <div class="br-nums">${b.caseNo||b.diaryNo?`<span>${esc(b.caseNo||('Dy. '+b.diaryNo))}</span>`:'<span class="muted">no case no.</span>'}${b.creditClaim?`<span class="claim-chip"><span class="ti ti-award" style="font-size:10px"></span> ${esc(nameOf(b.creditClaim.uid).split(' ')[0])} claimed</span>`:''}${b.detailsAwaited?'<span style="color:var(--warn)">details awaited</span>':''}</div>
+        <div class="br-nums">${b.caseNo||b.diaryNo?`<span>${esc(b.caseNo||('Dy. '+b.diaryNo))}</span>`:'<span class="muted">no case no.</span>'}${(b.creditClaim&&idIn(b.assignedTo,b.creditClaim.uid))?`<span class="claim-chip"><span class="ti ti-award" style="font-size:10px"></span> ${esc(nameOf(b.creditClaim.uid).split(' ')[0])} claimed</span>`:''}${b.detailsAwaited?'<span style="color:var(--warn)">details awaited</span>':''}</div>
       </button>
       <span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>
       ${canManage()?`<button class="tbtn icon-only" data-editbrief="${b.id}" title="Edit this entry"><span class="ic ti ti-pencil"></span></button>`:'<span></span>'}
@@ -3351,6 +3568,7 @@ function renderBriefs(){
   document.querySelectorAll("[data-bf]").forEach(x=>x.onclick=()=>{briefFilter=x.dataset.bf;renderBriefs();});
   document.querySelectorAll("#tab-briefs [data-editbrief]").forEach(x=>x.onclick=e=>{e.stopPropagation();briefForm(briefs[x.dataset.editbrief]);});
   if($("tbNewBrief2"))$("tbNewBrief2").onclick=()=>briefForm();
+  if($("tbLegalAid"))$("tbLegalAid").onclick=()=>legalAidForm();
   if($("tbSyncReg"))$("tbSyncReg").onclick=async()=>{ $("tbSyncReg").disabled=true; await syncRegister(true); toast("Register synced with the listings","ti-check"); renderBriefs(); };
   bindClicks($("tab-briefs"));
 }
@@ -3397,10 +3615,10 @@ function briefForm(b=null){
   // assignment mode: "manual" (tick colleagues) or "auto" (roster + load engine)
   let asgnMode="manual";
   const renderAutoPick=()=>{
-    const p=pickNext({declinedBy:[]});
+    const p=pickNext({declinedBy:[], nextDate:($("b_next")&&$("b_next").value)||null});
     const el=$("autoPickName"); if(!el)return;
     el.innerHTML = p.uid
-      ? `<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))}${p.forced?' <span class="muted" style="font-weight:400;font-size:12px">(all others on leave/declined)</span>':''}`
+      ? `<span class="mini-ava">${esc(initials(nameOf(p.uid)))}</span>${esc(nameOf(p.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${fmtPts(activeLoad(p.uid))} active${p.forced?' (all others on leave/declined)':' — lightest'}</span>`
       : '<span class="muted" style="font-weight:400">No colleague available in the roster</span>';
   };
   if($("asgnMode")) $("asgnMode").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
@@ -3410,11 +3628,12 @@ function briefForm(b=null){
     $("asgnAuto").style.display   = asgnMode==="auto"?"":"none";
     if(asgnMode==="auto") renderAutoPick();
   });
+  if($("b_next")) $("b_next").addEventListener("change", ()=>{ if(asgnMode==="auto") renderAutoPick(); });
   $("b_save").onclick=async()=>{
     let assigned=[...document.querySelectorAll("[data-as]:checked")].map(c=>c.dataset.as);
     let autoPick=null;
     if(asgnMode==="auto"){
-      autoPick=pickNext({declinedBy:[]});
+      autoPick=pickNext({declinedBy:[], nextDate:($("b_next")&&$("b_next").value)||null});
       if(!autoPick.uid){toast("No colleagues in the roster to assign to","ti-alert-triangle");return;}
       assigned=[autoPick.uid];
     }
@@ -3440,6 +3659,8 @@ function briefForm(b=null){
       data.everAssigned=assigned.slice(); data.declinedBy=[];
       data.assignHistory=assigned.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:asgHistMode}));
       savedId=await db.add("briefs",data); }
+    // keep every cause-list row of this matter in step: team + (upcoming) title
+    if(b) await syncListingJrs(b.id, assigned, data.caseTitle);
     // an auto-assignment consumes a roster turn, just like the standalone auto-assign
     if(autoPick && !autoPick.forced) await advancePointer();
     closeSheet();
@@ -3541,8 +3762,8 @@ function openBrief(id){
   document.querySelectorAll("[data-brnoteexport]").forEach(x=>x.onclick=()=>{ exportNotesDoc(labelOf(b), `Conference notes${b.chamberNo?` · File #${b.chamberNo}`:''}`, b.confNotes||[], "Conference notes - "+labelOf(b)); });
   document.querySelectorAll("[data-delbrief]").forEach(x=>x.onclick=()=>{ const ld=listingDatesOf(id);
     confirmAsk({title:"Delete this matter?",danger:true,confirmLabel:"Delete matter",
-      body:`<b>${esc(labelOf(b))}</b> will be removed from the register for the whole chamber.${ld.length?`<br><br><span style="color:var(--warn)">It is listed on ${ld.length} day sheet${ld.length>1?'s':''} — those cause-list rows stay in place; remove them from the day sheet if you want them gone too.</span>`:''}`,
-      onYes:async()=>{ await db.remove("briefs/"+id); toast("Matter deleted"); }});
+      body:`<b>${esc(labelOf(b))}</b> will be removed from the register for the whole chamber${ld.length?`, along with its ${ld.length} day-sheet listing${ld.length>1?'s':''} and any conference tied to it`:''}. Colleagues' credit for it is cleared.`,
+      onYes:async()=>{ await purgeBriefEverywhere(id); toast("Matter deleted"); closeSheet(); }});
   });
   document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{const r=await autoAssign(id);if(r)notifyForm(id,r);else{closeSheet();openBrief(id);}});
   document.querySelectorAll("[data-notify]").forEach(x=>x.onclick=()=>notifyForm(x.dataset.notify));
@@ -3599,14 +3820,15 @@ function objectForm(id){
 function overlapDays(from,to,start,end){ const a=from>start?from:start, b=to<end?to:end; if(!a||!b||a>b) return 0; return Math.round((new Date(b+"T00:00")-new Date(a+"T00:00"))/864e5)+1; }
 const leaveLen=l=>overlapDays(l.from,l.to,l.from,l.to);
 function renderLeave(){
-  $("pageTitle").textContent="Leave"; $("pageSub").textContent="Chamber leave — logged openly for everyone to see";
+  $("pageTitle").textContent="Leave"; $("pageSub").textContent="Chamber leave register — open to all";
   $("topbarAction").innerHTML=`<button class="btn" id="tbAddLeave"><span class="ic ti ti-plus"></span>Add leave</button>`;
   const now=todayISO(); const d=new Date(now+"T00:00");
   const mStart=now.slice(0,7)+"-01", mEnd=new Date(d.getFullYear(),d.getMonth()+1,0).toLocaleDateString("en-CA");
   const yStart=now.slice(0,4)+"-01-01", yEnd=now.slice(0,4)+"-12-31";
-  const all=Object.values(leaves); const cols=rosterDisplay();
-  const mDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,mStart,mEnd),0);
-  const yDays=uid=>all.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
+  const cols=rosterDisplay();
+  const live=Object.values(leaves).filter(l=>!l.deleted);   // deleted entries don't count
+  const mDays=uid=>live.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,mStart,mEnd),0);
+  const yDays=uid=>live.filter(l=>l.uid===uid).reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
   const counters=`<div class="panel"><div class="panel-head">Leave taken <span class="muted" style="font-weight:400;font-size:12px">this month · this year</span></div>
     <div style="padding:14px 12px"><div class="load-islands">${cols.map(m=>{const md=mDays(m.id),yd=yDays(m.id);
       return `<div class="load-island leave-island">
@@ -3616,68 +3838,207 @@ function renderLeave(){
         <div class="li-lab">day${md!==1?'s':''} this month</div>
         <div class="li-year">${yd} day${yd!==1?'s':''} this year</div>
       </div>`;}).join("")||'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}</div></div></div>`;
-  const log=all.slice().sort((a,b)=>(b.from||"").localeCompare(a.from||""));
-  const logPanel=`<div class="panel" style="margin-top:16px"><div class="panel-head">Leave log</div>
-    ${log.length?log.map(l=>`<div class="trow">
-      <div class="sb-ava" style="background:var(--surface-2);color:var(--ink-3)">${esc(initials(nameOf(l.uid)))}</div>
-      <div class="info" style="flex:1;min-width:0"><div class="nm">${esc(nameOf(l.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${leaveLen(l)} day${leaveLen(l)!==1?'s':''}</span></div>
-        <div class="muted" style="font-size:12.5px">${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}${l.reason?` · ${esc(l.reason)}`:' · <span style="opacity:.7">no reason given</span>'}</div></div>
-      ${(l.uid===me.uid||canManage())?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Remove"><span class="ic ti ti-trash"></span></button>`:''}
-    </div>`).join(""):'<div class="trow"><div class="info muted" style="font-size:13px">No leave logged yet. Tap “Add leave” to record yours.</div></div>'}</div>`;
-  $("tab-leave").innerHTML=counters+logPanel;
+
+  // Serially-numbered register, catalogued by month. Serial by leave date so the
+  // numbering is stable; deleted entries stay on record (struck, with who/when).
+  const reg=Object.values(leaves).slice().sort((a,b)=>(a.from||"").localeCompare(b.from||"")||((a.at?._t??a.at??0)-(b.at?._t??b.at??0)));
+  reg.forEach((l,i)=>l._sno=i+1);
+  const byMonth={}; reg.forEach(l=>{ const mk=(l.from||"0000-00").slice(0,7); (byMonth[mk]=byMonth[mk]||[]).push(l); });
+  const monthName=mk=>{ try{ return new Date(mk+"-01T00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"}); }catch(e){ return mk; } };
+  const months=Object.keys(byMonth).sort().reverse();
+  const yearDays=live.reduce((s,l)=>s+overlapDays(l.from,l.to,yStart,yEnd),0);
+  const regPanel=`<div class="panel" style="margin-top:16px"><div class="panel-head">Leave register <span class="muted" style="font-weight:400;font-size:12px">every entry, numbered — open to all</span></div>
+    ${reg.length? months.map(mk=>{
+      const items=byMonth[mk].slice().sort((a,b)=>(b.from||"").localeCompare(a.from||"")||(b._sno-a._sno));
+      const mdays=items.filter(l=>!l.deleted).reduce((s,l)=>s+leaveLen(l),0);
+      return `<div class="leave-month"><div class="leave-month-h">${esc(monthName(mk))}<span class="muted" style="font-weight:400"> · ${mdays} day${mdays!==1?'s':''}</span></div>
+        ${items.map(l=>{
+          const mine=(l.uid===me.uid||canManage());
+          const canDel=mine&&!l.deleted;
+          const dates=`${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}`;
+          return `<div class="trow leave-reg ${l.deleted?'is-del':''}">
+            <div class="leave-sno mono">#${l._sno}</div>
+            <div class="info" style="flex:1;min-width:0">
+              <div class="nm">${esc(nameOf(l.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${leaveLen(l)} day${leaveLen(l)!==1?'s':''}</span></div>
+              <div class="muted" style="font-size:12.5px">${dates}${l.reason?` · ${esc(l.reason)}`:' · <span style="opacity:.7">no reason given</span>'}</div>
+              ${fmtStamp(l.at)?`<div class="leave-by">Entered ${esc(fmtStamp(l.at))}</div>`:''}
+              ${l.deleted?`<div class="leave-del">Deleted${fmtStamp(l.deletedAt)?` ${esc(fmtStamp(l.deletedAt))}`:''}</div>`:''}
+            </div>
+            ${mine?`<button class="tbtn icon-only" data-editleave="${l.id}" title="${l.deleted?'Edit / restore this entry':'Edit this entry'}"><span class="ic ti ti-pencil"></span></button>`:''}
+            ${canDel?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Delete this entry"><span class="ic ti ti-trash"></span></button>`:''}
+          </div>`;
+        }).join("")}</div>`;
+    }).join("") : '<div class="trow"><div class="info muted" style="font-size:13px">No leave logged yet. Tap “Add leave” to record yours.</div></div>'}
+    ${reg.length?`<div class="muted" style="font-size:11.5px;padding:10px 12px 2px">${yStart.slice(0,4)} total: <b>${yearDays}</b> day${yearDays!==1?'s':''} · deleted entries stay on record for transparency.</div>`:''}</div>`;
+
+  $("tab-leave").innerHTML=counters+regPanel;
   if($("tbAddLeave"))$("tbAddLeave").onclick=()=>leaveForm();
-  document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=async()=>{ await db.remove("leaves/"+x.dataset.delleave); toast("Leave entry removed"); });
+  document.querySelectorAll("[data-editleave]").forEach(x=>x.onclick=()=>leaveForm(null,x.dataset.editleave));
+  document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=()=>{
+    const l=leaves[x.dataset.delleave]; if(!l)return;
+    confirmAsk({title:"Delete this leave entry?",danger:true,confirmLabel:"Delete entry",
+      body:`Remove <b>${esc(nameOf(l.uid))}</b>'s leave (${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}) from the counts?<br><br><span class="muted" style="font-size:12px">It stays in the register marked deleted — showing your name and the time — so the record is transparent.</span>`,
+      onYes:async()=>{ try{ await db.update("leaves/"+l.id,{deleted:true,deletedBy:me.uid,deletedAt:Date.now()}); toast("Leave entry deleted"); }catch(e){ toast("Couldn't delete — "+(e&&e.message||e),"ti-alert-triangle"); } }});
+  });
 }
-function leaveForm(prefillDate){
+function leaveForm(prefillDate, editId){
+  const ed=editId?leaves[editId]:null;                      // editing (possibly deleted) entry
   const canPickOther=canManage(); const cols=rosterDisplay();
-  openSheet(`<div class="sheet-head"><div><h3>Add leave</h3>${prefillDate?`<div class="sub">${fmtDateY(prefillDate)}</div>`:''}</div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+  openSheet(`<div class="sheet-head"><div><h3>${ed?'Edit leave':'Add leave'}</h3>${ed?`<div class="sub">${esc(nameOf(ed.uid))}${ed.deleted?' · currently deleted':''}</div>`:(prefillDate?`<div class="sub">${fmtDateY(prefillDate)}</div>`:'')}</div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
-      ${canPickOther?`<label>Colleague</label><select id="lv_uid">${cols.map(m=>`<option value="${m.id}" ${m.id===me.uid?'selected':''}>${esc(m.name)}</option>`).join("")}</select>`:''}
-      <div class="grid2"><div><label>From</label><input type="date" id="lv_from" value="${prefillDate||todayISO()}"></div>
-        <div><label>To <span class="muted" style="font-weight:400">(same day if blank)</span></label><input type="date" id="lv_to"></div></div>
+      ${(canPickOther&&!ed)?`<label>Colleague</label><select id="lv_uid">${cols.map(m=>`<option value="${m.id}" ${m.id===me.uid?'selected':''}>${esc(m.name)}</option>`).join("")}</select>`:''}
+      <div class="grid2"><div><label>From</label><input type="date" id="lv_from" value="${esc(ed?.from||prefillDate||todayISO())}"></div>
+        <div><label>To <span class="muted" style="font-weight:400">(same day if blank)</span></label><input type="date" id="lv_to" value="${esc(ed&&ed.to!==ed.from?ed.to:'')}"></div></div>
       <label>Reason <span class="muted" style="font-weight:400">(optional — leave blank to keep it private)</span></label>
-      <input id="lv_reason" placeholder="e.g. family function, medical, personal">
-      <div class="row" style="margin-top:18px"><button class="btn" id="lv_save"><span class="ic ti ti-plus"></span>Add leave</button></div>
+      <input id="lv_reason" placeholder="e.g. family function, medical, personal" value="${esc(ed?.reason||'')}">
+      ${ed&&ed.deleted?`<label class="chk-row" style="margin-top:12px"><input type="checkbox" id="lv_restore" checked><span>Restore this entry — it counts towards leave again</span></label>`:''}
+      <div class="row" style="margin-top:18px"><button class="btn" id="lv_save"><span class="ic ti ${ed?'ti-check':'ti-plus'}"></span>${ed?'Save changes':'Add leave'}</button></div>
     </div>`);
   $("lv_save").onclick=async()=>{ const from=$("lv_from").value; if(!from){toast("Pick a from date","ti-alert-triangle");return;}
     const to=$("lv_to").value||from; if(to<from){toast("The 'to' date is before 'from'","ti-alert-triangle");return;}
-    const uid=(canPickOther&&$("lv_uid"))?$("lv_uid").value:me.uid;
-    await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
-    closeSheet(); toast("Leave logged","ti-plane-departure");
+    const btn=$("lv_save"); btn.disabled=true;
+    try{
+      if(ed){
+        const patch={from,to,reason:$("lv_reason").value.trim(),editedBy:me.uid,editedAt:Date.now()};
+        if(ed.deleted&&$("lv_restore")&&$("lv_restore").checked){ patch.deleted=false; patch.restoredBy=me.uid; patch.restoredAt=Date.now(); }
+        await db.update("leaves/"+editId,patch);
+        closeSheet(); toast(patch.deleted===false?"Entry restored":"Leave updated","ti-check");
+      } else {
+        const uid=(canPickOther&&$("lv_uid"))?$("lv_uid").value:me.uid;
+        await db.add("leaves",{uid,from,to,reason:$("lv_reason").value.trim(),by:me.uid,at:Date.now()});
+        closeSheet(); toast("Leave logged","ti-plane-departure");
+      }
+    }catch(e){ btn.disabled=false; toast("Couldn't save leave — "+(e&&e.message||e),"ti-alert-triangle"); }
+  };
+}
+// A legal-aid opinion given to a colleague — recorded as a register matter that
+// counts as ONE credit, split equally among whoever it's given to (via shareFor,
+// same as any shared brief). No court/item; mark it disposed when the opinion is in.
+function legalAidForm(){
+  const cols=chamberColleagues();
+  openSheet(`<div class="sheet-head"><div><h3>Add legal-aid matter</h3><div class="sub">Counts as one credit, split between the colleagues it's given to</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <label>Matter / party <span class="muted" style="font-weight:400">(what the opinion is on)</span></label>
+      <input id="la_title" placeholder="e.g. Legal aid — Ramesh v. State (opinion)">
+      <label>Given to <span class="muted" style="font-weight:400">(one or more — the single credit splits equally between them)</span></label>
+      <div id="la_jrs">${cols.map(j=>`<label class="chk-row"><input type="checkbox" data-laj="${j.id}"><span class="mini-ava">${esc(initials(j.name))}</span>${esc(j.name)}${j.pending?' <span class="chip st-prep" style="margin-left:auto;font-size:10px">yet to sign in</span>':''}</label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
+      <label>Note <span class="muted" style="font-weight:400">(optional)</span></label>
+      <input id="la_note" placeholder="e.g. counter-affidavit, seat allocation query">
+      <div style="margin-top:18px"><button class="btn" id="la_save"><span class="ic ti ti-scale"></span>Add legal-aid matter</button></div>
+    </div>`);
+  $("la_save").onclick=async()=>{
+    const title=$("la_title").value.trim(); if(!title){toast("Add the matter / party","ti-alert-triangle");return;}
+    const jrs=[...document.querySelectorAll("#la_jrs [data-laj]:checked")].map(c=>c.dataset.laj);
+    if(!jrs.length){toast("Pick at least one colleague","ti-alert-triangle");return;}
+    const btn=$("la_save"); btn.disabled=true;
+    try{
+      await db.add("briefs",{caseTitle:title, legalAid:true, matterType:"Legal Aid (opinion)",
+        appearingFor:"", aor:"", chamberNo:"", diaryNo:"", caseNo:"", note:$("la_note").value.trim(),
+        assignedTo:jrs.slice(), everAssigned:jrs.slice(), ackBy:jrs.slice(), declinedBy:[],
+        assignHistory:jrs.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:"legalaid"})),
+        status:"assigned", priority:false, detailsAwaited:false,
+        createdBy:me.uid, createdAt:db.now(), updatedAt:db.now()});
+      closeSheet(); toast("Legal-aid matter added — 1 credit split "+jrs.length+" way"+(jrs.length>1?"s":""),"ti-scale");
+    }catch(e){ btn.disabled=false; toast("Couldn't add — "+(e&&e.message||e),"ti-alert-triangle"); }
+  };
+}
+// A standalone / preliminary / strategy conference (no listed matter, or a matter
+// not yet listed) that a colleague conducted — worth HALF a credit, split equally.
+function conferenceCreditForm(){
+  const cols=chamberColleagues();
+  openSheet(`<div class="sheet-head"><div><h3>Conference credit</h3><div class="sub">A preliminary / strategy conference not tied to a listed matter — ½ credit, split between whoever held it</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <label>Conference for / party <span class="muted" style="font-weight:400">(what the conference was about)</span></label>
+      <input id="cc_title" placeholder="e.g. Ramesh v. State — strategy conference">
+      <label>Date of conference</label><input type="date" id="cc_date" value="${todayISO()}">
+      <label>Held by <span class="muted" style="font-weight:400">(one or more — the ½ credit splits equally)</span></label>
+      <div id="cc_jrs">${cols.map(j=>`<label class="chk-row"><input type="checkbox" data-ccj="${j.id}"><span class="mini-ava">${esc(initials(j.name))}</span>${esc(j.name)}${j.pending?' <span class="chip st-prep" style="margin-left:auto;font-size:10px">yet to sign in</span>':''}</label>`).join("")||'<span class="muted">No colleagues in the chamber yet</span>'}</div>
+      <label>Note <span class="muted" style="font-weight:400">(optional)</span></label>
+      <input id="cc_note" placeholder="e.g. preliminary advice, client not yet filed">
+      <div style="margin-top:18px"><button class="btn" id="cc_save"><span class="ic ti ti-users-group"></span>Add conference credit</button></div>
+    </div>`);
+  $("cc_save").onclick=async()=>{
+    const title=$("cc_title").value.trim(); if(!title){toast("Add what the conference was about","ti-alert-triangle");return;}
+    const jrs=[...document.querySelectorAll("#cc_jrs [data-ccj]:checked")].map(c=>c.dataset.ccj);
+    if(!jrs.length){toast("Pick at least one colleague","ti-alert-triangle");return;}
+    const date=$("cc_date").value||todayISO();
+    const btn=$("cc_save"); btn.disabled=true;
+    try{
+      await db.add("briefs",{caseTitle:title, confCredit:true, matterType:"Conference",
+        appearingFor:"", aor:"", chamberNo:"", diaryNo:"", caseNo:"", note:$("cc_note").value.trim(),
+        nextDate:date, conferenceAt:date,
+        assignedTo:jrs.slice(), everAssigned:jrs.slice(), ackBy:jrs.slice(), declinedBy:[],
+        assignHistory:jrs.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:"conference"})),
+        status:"disposed", priority:false, detailsAwaited:false,
+        createdBy:me.uid, createdAt:db.now(), updatedAt:db.now()});
+      closeSheet(); toast("Conference credit added — ½ credit split "+jrs.length+" way"+(jrs.length>1?"s":""),"ti-users-group");
+    }catch(e){ btn.disabled=false; toast("Couldn't add — "+(e&&e.message||e),"ti-alert-triangle"); }
   };
 }
 /* ============================================================
    TEAM
    ============================================================ */
-// Tap a workload island -> the actual cases making up that colleague's load.
-function islandSheet(uid, days, plab){
-  const cs=casesInWindow(uid, days);
-  openSheet(`<div class="sheet-head"><div><h3>${esc(nameOf(uid))}</h3><div class="sub">${cs.length} matter${cs.length===1?'':'s'} · ${esc(plab)} · load ${fmtPts(loadInWindow(uid,days))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
-    <div class="sheet-body">
-      ${cs.length? cs.map((b,i)=>{const st=STATUS[b.status];const imm=isImminent(b)&&b.status!=='disposed';
-        // show THIS colleague's actual share of the matter (honours a full-credit
-        // claim and the on-leave redistribution), not a blanket "½ shared".
-        const arr=b.assignedTo||[]; const sh=shareFor(b,uid,arr);
-        let shareTag="";
-        if(arr.length>1){ const claimed=b.creditClaim&&b.creditClaim.uid;
-          const lab = sh>=1?"full credit" : sh<=0?"no credit here" : (Math.abs(sh-0.5)<0.01?"½ share":fmtPts(sh)+" share");
-          const by = (claimed&&!idIn([b.creditClaim.uid],uid))?` · ${esc(nameOf(b.creditClaim.uid).split(' ')[0])} claimed it`:(claimed&&idIn([b.creditClaim.uid],uid)?" (you claimed it)":"");
-          shareTag=`<span class="muted" style="font-size:11px">${lab}${by}</span>`; }
-        return `<button class="mw-card" data-brief="${b.id}">
-        <div class="mw-title"><span class="mw-sn">${i+1}</span>${b.chamberNo?`<span class="file-badge">#${esc(b.chamberNo)}</span> `:''}${esc(labelOf(b))}</div>
-        <div class="mw-meta"><span class="chip ${st.cls}"><span class="dot"></span>${st.label}</span>${b.nextDate?`<span class="${imm?'mw-imm':'muted'}">${imm?'<span class="ti ti-flame"></span> ':''}${fmtDateY(b.nextDate)}</span>`:'<span class="muted">no date</span>'}${shareTag}</div>
-      </button>`;}).join("") : '<div class="muted" style="font-size:13px">No matters in this period.</div>'}
-    </div>`);
-  bindClicks($("modalRoot"));
+// Itemised credit line-items for a colleague in a calendar period — every matter
+// (1 credit, share-split) and conference (½) counted in that week/month/year. The
+// SUM equals the workload-snapshot number for the same period.
+function creditLedger(uid, period){
+  const [start,end]=periodRange(period); const inWin=x=>x&&x>=start&&x<=end;
+  const rows=[];
+  Object.values(briefs).forEach(b=>{ if(!idIn(b.assignedTo,uid)) return;
+    // one row per in-window appearance — a matter listed twice shows (and is
+    // credited) twice, dated to each listing.
+    briefContribs(b,uid,period).forEach(c=>{
+      rows.push({date:c.date, title:b.caseTitle||labelOf(b), brief:b.id, credit:c.credit,
+        kind:b.confCredit?"conference":(b.legalAid?"legal aid":"matter")});
+    });
+  });
+  listingsOf(uid).forEach(x=>{ if(!inWin(x.date)) return; const credit=shareForDate(jrsOf(x.e),uid,x.date); if(credit<=0) return;
+    rows.push({date:x.date, title:x.e.caseTitle||("Court "+x.e.courtNo+" · item "+x.e.itemNo), credit, kind:"listing"}); });
+  conferenceCreditsOf(uid).forEach(c=>{ if(!inWin(c.date)) return;
+    rows.push({date:c.date, title:c.name, credit:c.credit, kind:"conference"}); });
+  return rows.sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+}
+let _regPeriod="month";   // the register's own week/month/year toggle
+let _regUid=null;         // colleague whose register section is open (null = snapshot)
+// Clicking a workload island REDIRECTS to that colleague's full credit register
+// section (not a popup); its back button returns to the snapshot.
+function islandSheet(uid, period){ _regPeriod=period||_regPeriod; _regUid=uid; renderTeam(); }
+const _regKindTag={conference:'<span class="reg-k k-conf">conf ½</span>', "legal aid":'<span class="reg-k k-la">legal aid</span>', listing:'<span class="reg-k k-list">listing</span>', matter:''};
+function registerSectionHtml(uid){
+  const period=_regPeriod;
+  const rows=creditLedger(uid,period);
+  const total=rows.reduce((s,r)=>s+r.credit,0);
+  const plab={week:"this week",month:"this month",year:"this year"}[period];
+  const cnt=k=>rows.filter(r=>r.kind===k).length;
+  const bits=[cnt("matter")&&`${cnt("matter")} matter${cnt("matter")>1?'s':''}`, cnt("listing")&&`${cnt("listing")} listing${cnt("listing")>1?'s':''}`, cnt("conference")&&`${cnt("conference")} conference${cnt("conference")>1?'s':''}`, cnt("legal aid")&&`${cnt("legal aid")} legal aid`].filter(Boolean).join(" · ");
+  return `<div class="reg-sec">
+    <div class="reg-top"><button class="btn ghost sm" id="regBack"><span class="ic ti ti-arrow-left"></span>Snapshot</button>
+      <div><div class="reg-name">${esc(nameOf(uid))}</div><div class="reg-subt">Credit register</div></div></div>
+    <div class="seg" id="regSeg"><button type="button" data-rp="week" class="${period==="week"?"active":""}">Week</button><button type="button" data-rp="month" class="${period==="month"?"active":""}">Month</button><button type="button" data-rp="year" class="${period==="year"?"active":""}">Year</button></div>
+    <div class="reg-summary"><div><span class="reg-big">${fmtPts(total)}</span> <span class="muted">credit${total===1?'':'s'} ${esc(plab)}</span></div>${bits?`<div class="muted reg-bits">${bits}</div>`:''}</div>
+    ${rows.length?`<div class="reg-scroll"><table class="reg-table"><thead><tr><th class="c-sn">#</th><th class="c-case">Matter / conference</th><th class="c-date">Date</th><th class="c-cr">Credit</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr${r.brief?` class="reg-click" data-brief="${r.brief}"`:''}><td class="c-sn">${i+1}</td><td class="c-case">${esc(r.title)}${_regKindTag[r.kind]||''}</td><td class="c-date">${r.date?esc(fmtDateY(r.date)):'—'}</td><td class="c-cr">${fmtPts(r.credit)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td></td><td class="c-case">Total ${esc(plab)}</td><td></td><td class="c-cr">${fmtPts(total)}</td></tr></tfoot></table></div>`
+      :`<div class="reg-empty muted">No credit earned ${esc(plab)}.</div>`}
+  </div>`;
+}
+function renderRegisterBody(uid){
+  $("topbarAction").innerHTML="";
+  $("tab-team").innerHTML=`<div id="teamBody">${registerSectionHtml(uid)}</div>`;
+  $("regBack").onclick=()=>{ _regUid=null; renderTeam(); };
+  document.querySelectorAll("#regSeg [data-rp]").forEach(x=>x.onclick=()=>{ _regPeriod=x.dataset.rp; renderRegisterBody(uid); });
+  bindClicks($("tab-team"));
 }
 // Chamber tab = two sub-tabs: Workload snapshot + Roster (owner's Jul 2026 merge).
 let teamSub="snapshot";   // "snapshot" | "roster"
 function renderTeam(){
+  // drill-in: a colleague's credit register replaces the whole Team view
+  if(_regUid && teamSub==="snapshot"){ renderRegisterBody(_regUid); return; }
   const seg=`<div class="team-subseg">
     <button data-teamsub="snapshot" class="${teamSub==="snapshot"?"on":""}"><span class="ic ti ti-chart-histogram"></span>Workload snapshot</button>
     <button data-teamsub="roster" class="${teamSub==="roster"?"on":""}"><span class="ic ti ti-list-numbers"></span>Roster</button></div>`;
   $("tab-team").innerHTML=seg+`<div id="teamBody"></div>`;
-  document.querySelectorAll("#tab-team [data-teamsub]").forEach(b=>b.onclick=()=>{ teamSub=b.dataset.teamsub; renderTeam(); });
+  document.querySelectorAll("#tab-team [data-teamsub]").forEach(b=>b.onclick=()=>{ _regUid=null; teamSub=b.dataset.teamsub; renderTeam(); });
   if(teamSub==="roster"){ $("topbarAction").innerHTML=""; renderRosterBody(); } else renderSnapshotBody();
 }
 function renderSnapshotBody(){
@@ -3713,8 +4074,7 @@ function renderSnapshotBody(){
 
   // workload snapshot — colour-coded islands per colleague; weekly/monthly/yearly
   const _disp=rosterDisplay();
-  const _days=loadPeriod==="week"?7:loadPeriod==="year"?365:30;
-  const _loads=_disp.map(m=>({m,pts:loadInWindow(m.id,_days)}));
+  const _loads=_disp.map(m=>({m,pts:loadInWindow(m.id,loadPeriod)}));
   const _max=Math.max(1,..._loads.map(l=>l.pts));
   const _col=pts=>pts<=_max*0.4?"ld-green":pts<=_max*0.75?"ld-yellow":"ld-red";
   const _plab=loadPeriod==="week"?"this week":loadPeriod==="year"?"this year":"this month";
@@ -3723,9 +4083,33 @@ function renderSnapshotBody(){
   const loadPanel=`<div class="panel" style="margin-bottom:16px"><div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Workload snapshot</span>${_seg}</div>
     <div style="padding:14px 16px">${_disp.length?`<div class="load-islands">${_loads.map(({m,pts})=>`<button type="button" class="load-island ${_col(pts)}" data-island="${m.id}" title="See ${esc(m.name.split(' ')[0])}'s matters"><div class="li-ava">${esc(initials(m.name))}</div><div class="li-name">${esc(m.name)}</div><div class="li-load">${fmtPts(pts)}</div><div class="li-lab"><span class="li-dot"></span>${_plab}</div></button>`).join("")}</div>`:'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}
       <div class="muted" style="font-size:11px;margin-top:12px">Points ${_plab} — <b style="color:#2ea050;font-weight:600">green</b> lightest · <b style="color:#c69412;font-weight:600">amber</b> medium · <b style="color:#d24040;font-weight:600">red</b> heaviest (relative to the busiest colleague). A matter shared by two counts as half.</div></div></div>`;
-  $("teamBody").innerHTML=loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
+  // orphaned credit — assignments left pointing at a removed (re-added) colleague
+  const orphans = canAdmin()? orphanAssignees() : [];
+  const targets = remapTargets();
+  const orphanPanel = orphans.length ? `<div class="panel" style="margin-bottom:16px;border:1px solid var(--warn)">
+    <div class="panel-head" style="color:var(--warn)"><span class="ic ti ti-user-exclamation"></span> Restore credit — ${orphans.length} removed identit${orphans.length>1?'ies':'y'}</div>
+    <div style="padding:12px 14px">
+      <div class="muted" style="font-size:12px;margin-bottom:10px">These matters are still assigned to a colleague who was removed and added back under a new record, so their credit isn't showing. Pick the right colleague and restore it.</div>
+      ${orphans.map(o=>`<div class="orphan-row" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600">${o.id.startsWith('pending:')?esc(o.id.slice(8))+' <span class="muted" style="font-weight:400">(removed invite)</span>':'Removed member'} · ${o.count} matter${o.count>1?'s':''}</div>
+        <div class="muted" style="font-size:11.5px;margin:4px 0 9px">${esc(o.titles.slice(0,4).join(' · '))}${o.titles.length>4?' · +'+(o.titles.length-4)+' more':''}</div>
+        <div class="row" style="gap:8px;align-items:center">
+          <select class="in" style="flex:1;min-width:0">${targets.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("")}</select>
+          <button class="btn sm" data-orphmap="${esc(o.id)}" style="flex-shrink:0">Restore</button>
+        </div>
+      </div>`).join("")}
+    </div></div>` : "";
+
+  $("teamBody").innerHTML=orphanPanel+loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
+  document.querySelectorAll("[data-orphmap]").forEach(x=>x.onclick=()=>{
+    const oldId=x.dataset.orphmap; const sel=x.closest(".orphan-row").querySelector("select"); const newUid=sel.value;
+    if(!newUid)return;
+    confirmAsk({title:"Restore credit?",confirmLabel:"Restore",
+      body:`Move every matter of this removed record to <b>${esc((targets.find(t=>t.id===newUid)||{}).name||nameOf(newUid))}</b>? Their credit, load and history will be counted under that colleague.`,
+      onYes:async()=>{ x.disabled=true; try{ await remapAssignee(oldId,newUid); toast("Credit restored","ti-user-check"); }catch(e){ toast("Couldn't restore — "+(e&&e.message||e),"ti-alert-triangle"); } renderTeam(); }});
+  });
   document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderSnapshotBody(); });
-  document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,_days,_plab));
+  document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,loadPeriod,_plab));
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
   document.querySelectorAll("[data-editinvite]").forEach(x=>x.onclick=()=>inviteForm(x.dataset.editinvite));
   document.querySelectorAll("[data-delinvite]").forEach(x=>x.onclick=async()=>{await db.remove("approvals/"+x.dataset.delinvite);toast("Invite removed");});
@@ -3758,6 +4142,55 @@ function inviteForm(key=null){
     await db.set("approvals/"+emailKey(email),rec);
     closeSheet(); toast(key?"Member updated":`${rec.name} added — they can sign in now`,"ti-user-check");
   };
+}
+/* ---- Restore credit for a removed-then-re-added colleague ----
+   Firestore users are id-keyed, so deleting a colleague and adding them back mints
+   a NEW id. Their old matters still name the OLD id, so their credit disappears.
+   Nothing is lost — we detect the orphaned ids (referenced in the data but not a
+   current member or invite) and let an admin remap each onto the right colleague. */
+function currentIdSet(){
+  const s=new Set();
+  Object.values(users).forEach(u=>{ s.add(u.id); if(u.email) s.add("pending:"+emailKey(u.email)); });
+  Object.values(approvals).forEach(a=>{ if(a.email) s.add("pending:"+emailKey(a.email)); });
+  return s;
+}
+function orphanAssignees(){
+  const known=currentIdSet(); const seen={};
+  const note=(id,title)=>{ if(!id||known.has(id))return; (seen[id]||(seen[id]={id,titles:new Set()})).titles.add(title||"(untitled)"); };
+  Object.values(briefs).forEach(b=>{ const t=b.caseTitle||labelOf(b)||"(brief)";
+    (b.assignedTo||[]).forEach(u=>note(u,t)); (b.everAssigned||[]).forEach(u=>note(u,t)); });
+  Object.values(dsAll).forEach(ds=>(ds.entries||[]).forEach(e=>{ const t=e.caseTitle||("Court "+e.courtNo+" item "+e.itemNo); jrsOf(e).forEach(u=>note(u,t)); }));
+  Object.values(leaves).forEach(l=>note(l.uid,"leave"));
+  return Object.values(seen).map(o=>({id:o.id, titles:[...o.titles], count:o.titles.size}))
+    .sort((a,b)=>b.count-a.count);
+}
+// colleagues a credit can be restored to — logged-in members + still-pending invites
+function remapTargets(){
+  const out=Object.values(users).filter(u=>u.role!=="pending").map(u=>({id:u.id,name:u.name}));
+  Object.values(approvals).filter(a=>!Object.values(users).some(u=>emailKey(u.email)===a.id))
+    .forEach(a=>out.push({id:"pending:"+a.id,name:(a.name||a.email)+" (awaiting sign-in)"}));
+  return out;
+}
+async function remapAssignee(oldId,newUid){
+  const swap=arr=>Array.isArray(arr)?[...new Set(arr.map(x=>x===oldId?newUid:x))]:arr;
+  for(const b of Object.values(briefs)){
+    const patch={}; let ch=false;
+    if((b.assignedTo||[]).includes(oldId)){ patch.assignedTo=swap(b.assignedTo); ch=true; }
+    if((b.everAssigned||[]).includes(oldId)){ patch.everAssigned=swap(b.everAssigned); ch=true; }
+    if((b.ackBy||[]).includes(oldId)){ patch.ackBy=swap(b.ackBy); ch=true; }
+    if(Array.isArray(b.assignHistory)&&b.assignHistory.some(h=>h.uid===oldId||h.by===oldId)){ patch.assignHistory=b.assignHistory.map(h=>({...h,uid:h.uid===oldId?newUid:h.uid,by:h.by===oldId?newUid:h.by})); ch=true; }
+    if(Array.isArray(b.declinedBy)&&b.declinedBy.some(d=>d.uid===oldId)){ patch.declinedBy=b.declinedBy.map(d=>d.uid===oldId?{...d,uid:newUid}:d); ch=true; }
+    if(b.creditClaim&&b.creditClaim.uid===oldId){ patch.creditClaim={...b.creditClaim,uid:newUid}; ch=true; }
+    if(ch){ briefs[b.id]={...b,...patch};   // optimistic local so the panel clears at once (Firestore echo confirms it)
+      try{ await db.update("briefs/"+b.id,{...patch,updatedAt:db.now()}); }catch(_){} }
+  }
+  for(const [date,ds] of Object.entries(dsAll)){
+    let ch=false;
+    const entries=(ds.entries||[]).map(e=>{ const jrs=jrsOf(e); if(!jrs.includes(oldId))return e; ch=true;
+      const nj=[...new Set(jrs.map(u=>u===oldId?newUid:u))]; return {...e,juniorUids:nj,juniorUid:nj[0]||null}; });
+    if(ch){ dsAll[date]={...ds,entries}; try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
+  }
+  for(const l of Object.values(leaves)){ if(l.uid===oldId){ leaves[l.id]={...l,uid:newUid}; try{ await db.update("leaves/"+l.id,{uid:newUid}); }catch(_){} } }
 }
 function roleForm(uid){const u=users[uid];
   openSheet(`<div class="sheet-head"><div><h3>${esc(u.name)}</h3><div class="sub">${esc(u.email||'')}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
@@ -3817,13 +4250,12 @@ function renderRosterBody(){
     list=standingBanner+`<div class="panel"><div class="panel-head">Seniority rotation <span class="muted" style="font-weight:400;font-size:12px">ordered by date of joining — edit dates on the Workload snapshot</span></div>
       ${disp.map((m,i)=>{
         const isNext=m.real&&m.id===nextUid; const onLeave=m.real&&onLeaveOn(m.id,todayISO());
-        const isMe=m.real&&m.id===me.uid; const unav=isUnavailable(m.id); const uNote=unavailable[m.id]?.note; const uUntil=unavailable[m.id]?.until;
-        return `<div class="roster-row ${isNext&&!unav?'is-next':''} ${isMe?'is-me':''} ${onLeave||unav?'is-leave':''}">
+        const isMe=m.real&&m.id===me.uid;
+        return `<div class="roster-row ${isNext?'is-next':''} ${isMe?'is-me':''} ${onLeave?'is-leave':''}">
           <div class="roster-pos">${i+1}</div>
           <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
-          <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext&&!unav?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}${unav?`<span class="chip av-leave" style="margin-left:8px"><span class="ti ti-user-off" style="font-size:11px"></span> Unavailable${uUntil?` till ${fmtDate(uUntil)}`:''}</span>`:''}</div>
-            <div class="roster-load muted">${unav&&uNote?`<span style="color:var(--warn)">${esc(uNote)}</span> · `:''}${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${fmtPts(activeLoad(m.id))} · ${activeCount(m.id)} live · ${fmtPts(lifetimeCount(m.id))} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
-          ${canManage()?`<button class="tbtn sm" data-unav="${m.id}" style="margin-left:auto;flex-shrink:0" title="${unav?'Bring back into the roster':'Skip for new assignments'}">${unav?'<span class="ic ti ti-user-check"></span>Make available':'<span class="ic ti ti-user-off"></span>Unavailable'}</button>`:''}
+          <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
+            <div class="roster-load muted">${m.joinedOn?`Joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)">No joining date set</span>'}${m.real?` · Active load ${fmtPts(activeLoad(m.id))} · ${activeCount(m.id)} live · ${fmtPts(lifetimeCount(m.id))} lifetime${(()=>{const oc=Object.values(briefs).reduce((s,b)=>s+((b.declinedBy||[]).some(d=>d.uid===m.id)?1:0),0);return oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:'';})()}`:''}</div></div>
         </div>`;
       }).join("")}</div>
       ${canManage()?`<div class="row" style="margin-top:14px"><button class="btn ghost sm" id="rReset"><span class="ic ti ti-refresh"></span>Reset “next up” to top</button></div>`:''}`;
@@ -3831,25 +4263,6 @@ function renderRosterBody(){
   $("teamBody").innerHTML=explain+list;
   if($("reToggle"))$("reToggle").onclick=()=>{uiExp.rosterInfo=!uiExp.rosterInfo;renderRosterBody();};
   if($("rReset"))$("rReset").onclick=async()=>{await db.set("config/roster",{pointer:0},true);toast("Rotation reset to the top");};
-  document.querySelectorAll("[data-unav]").forEach(x=>x.onclick=async()=>{ const id=x.dataset.unav;
-    if(isUnavailable(id)){ await setUnavailable(id,null); toast(nameOf(id)+" is back in the roster","ti-user-check"); }
-    else unavailForm(id); });
-}
-// Staff mark a colleague unavailable for new assignments (with a reason and an
-// optional auto-return date). They stay off the roster until revoked / the date passes.
-function unavailForm(id){
-  const nm=nameOf(id);
-  openSheet(`<div class="sheet-head"><div><h3>Mark unavailable</h3><div class="sub">${esc(nm)}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
-    <div class="sheet-body">
-      <p class="muted" style="font-size:13px"><b>${esc(nm)}</b> will be skipped by auto-assign and the rotation until you make them available again. Matters already with them are untouched.</p>
-      <label>Reason <span class="muted" style="font-weight:400">(optional)</span></label>
-      <input id="ua_note" value="${esc(unavailable[id]?.note||'')}" placeholder="e.g. on leave, exams, out of Delhi">
-      <label>Until <span class="muted" style="font-weight:400">(optional — comes back automatically after this date; blank = until you revoke)</span></label>
-      <input type="date" id="ua_until" min="${todayISO()}" value="${esc(unavailable[id]?.until||'')}">
-      <div class="row" style="margin-top:18px"><button class="btn" id="ua_save"><span class="ic ti ti-user-off"></span>Mark unavailable</button><button class="btn ghost" id="ua_cancel">Cancel</button></div>
-    </div>`);
-  $("ua_cancel").onclick=()=>closeSheet();
-  $("ua_save").onclick=async()=>{ await setUnavailable(id,$("ua_note").value.trim(),$("ua_until").value||""); closeSheet(); toast(nm+" marked unavailable","ti-user-off"); };
 }
 
 /* ============================================================
