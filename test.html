@@ -1436,8 +1436,12 @@ function confirmAsk({title,body,confirmLabel,danger,onYes}){
 // signed in (id "pending:<email>") — so work can be distributed before anyone
 // logs in. Their assignments migrate to the real uid on first login (syncRegister).
 function effectiveRoster(){ return rosterDisplay().map(m=>m.id); }
-// a logged leave (Leave tab / calendar) covering this date
-function leaveLogCovers(uid,dateISO){ return Object.values(leaves).some(l=>!l.deleted&&l.uid===uid&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
+// a logged leave (Leave tab / calendar) covering this date. Match on ANY of the
+// colleague's ids (real uid + "pending:<email>" alias) — a matter is credited via
+// alias-aware idIn(), so leave must be detected the same way, else a leave logged
+// under one id fails to zero credit for a matter assigned under the other (owner
+// Jul 2026: "on leave but got credit").
+function leaveLogCovers(uid,dateISO){ const a=aliasIds(uid); return Object.values(leaves).some(l=>!l.deleted&&a.includes(l.uid)&&l.from<=dateISO&&dateISO<=(l.to||l.from)); }
 // A colleague is "available" whenever they are NOT on leave — there is no other
 // status to mark (owner's call Jul 2026). Leave is the leave log alone.
 function isOnLeave(uid){ return leaveLogCovers(uid,todayISO()); }
