@@ -104,8 +104,13 @@ main+supp) or the live sequence position. **Important (owner Jul 2026): Misc run
 Regular.** `onRegularList()` therefore detects Regular two ways: current item `>
 miscTotal` (Misc < 101 days), OR the item **resetting** from ≈ the end of Misc back
 down into the 101 series (`itemHi` per-court high vs a big drop; Misc ≥ 101 days).
-Then it uses normal within-Regular proximity. Shows "Reg N · Misc: K to go".
-jsc-verified small-Misc AND large-Misc (200) cases.
+Then it uses normal within-Regular proximity. The badge says **"N away"** (owner:
+not "Reg N"); the detail label still reads "Regular — ~N away · Misc: K to go".
+**Reserved item series = court PHASE, not a queue position (owner Jul 2026):** a
+current board item in the **800s = mentioning**, the **1500s = judgement
+pronouncement** — classify returns "mentioning is on" / "pronouncement is on" with
+NO gap (our matter just waits). jsc-verified: small/large-Misc, 800→mentioning,
+1500→pronouncement, "N away" not "Reg N".
 
 ## Conference credit + credit register (index.html, Jul 2026)
 

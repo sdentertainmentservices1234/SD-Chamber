@@ -500,6 +500,13 @@ function classify(e, bc){
     if(nowMinsIST()>MENT_END) return {tier:"passed",label:"mentioning — over",short:"over",ment:true};
     return {tier:"soon",label:"mentioning — watch",short:"watch",gap:0,ment:true};
   }
+  // The board's reserved item series tell us the court's PHASE, not a queue
+  // position: the 800s are mentioning matters, the 1500s are judgement
+  // pronouncements. While the court is in one of these there's no "N away" — our
+  // matter simply waits for the phase to finish.
+  const curBoardNum=parseInt(bc.item,10);
+  if(curBoardNum>=800 && curBoardNum<900) return {tier:"soon",label:"mentioning is on",short:"mentioning",ment:true};
+  if(curBoardNum>=1500 && curBoardNum<1600) return {tier:"soon",label:"pronouncement is on",short:"pronouncement"};
   const oursNum=parseFloat(ours);
   const {seq,passIdx}=seqInfo(bc.sequence);
   const curPos = seq.length ? seq.indexOf(parseInt(bc.item,10)) : -1;
@@ -539,8 +546,8 @@ function classify(e, bc){
       const gap=miscLeft+(regRank-1);                          // misc still to go, then regular matters before ours
       const detail=miscLeft>0?"Misc: "+miscLeft+" to go":"Misc done";
       if(gap<=1) return {tier:"now", label:"Regular — get in now", short:"NOW", gap, reg:true};
-      if(gap<=4) return {tier:"soon",label:"Regular — ~"+gap+" away · "+detail, short:"Reg "+gap, gap, reg:true};
-      return {tier:"later",label:"Regular — ~"+gap+" away · "+detail, short:"Reg "+gap, gap, reg:true};
+      if(gap<=4) return {tier:"soon",label:"Regular — ~"+gap+" away · "+detail, short:gap+" away", gap, reg:true};
+      return {tier:"later",label:"Regular — ~"+gap+" away · "+detail, short:gap+" away", gap, reg:true};
     }
     // else: the Regular list is running — fall through to normal proximity within it.
   }
