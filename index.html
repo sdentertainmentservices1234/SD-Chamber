@@ -2810,7 +2810,7 @@ const causeListReady = () => !!(courtUpdates && courtUpdates.by_date && Object.k
 function lookupCauselistItem(dateISO, court, item, preferType){
   const day=courtUpdates?.by_date?.[dateISO]; if(!day||!court||!item) return null;
   court=String(court).trim(); item=String(item).trim();
-  const tryType=lt=>{ const c=day.lists?.[lt]?.[court]; const line=c?.items?.[item]; return line?{listType:lt, caseLine:line, coram:c.coram||""}:null; };
+  const tryType=lt=>{ const c=day.lists?.[lt]?.[court]; const line=c?.items?.[item]; return line?{listType:lt, caseLine:line, coram:c.coram||"", advocates:c.advocates?.[item]||null}:null; };
   // A chosen list type is AUTHORITATIVE — never fall back to another list (so
   // picking "Miscellaneous" can't silently return a Registrar matter). Only
   // when no type is chosen do we search across all lists.
@@ -3408,7 +3408,17 @@ function dsForm(idx=null){
   // Track what WE auto-filled, so a value keeps updating as the clerk finishes
   // typing the item number (typing "3" then "30" must land on item 30's case,
   // not stay stuck on item 3's) — but a value the clerk edited is never touched.
-  const auto={title:"", bench:"", type:"", caseNo:""};
+  const auto={title:"", bench:"", type:"", caseNo:"", counsel:""};
+  // AoR of each party for the looked-up item; fills Briefing counsel for the side
+  // we appear for (petitioner-side vs respondent-side), always editable by staff.
+  let lastAdv=null;
+  function fillCounsel(){
+    if(!lastAdv || !$("f_counsel")) return;
+    const ap=$("f_appear").value;
+    const resp=["Respondent","Caveator"].includes(ap);   // else petitioner-side (incl. blank)
+    const name=resp?lastAdv.resp:lastAdv.pet;
+    if(name) setAuto("f_counsel","counsel",name);
+  }
   const setAuto=(id,key,val)=>{ const el=$(id); if(!el.value.trim()||el.value===auto[key]){ el.value=val; } auto[key]=val; };
   const clearAuto=(id,key)=>{ const el=$(id); if(el.value&&el.value===auto[key]){ el.value=""; } auto[key]=""; };
   // bench from court + type (fallback / on type change)
@@ -3430,8 +3440,9 @@ function dsForm(idx=null){
       if(!$("f_listtype").value||$("f_listtype").value===auto.type){ $("f_listtype").value=hit.listType; auto.type=hit.listType; }
       // pull the case / diary number out of the cause line and fill it in
       if($("f_dno")){ const refs=refsFromCauseLine(hit.caseLine); const no=refs.caseNo||(refs.diaryNo?("D. "+refs.diaryNo):""); if(no) setAuto("f_dno","caseNo",no); }
+      lastAdv=hit.advocates||null; fillCounsel();
       $("f_foundhint").innerHTML=`<span class="chip bal-even"><span class="dot"></span>Found · ${esc(hit.listType)}</span> <span class="muted" style="font-size:11px">${esc(titleFromCauseLine(hit.caseLine).slice(0,52))}</span>`;
-    } else { clearAuto("f_title","title"); if($("f_dno"))clearAuto("f_dno","caseNo");
+    } else { clearAuto("f_title","title"); if($("f_dno"))clearAuto("f_dno","caseNo"); lastAdv=null; clearAuto("f_counsel","counsel");
       const lt=$("f_listtype").value;
       $("f_foundhint").innerHTML = !(ct&&it) ? "" :
         !causeListHasDate(fdate())
@@ -3444,6 +3455,8 @@ function dsForm(idx=null){
   // typing in title/bench marks them as manually owned (stop auto-fill)
   $("f_title").oninput=()=>{auto.title="\0";}; $("f_bench").oninput=()=>{auto.bench="\0";};
   if($("f_dno"))$("f_dno").oninput=()=>{auto.caseNo="\0";};
+  if($("f_counsel"))$("f_counsel").oninput=()=>{auto.counsel="\0";};   // a staff edit is never overwritten
+  if($("f_appear"))$("f_appear").onchange=fillCounsel;                 // switch AoR when the side changes
   $("f_court").oninput=causeFill; $("f_item").oninput=causeFill;
   $("f_date").onchange=()=>{ causeFill(); if(fMode==="auto") fRenderPick(); };   // date change can change who's leave-free
   $("f_listtype").onchange=()=>{auto.type="\0"; causeFill();}; causeFill();

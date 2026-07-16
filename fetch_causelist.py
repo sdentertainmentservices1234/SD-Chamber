@@ -51,7 +51,7 @@ OUTPUT_FILE = "court-updates.json"
 # based change-detection reuses a cached parse when the PDF is unchanged; without
 # this, a parser FIX never reaches already-cached dates (their PDFs don't change).
 # A version mismatch forces a full re-parse of every date in the window.
-PARSER_VERSION = 6
+PARSER_VERSION = 7   # bumped: capture per-party Advocate-on-Record (advocates{})
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; sd-chamber-causelist-bot/1.0)"}
 
 COURT_RE = re.compile(r"COURT\s*NO\.?\s*[:\-]?\s*([0-9]+)", re.I)
@@ -132,6 +132,7 @@ def pdf_to_text(data):
 ADV_COL_X = 415   # advocate column left edge (words at/after this are the advocate)
 SNO_COL_X = 60    # an item row's serial number sits in the far-left margin
 ITEM_SNO_RE = re.compile(r"^[0-9]{1,4}(?:\.[0-9]{1,3})?[.\)]?$")
+ADV_SNO_RE = re.compile(r"^([0-9]{1,4}(?:\.[0-9]{1,3})?)[.\)]?$")  # same, capturing the number
 
 
 def pdf_to_column_text(data):
@@ -271,6 +272,120 @@ def parse_courts(text):
     return courts
 
 
+# --- Advocate-on-Record capture -------------------------------------------------
+# The AoR sits in the advocate column (x >= ADV_COL_X). Party names, case numbers,
+# IA descriptions and the bench are ALL to the LEFT of that column, so by taking
+# only x >= ADV_COL_X words nothing "nearby" can leak into the name (owner's hard
+# requirement Jul 2026). We then validate every value is a bare name.
+VERSUS_ONLY_RE = re.compile(r"^versus$", re.I)
+# Words that mean it is NOT an AoR name — a header/officer/party/bench/IA token.
+ADV_NAME_BAD = re.compile(
+    r"REGISTR|COURT|BENCH|HON'?BLE|JUSTICE|PETITIONER|RESPONDENT|\bADVOCATE\b|"
+    r"VERSUS|MATTER|HEARING|\bNOTE\b|SNO|CASE\s*NO|IA\s*NO|DIARY|EMAIL|"
+    r"SUBMISSION|JUDGMENT|AMICUS|IN-?PERSON", re.I)
+
+
+def _clean_adv(s):
+    s = re.sub(r"\[[^\]]*\]", " ", s)                       # drop [R-1], [INT], [PET] ...
+    s = re.sub(r"\([^)]*\)", " ", s)                        # drop (AMICUS CURIAE), (NP) ...
+    s = re.sub(r",?\s*\bADV(?:OCATE|\.)?\b", " ", s, flags=re.I)   # drop the role word
+    return re.sub(r"\s+", " ", s).strip(" ,.;-")
+
+
+def _valid_adv(s):
+    """STRICTLY an advocate / firm NAME: letters plus . , & / ' - and spaces only,
+    short, no digits, and none of the party/case/bench/officer words."""
+    if not s or len(s) > 45 or not re.search(r"[A-Za-z]", s):
+        return False
+    if re.search(r"[0-9]", s):
+        return False
+    if ADV_NAME_BAD.search(s):
+        return False
+    if len(re.sub(r"[A-Za-z .,&/'\-]", "", s)) > 1:        # stray non-name chars -> reject
+        return False
+    return True
+
+
+def parse_advocates(data, real_items):
+    """{court: {item: {pet?, resp?}}} — the AoR for each side, taken only from the
+    advocate column and validated. `real_items` = {court: set(item)} from
+    parse_courts, so a note/header line mis-read as an item is dropped (intersection).
+    Empty / invalid values are omitted."""
+    try:
+        import pdfplumber
+    except Exception:
+        return {}
+    out = {}
+    try:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            for page in pdf.pages:
+                rows = {}
+                for w in page.extract_words(use_text_flow=True):
+                    rows.setdefault(round(w["top"] / 2), []).append(w)
+                court = item = None
+                seen_v = pet_lock = resp_lock = False
+                for key in sorted(rows):
+                    ws = sorted(rows[key], key=lambda w: w["x0"])
+                    left = [w for w in ws if w["x0"] < ADV_COL_X]
+                    lt = " ".join(w["text"] for w in left).strip()
+                    adv = _clean_adv(" ".join(w["text"] for w in ws if w["x0"] >= ADV_COL_X))
+                    m = REG_RE.search(lt) or COURT_RE.search(lt)
+                    if m:
+                        court = m.group(1); item = None; continue
+                    if CJ_RE.search(lt):
+                        court = "1"; item = None; continue
+                    if court is None:
+                        continue
+                    if left and left[0]["x0"] < SNO_COL_X and ADV_SNO_RE.match(left[0]["text"]):
+                        cand = ADV_SNO_RE.match(left[0]["text"]).group(1)
+                        if court in real_items and cand in real_items[court]:
+                            item = cand; seen_v = pet_lock = resp_lock = False
+                            out.setdefault(court, {}).setdefault(item, {"pet": "", "resp": ""})
+                            if adv:
+                                out[court][item]["pet"] = adv     # petitioner AoR on the serial row
+                        else:
+                            item = None
+                        continue
+                    if not (court and item):
+                        continue
+                    rec = out[court][item]
+                    if VERSUS_ONLY_RE.match(lt):
+                        seen_v = True; continue
+                    if not seen_v:
+                        if pet_lock:
+                            continue
+                        if adv and not rec["pet"]:
+                            rec["pet"] = adv
+                        elif adv and not lt:                    # empty-left continuation = same name wrapping
+                            rec["pet"] = (rec["pet"] + " " + adv).strip()
+                        else:
+                            pet_lock = True                     # left content / blank -> stop
+                    else:
+                        if resp_lock:
+                            continue
+                        if adv and not rec["resp"]:
+                            rec["resp"] = adv
+                        elif adv and not lt and rec["resp"]:
+                            rec["resp"] = (rec["resp"] + " " + adv).strip()
+                        elif rec["resp"] and (lt or not adv):   # a blank/annotation row ends respondent capture
+                            resp_lock = True
+    except Exception as e:
+        print("  advocate extraction failed:", e)
+    clean = {}
+    for c, its in out.items():
+        for it, rec in its.items():
+            pet = rec["pet"] if _valid_adv(rec["pet"]) else ""
+            resp = rec["resp"] if _valid_adv(rec["resp"]) else ""
+            if pet or resp:
+                d = {}
+                if pet:
+                    d["pet"] = pet
+                if resp:
+                    d["resp"] = resp
+                clean.setdefault(c, {})[it] = d
+    return clean
+
+
 def upcoming_days(n):
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
     days, d, step = [], ist.date(), 0
@@ -317,7 +432,9 @@ def build_for_date(date_str, prev_day=None, prev_sizes=None):
             if not text.strip():
                 continue
             lists_found.append("{} ({})".format(human, variant))
-            for court, info in parse_courts(text).items():
+            parsed = parse_courts(text)
+            advs = parse_advocates(data, {c: set(parsed[c]["items"]) for c in parsed})
+            for court, info in parsed.items():
                 # a supplementary list ADDS matters to the same court — union the
                 # items (do NOT replace, or the main list's items are wiped, e.g.
                 # court 1's item 30 vanished behind the supp's items 46-51). Keep
@@ -325,11 +442,19 @@ def build_for_date(date_str, prev_day=None, prev_sizes=None):
                 # Track how many of the court's matters came from main vs supp so the
                 # printout can show the breakup ("Main 50 · Supp 10").
                 ex = merged.setdefault(court, {"coram": "", "total": "", "fresh": "",
-                                               "items": {}, "main": 0, "supp": 0})
+                                               "items": {}, "advocates": {}, "main": 0, "supp": 0})
                 before = n_matters(ex["items"])
                 ex["items"].update(info.get("items", {}))
                 # count only the NEW serial matters this list added (not sub-items)
                 ex[variant] = ex.get(variant, 0) + (n_matters(ex["items"]) - before)
+                # merge the AoR names for this court's items (don't overwrite a name
+                # already captured from the main list with an empty from the supp)
+                for it, ad in advs.get(court, {}).items():
+                    cur = ex["advocates"].setdefault(it, {})
+                    if ad.get("pet") and not cur.get("pet"):
+                        cur["pet"] = ad["pet"]
+                    if ad.get("resp") and not cur.get("resp"):
+                        cur["resp"] = ad["resp"]
                 if not ex.get("coram") and info.get("coram"):
                     ex["coram"] = info["coram"]
                 if not ex.get("fresh") and info.get("fresh"):
