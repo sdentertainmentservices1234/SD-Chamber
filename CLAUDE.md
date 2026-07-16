@@ -76,6 +76,13 @@ clerk only does day-to-day operational input.**
   sign-in lands as `pending` (the "Not approved yet" screen). Demo has no real
   auth, so the Chamber tab exposes a **"Simulate sign-in"** button on each
   invite to exercise the claim end-to-end.
+- **Restore-credit PANEL removed (Jul 2026, owner):** the amber "Restore credit —
+  N removed identities" panel on the Workload-snapshot view kept nagging for a
+  colleague who was deleted and re-added, so it was deleted from `renderSnapshotBody`.
+  `remapAssignee(oldId,newUid)` is RETAINED (call it from the console for a one-off
+  fix); `orphanAssignees()`/`remapTargets()` are now dead. The board's separate
+  "assigned to an inactive member — needs reassignment" notice is unrelated and
+  still shows. Original mechanism, for reference:
 - **Restore credit for a re-added colleague (Jul 2026):** because members are
   id-keyed, deleting a colleague (e.g. wrong email) and adding them back mints a
   NEW id — their old matters still name the OLD id, so their credit disappears.
