@@ -10,6 +10,19 @@ The senior advocate is deliberately NOT a user (role removed by owner decision).
 
 ## Review-pass changes (Jul 2026, most recent)
 
+- **Roster includes not-yet-signed-in members equally** (`rosterQueue`): a
+  colleague added but not logged in is ranked by workload like everyone (owner:
+  login doesn't matter for assignment; a "pending:<email>" gets matters that
+  migrate on first login). Only on-leave-today sinks. Row shows their load + "not
+  yet signed in".
+- **Leave register hard-deletes** (`renderLeave`): deleted entries are GONE, not
+  struck-through (owner wanted a clean register). Delete → `db.remove`; the list
+  filters `!l.deleted` so any existing soft-deleted rows also vanish.
+- **Senior-unavailable = no additions** (owner's rule): `seniorOff(iso)` days block
+  adding a day-sheet listing (`f_save`, import add) and a brief `nextDate`
+  (`b_save`, `ob_next`), with a toast. The Day sheet hides Add/Import + shows a
+  notice on those days. Calendar marks senior-away LOUDLY (`.sen-away`: red tint +
+  red bar + "Senior away" tag), overriding the neutral day-kind styling.
 - **Board nav label is dynamic** (`paintChrome()`): colleagues land on the
   personal `renderMyWork()` home, so their sidebar/mobile board item reads **"My
   work"**; Staff/admin keep **"Work board"**. Label matches the page.

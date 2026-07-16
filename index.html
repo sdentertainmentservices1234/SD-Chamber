@@ -278,11 +278,18 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .cal-cell.day-hol.today{box-shadow:inset 3px 0 0 #8b7fb0,0 0 0 1px var(--accent)}
 .cal-cell.day-vac.today{box-shadow:inset 3px 0 0 #d9a35a,0 0 0 1px var(--accent)}
+/* Senior unavailable — deliberately loud (owner: important). Red-tinted cell +
+   red left bar; wins over the neutral day-kind background. */
+.cal-cell.sen-away{background:#fbe9e9;box-shadow:inset 3px 0 0 #c0392b}
+.cal-cell.sen-away.today{box-shadow:inset 3px 0 0 #c0392b,0 0 0 1px var(--accent)}
+.cal-cell.sen-away .cal-sen{color:#c0392b}
 .cal-load{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1px 8px 1px 6px}
 .ld{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
 .ld.lg{background:#4e7a5e}.ld.ly{background:#c99a2e}.ld.lr{background:#b4472e}
 .cal-tag{font-size:10px;line-height:1.25;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-tag.t-hol{color:#6a5a86}.cal-tag.t-vac{color:#a3612a}.cal-tag.t-off{color:var(--ink-3)}
+.cal-tag.t-sen{color:#c0392b;font-weight:600}
+.lg-key.t-sen{color:#c0392b}
 .lg-grp{display:inline-flex;align-items:center;gap:4px}.lg-sep{opacity:.5}
 .lg-key{padding-left:2px}.lg-key.t-hol{color:#6a5a86}.lg-key.t-vac{color:#a3612a}.lg-key.t-off{color:var(--ink-3)}
 .cal-top{display:flex;justify-content:space-between;align-items:center}
@@ -1859,15 +1866,18 @@ function nextUpUid(){ return pickNext({assignedTo:[],declinedBy:[]}).uid; }
 // haven't logged in sink to the bottom (they can't take the next matter).
 function rosterQueue(period){
   period=period||loadPeriod;
+  // Everyone in chambers is in the queue on equal footing — a colleague added but
+  // not yet signed in counts the same for assignment (owner Jul 2026: login does
+  // not matter; matters assigned to a "pending:<email>" migrate on first login).
+  // Only a colleague on leave TODAY sinks — they genuinely can't take the next one.
   return rosterDisplay().map(m=>({
     m, real:m.real,
-    load: m.real?loadInWindow(m.id,period):null,
-    leave: m.real&&onLeaveOn(m.id,todayISO())
+    load: loadInWindow(m.id,period),
+    leave: onLeaveOn(m.id,todayISO())
   })).sort((a,b)=>
-    (a.real?0:1)-(b.real?0:1)
-    || (a.leave?1:0)-(b.leave?1:0)
-    || (a.load??1e9)-(b.load??1e9)
-    || (a.real&&b.real ? lifetimeCount(a.m.id)-lifetimeCount(b.m.id) : 0)
+    (a.leave?1:0)-(b.leave?1:0)
+    || (a.load-b.load)
+    || (lifetimeCount(a.m.id)-lifetimeCount(b.m.id))
     || (a.m.joinedOn||"9999").localeCompare(b.m.joinedOn||"9999"));
 }
 
@@ -2373,9 +2383,10 @@ function renderCal(){
     const loadCls=load?(load<5?'lg':load<=10?'ly':'lr'):'';
     // one calm neutral mute for any non-working day; a thin left accent marks WHICH kind.
     const kind=hol?'day-hol':part?'day-vac':wknd?'day-off':'';
-    cells.push(`<button class="cal-cell ${kind} ${iso===today?'today':''}" data-cald="${iso}">
-      <div class="cal-top"><span class="cal-num">${d}</span>${seniorOff(iso)?`<span class="cal-sen ti ti-user-off" title="Senior not available${seniorAvail[iso]?' — '+esc(seniorAvail[iso]):''}"></span>`:''}</div>
-      ${hol?`<div class="cal-tag t-hol" title="${esc(holidays[iso])}">${esc(holidays[iso])}</div>`:part?`<div class="cal-tag t-vac" title="${esc(part)}">Vacation</div>`:''}
+    const senOff=seniorOff(iso);
+    cells.push(`<button class="cal-cell ${senOff?'sen-away':kind} ${iso===today?'today':''}" data-cald="${iso}">
+      <div class="cal-top"><span class="cal-num">${d}</span>${senOff?`<span class="cal-sen ti ti-user-off" title="Senior not available${seniorAvail[iso]?' — '+esc(seniorAvail[iso]):''}"></span>`:''}</div>
+      ${senOff?`<div class="cal-tag t-sen" title="Senior not available${seniorAvail[iso]?' — '+esc(seniorAvail[iso]):''}">Senior away</div>`:hol?`<div class="cal-tag t-hol" title="${esc(holidays[iso])}">${esc(holidays[iso])}</div>`:part?`<div class="cal-tag t-vac" title="${esc(part)}">Vacation</div>`:''}
       <div class="cal-chips">
         ${load?`<span class="cal-load"><span class="ld ${loadCls}"></span>${load}</span>`:''}
         ${me.role==="junior"&&mine?`<span class="cal-chip mine">${mine} mine</span>`:''}
@@ -2391,7 +2402,7 @@ function renderCal(){
         <button class="tbtn icon-only" id="calNext" aria-label="Next month"><span class="ic ti ti-chevron-right"></span></button>
         <button class="tbtn" id="calToday">Today</button>
       </div>
-      <div class="cal-legend muted"><span class="lg-grp">Matters <span class="ld lg"></span>&lt;5 <span class="ld ly"></span>5–10 <span class="ld lr"></span>&gt;10</span><span class="lg-sep">·</span><span class="lg-key t-hol">holiday</span><span class="lg-key t-vac">vacation</span><span class="ti ti-user-off" style="color:var(--accent-ink)"></span>Senior away</div>
+      <div class="cal-legend muted"><span class="lg-grp">Matters <span class="ld lg"></span>&lt;5 <span class="ld ly"></span>5–10 <span class="ld lr"></span>&gt;10</span><span class="lg-sep">·</span><span class="lg-key t-hol">holiday</span><span class="lg-key t-vac">vacation</span><span class="lg-key t-sen"><span class="ti ti-user-off"></span> senior away</span></div>
     </div>
     <div class="cal-dow">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(x=>`<div>${x}</div>`).join("")}</div>
     <div class="cal-grid">${cells.join("")}</div>`;
@@ -2937,8 +2948,11 @@ function resolveEntry(e, dateISO){
 function renderToday(){
   const entries=(daysheet?.entries||[]);
   const isToday=dsDate===todayISO();
+  const senOff=seniorOff(dsDate);                    // senior unavailable this day → no additions
   $("pageSub").textContent = isToday? "Today · "+fmtDateY(dsDate) : fmtDateY(dsDate);
-  $("topbarAction").innerHTML = canManage()? `<button class="btn ghost sm" id="tbImport"><span class="ic ti ti-file-import"></span>Import cause list</button> <button class="btn" id="tbAddDs"><span class="ic ti ti-plus"></span>Add matter</button>`:"";
+  // No Add / Import when the senior is unavailable (owner's rule) — nothing may be
+  // listed for a day he isn't sitting.
+  $("topbarAction").innerHTML = (canManage()&&!senOff)? `<button class="btn ghost sm" id="tbImport"><span class="ic ti ti-file-import"></span>Import cause list</button> <button class="btn" id="tbAddDs"><span class="ic ti ti-plus"></span>Add matter</button>`:"";
 
   const clDay=courtUpdates?.by_date?.[dsDate];
   const clStatus = clDay
@@ -3023,7 +3037,8 @@ function renderToday(){
       :`<div class="muted" style="font-size:13px">No conferences yet — add a conference date &amp; time when adding a matter, or use “Add conference”.</div>`}
     ${canManage()?`<div style="margin-top:12px"><button class="tbtn" id="tbAddConf"><span class="ic ti ti-plus"></span>Add conference</button></div>`:''}`;
 
-  $("tab-today").innerHTML=toolbar+table+rail+confSec;
+  const senNotice=senOff?`<div class="notice warn" style="margin-bottom:12px"><span class="ti ti-user-off"></span><div><b>Senior not available on ${fmtDateY(dsDate)}</b>${seniorAvail[dsDate]?` — ${esc(seniorAvail[dsDate])}`:''}. No matter can be listed for this day.</div></div>`:"";
+  $("tab-today").innerHTML=senNotice+toolbar+table+rail+confSec;
   $("dsDateInp").onchange=e=>{ dsDate=e.target.value||todayISO(); watchDaysheet(); renderToday(); };
   if($("tbAddDs"))$("tbAddDs").onclick=()=>dsForm();
   if($("tbImport"))$("tbImport").onclick=importCauseList;
@@ -3432,6 +3447,8 @@ function dsForm(idx=null){
   $("f_date").onchange=()=>{ causeFill(); if(fMode==="auto") fRenderPick(); };   // date change can change who's leave-free
   $("f_listtype").onchange=()=>{auto.type="\0"; causeFill();}; causeFill();
   $("f_save").onclick=async()=>{
+    // Senior unavailable that day -> no listing may be added (owner's rule Jul 2026).
+    if(seniorOff(fdate())){ toast("Senior is not available on "+fmtDateY(fdate())+" — no matter can be listed that day","ti-user-off"); return; }
     let juniorUids=[...document.querySelectorAll("#f_jrs [data-jr]:checked")].map(cb=>cb.dataset.jr);
     let fAutoPicked=null;
     if(fMode==="auto"){ const p=pickNext({declinedBy:[], nextDate:fdate()});
@@ -3543,7 +3560,7 @@ function importCauseList(){
     if(!found.length){$("cl_res").innerHTML=`<div class="empty"><span class="ic ti ti-search-off"></span>No matches. Check that diary numbers in the register use the same format (e.g. 12345/2026).</div>`;return;}
     $("cl_res").innerHTML=found.map((f,i)=>`<label class="chk-row"><input type="checkbox" checked data-cl="${i}"><span><b style="font-weight:500">${esc(labelOf(f.brief))}</b><br><span class="mono muted" style="font-size:12px">Court ${esc(f.court||'?')} · Item ${esc(f.item||'?')} · via ${esc(f.via||'')}</span></span></label>`).join("")
       +`<div style="margin-top:14px"><button class="btn" id="cl_add">Add ${found.length} to day sheet</button></div>`;
-    $("cl_add").onclick=()=>{ const arr=[...(daysheet?.entries||[])];
+    $("cl_add").onclick=()=>{ if(seniorOff(dsDate)){ toast("Senior is not available on "+fmtDateY(dsDate)+" — no matter can be listed that day","ti-user-off"); return; } const arr=[...(daysheet?.entries||[])];
       document.querySelectorAll("[data-cl]:checked").forEach(cb=>{const f=found[+cb.dataset.cl];const jrs=f.brief.assignedTo||[];arr.push({briefId:f.brief.id,caseTitle:labelOf(f.brief),courtNo:f.court||"",itemNo:f.item||"",time:"10.30",bench:"",counsel:f.brief.aor||"",juniorUids:jrs,juniorUid:jrs[0]||null,remarks:"",done:false});});
       saveDaysheet(byCourt(arr, dsDate)); closeSheet(); toast("Matters added to day sheet");
     };
@@ -3666,6 +3683,8 @@ function briefForm(b=null){
     const asgHistMode = autoPick ? (autoPick.forced?"forced":"auto") : (directed?"directed":"manual");
     const data={caseTitle:$("b_title").value.trim(),chamberNo:$("b_chno").value.trim(),diaryNo:$("b_dy").value.trim(),caseNo:$("b_cn").value.trim(),matterType:$("b_type").value,appearingFor:$("b_for").value.trim(),aor:$("b_aor").value.trim(),aorPhone:$("b_aorph").value.trim(),contactPerson:$("b_cperson").value.trim(),contactPhone:$("b_cphone").value.trim(),conferenceAt:$("b_conf").value||null,nextDate:$("b_next").value||null,weight:Number($("b_weight").value)||null,assignedTo:assigned,priority:$("b_prio").checked,directed,updatedAt:db.now()};
     if(!data.caseTitle){toast("A case title is needed","ti-alert-triangle");return;}
+    // Senior unavailable on the next date -> block (owner's rule Jul 2026).
+    if(data.nextDate && seniorOff(data.nextDate)){ toast("Senior is not available on "+fmtDateY(data.nextDate)+" — pick another next date","ti-user-off"); return; }
     data.detailsAwaited = !data.diaryNo && !data.caseNo;
     // acknowledgment: keep acks only from juniors still assigned; new assignees must acknowledge
     const prevAck=(b?.ackBy||[]).filter(u=>assigned.includes(u));
@@ -3777,7 +3796,7 @@ function openBrief(id){
         <span class="muted" style="font-size:11.5px">Removes it from the register${listingDatesOf(id).length?` — it is listed on ${listingDatesOf(id).length} day sheet${listingDatesOf(id).length>1?'s':''}`:''}.</span>
       </div>`:''}
     </div>`);
-  if($("ob_next"))$("ob_next").onchange=async()=>{ await db.update("briefs/"+id,{nextDate:$("ob_next").value||null,updatedAt:db.now()}); toast("Next date updated","ti-calendar-check"); };
+  if($("ob_next"))$("ob_next").onchange=async()=>{ const v=$("ob_next").value||null; if(v&&seniorOff(v)){ toast("Senior is not available on "+fmtDateY(v)+" — pick another date","ti-user-off"); $("ob_next").value=b.nextDate||""; return; } await db.update("briefs/"+id,{nextDate:v,updatedAt:db.now()}); toast("Next date updated","ti-calendar-check"); };
   if($("ob_disp"))$("ob_disp").onclick=async()=>{ await db.update("briefs/"+id,{status:"disposed",updatedAt:db.now()}); toast("Marked disposed"); closeSheet(); openBrief(id); };
   document.querySelectorAll("[data-dirtoggle]").forEach(x=>x.onclick=async()=>{ const dirs=(b.directions||[]).map(d=>d.id===x.dataset.dirtoggle?{...d,done:!d.done}:d); await db.update("briefs/"+id,{directions:dirs,updatedAt:db.now()}); closeSheet(); openBrief(id); });
   document.querySelectorAll("[data-dirdel]").forEach(x=>x.onclick=async()=>{ const dirs=(b.directions||[]).filter(d=>d.id!==x.dataset.dirdel); await db.update("briefs/"+id,{directions:dirs,updatedAt:db.now()}); closeSheet(); openBrief(id); });
@@ -3865,8 +3884,9 @@ function renderLeave(){
       </div>`;}).join("")||'<div class="muted" style="font-size:13px">No colleagues yet.</div>'}</div></div></div>`;
 
   // Serially-numbered register, catalogued by month. Serial by leave date so the
-  // numbering is stable; deleted entries stay on record (struck, with who/when).
-  const reg=Object.values(leaves).slice().sort((a,b)=>(a.from||"").localeCompare(b.from||"")||((a.at?._t??a.at??0)-(b.at?._t??b.at??0)));
+  // numbering is stable. Deleted entries are GONE (owner Jul 2026: a clean register,
+  // no struck rows) — delete now removes the record outright.
+  const reg=Object.values(leaves).filter(l=>!l.deleted).sort((a,b)=>(a.from||"").localeCompare(b.from||"")||((a.at?._t??a.at??0)-(b.at?._t??b.at??0)));
   reg.forEach((l,i)=>l._sno=i+1);
   const byMonth={}; reg.forEach(l=>{ const mk=(l.from||"0000-00").slice(0,7); (byMonth[mk]=byMonth[mk]||[]).push(l); });
   const monthName=mk=>{ try{ return new Date(mk+"-01T00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"}); }catch(e){ return mk; } };
@@ -3879,22 +3899,20 @@ function renderLeave(){
       return `<div class="leave-month"><div class="leave-month-h">${esc(monthName(mk))}<span class="muted" style="font-weight:400"> · ${mdays} day${mdays!==1?'s':''}</span></div>
         ${items.map(l=>{
           const mine=(l.uid===me.uid||canManage());
-          const canDel=mine&&!l.deleted;
           const dates=`${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}`;
-          return `<div class="trow leave-reg ${l.deleted?'is-del':''}">
+          return `<div class="trow leave-reg">
             <div class="leave-sno mono">#${l._sno}</div>
             <div class="info" style="flex:1;min-width:0">
               <div class="nm">${esc(nameOf(l.uid))} <span class="muted" style="font-weight:400;font-size:12px">· ${leaveLen(l)} day${leaveLen(l)!==1?'s':''}</span></div>
               <div class="muted" style="font-size:12.5px">${dates}${l.reason?` · ${esc(l.reason)}`:' · <span style="opacity:.7">no reason given</span>'}</div>
               ${fmtStamp(l.at)?`<div class="leave-by">Entered ${esc(fmtStamp(l.at))}</div>`:''}
-              ${l.deleted?`<div class="leave-del">Deleted${fmtStamp(l.deletedAt)?` ${esc(fmtStamp(l.deletedAt))}`:''}</div>`:''}
             </div>
-            ${mine?`<button class="tbtn icon-only" data-editleave="${l.id}" title="${l.deleted?'Edit / restore this entry':'Edit this entry'}"><span class="ic ti ti-pencil"></span></button>`:''}
-            ${canDel?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Delete this entry"><span class="ic ti ti-trash"></span></button>`:''}
+            ${mine?`<button class="tbtn icon-only" data-editleave="${l.id}" title="Edit this entry"><span class="ic ti ti-pencil"></span></button>`:''}
+            ${mine?`<button class="tbtn icon-only" data-delleave="${l.id}" title="Delete this entry"><span class="ic ti ti-trash"></span></button>`:''}
           </div>`;
         }).join("")}</div>`;
     }).join("") : '<div class="trow"><div class="info muted" style="font-size:13px">No leave logged yet. Tap “Add leave” to record yours.</div></div>'}
-    ${reg.length?`<div class="muted" style="font-size:11.5px;padding:10px 12px 2px">${yStart.slice(0,4)} total: <b>${yearDays}</b> day${yearDays!==1?'s':''} · deleted entries stay on record for transparency.</div>`:''}</div>`;
+    ${reg.length?`<div class="muted" style="font-size:11.5px;padding:10px 12px 2px">${yStart.slice(0,4)} total: <b>${yearDays}</b> day${yearDays!==1?'s':''}.</div>`:''}</div>`;
 
   $("tab-leave").innerHTML=counters+regPanel;
   if($("tbAddLeave"))$("tbAddLeave").onclick=()=>leaveForm();
@@ -3902,8 +3920,8 @@ function renderLeave(){
   document.querySelectorAll("[data-delleave]").forEach(x=>x.onclick=()=>{
     const l=leaves[x.dataset.delleave]; if(!l)return;
     confirmAsk({title:"Delete this leave entry?",danger:true,confirmLabel:"Delete entry",
-      body:`Remove <b>${esc(nameOf(l.uid))}</b>'s leave (${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''}) from the counts?<br><br><span class="muted" style="font-size:12px">It stays in the register marked deleted — showing your name and the time — so the record is transparent.</span>`,
-      onYes:async()=>{ try{ await db.update("leaves/"+l.id,{deleted:true,deletedBy:me.uid,deletedAt:Date.now()}); toast("Leave entry deleted"); }catch(e){ toast("Couldn't delete — "+(e&&e.message||e),"ti-alert-triangle"); } }});
+      body:`Remove <b>${esc(nameOf(l.uid))}</b>'s leave (${fmtDateY(l.from)}${l.to!==l.from?' – '+fmtDateY(l.to):''})? This deletes the entry for good.`,
+      onYes:async()=>{ try{ await db.remove("leaves/"+l.id); toast("Leave entry deleted"); }catch(e){ toast("Couldn't delete — "+(e&&e.message||e),"ti-alert-triangle"); } }});
   });
 }
 function leaveForm(prefillDate, editId){
@@ -4262,7 +4280,7 @@ function renderRosterBody(){
           <div class="roster-pos">${i+1}</div>
           <div class="sb-ava" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(initials(m.name))}</div>
           <div class="info"><div class="nm">${esc(m.name||'—')}${isMe?'<span class="you-tag">You</span>':''}${isNext?'<span class="next-tag">Next up</span>':''}${!m.real?'<span class="chip st-prep" style="margin-left:8px">awaiting first login</span>':''}${onLeave?'<span class="chip av-leave" style="margin-left:8px"><span class="dot"></span>On leave</span>':''}</div>
-            <div class="roster-load muted">${m.real?`<b style="color:var(--ink)">${fmtPts(q.load)}</b> ${esc(plab)} · ${activeCount(m.id)} active · ${fmtPts(lifetimeCount(m.id))} lifetime${oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:''}${m.joinedOn?` · joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)"> · no joining date</span>'}`:'awaiting first sign-in'}</div></div>
+            <div class="roster-load muted"><b style="color:var(--ink)">${fmtPts(q.load)}</b> ${esc(plab)} · ${activeCount(m.id)} active · ${fmtPts(lifetimeCount(m.id))} lifetime${oc?` · <span style="color:var(--danger)">${oc} objection${oc>1?'s':''}</span>`:''}${m.real?(m.joinedOn?` · joined ${fmtDateY(m.joinedOn)}`:'<span style="color:var(--warn)"> · no joining date</span>'):' · not yet signed in'}</div></div>
         </div>`;
       }).join("")}</div>`;
   }
