@@ -3259,8 +3259,8 @@ function dsForm(idx=null){
   openSheet(`<div class="sheet-head"><div><h3>${idx!==null?'Edit':'Add'} day-sheet matter</h3></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
     <div class="sheet-body">
       <div class="seg" id="dsMode" style="margin-bottom:12px">
-        <button type="button" data-dmode="existing" style="flex:1"><span class="ti ti-folder-search"></span> Existing matter</button>
         <button type="button" data-dmode="new" style="flex:1"><span class="ti ti-plus"></span> New matter</button>
+        <button type="button" data-dmode="existing" style="flex:1"><span class="ti ti-folder-search"></span> Existing matter</button>
       </div>
       <div id="dsExisting">
         <label>Find the file <span class="muted" style="font-weight:400">(chamber file no, party name, or case / diary no)</span></label>
@@ -3277,8 +3277,6 @@ function dsForm(idx=null){
       <div class="grid2"><div><label>Court no. <span class="muted" style="font-weight:400">(blank if not listed yet)</span></label><input id="f_court" class="mono" value="${esc(e.courtNo||'')}" inputmode="numeric"></div>
         <div><label>Item no. <span class="muted" style="font-weight:400">(e.g. 30, MM, 37.1)</span></label><input id="f_item" class="mono" value="${esc(e.itemNo||'')}" placeholder="e.g. 30 or 37.1"></div></div>
       <p class="muted" style="font-size:11.5px;margin:6px 0 0"><span class="ti ti-clock-hour-9"></span> Not listed yet? Leave court &amp; item blank and add the name + diary/case no — the app fills them automatically once the matter appears in the (supplementary) list.</p>
-      <label>Sequence <span class="muted" style="font-weight:400">(optional — the serial at which the item is actually taken up; usually known only at 10:30. If given, it prints on the cause list)</span></label>
-      <input id="f_seq" class="mono" value="${esc(e.seq||'')}" placeholder="e.g. 3" inputmode="numeric" style="max-width:120px">
       <div id="f_foundhint" style="margin-top:4px;min-height:16px"></div>
       <p class="muted" style="font-size:11.5px;margin:4px 0 12px"><span class="ti ti-info-circle"></span> Date → type → court → item is all you need — the case name &amp; bench fill from the SC causelist (now, or automatically once that day's list is out). Everything below is optional.</p>
       <div id="dsNewFields">
@@ -3315,7 +3313,7 @@ function dsForm(idx=null){
     </div>`);
   // ---- Existing vs New matter ----
   let pickedBriefId = e.briefId||"";
-  let dsMode = e.briefId ? "existing" : (idx!==null ? "new" : "existing");   // default Existing for a fresh add
+  let dsMode = e.briefId ? "existing" : "new";   // owner Jul 2026: New matter is the default; Existing is the second option
   function applyDsMode(){
     $("dsMode").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.dmode===dsMode));
     $("dsExisting").style.display = dsMode==="existing"?"":"none";
@@ -3359,7 +3357,7 @@ function dsForm(idx=null){
   // Track what WE auto-filled, so a value keeps updating as the clerk finishes
   // typing the item number (typing "3" then "30" must land on item 30's case,
   // not stay stuck on item 3's) — but a value the clerk edited is never touched.
-  const auto={title:"", bench:"", type:""};
+  const auto={title:"", bench:"", type:"", caseNo:""};
   const setAuto=(id,key,val)=>{ const el=$(id); if(!el.value.trim()||el.value===auto[key]){ el.value=val; } auto[key]=val; };
   const clearAuto=(id,key)=>{ const el=$(id); if(el.value&&el.value===auto[key]){ el.value=""; } auto[key]=""; };
   // bench from court + type (fallback / on type change)
@@ -3379,8 +3377,10 @@ function dsForm(idx=null){
     if(hit){
       setAuto("f_title","title",titleFromCauseLine(hit.caseLine));
       if(!$("f_listtype").value||$("f_listtype").value===auto.type){ $("f_listtype").value=hit.listType; auto.type=hit.listType; }
+      // pull the case / diary number out of the cause line and fill it in
+      if($("f_dno")){ const refs=refsFromCauseLine(hit.caseLine); const no=refs.caseNo||(refs.diaryNo?("D. "+refs.diaryNo):""); if(no) setAuto("f_dno","caseNo",no); }
       $("f_foundhint").innerHTML=`<span class="chip bal-even"><span class="dot"></span>Found · ${esc(hit.listType)}</span> <span class="muted" style="font-size:11px">${esc(titleFromCauseLine(hit.caseLine).slice(0,52))}</span>`;
-    } else { clearAuto("f_title","title");
+    } else { clearAuto("f_title","title"); if($("f_dno"))clearAuto("f_dno","caseNo");
       const lt=$("f_listtype").value;
       $("f_foundhint").innerHTML = !(ct&&it) ? "" :
         !causeListHasDate(fdate())
@@ -3392,6 +3392,7 @@ function dsForm(idx=null){
   }
   // typing in title/bench marks them as manually owned (stop auto-fill)
   $("f_title").oninput=()=>{auto.title="\0";}; $("f_bench").oninput=()=>{auto.bench="\0";};
+  if($("f_dno"))$("f_dno").oninput=()=>{auto.caseNo="\0";};
   $("f_court").oninput=causeFill; $("f_item").oninput=causeFill;
   $("f_date").onchange=()=>{ causeFill(); if(fMode==="auto") fRenderPick(); };   // date change can change who's leave-free
   $("f_listtype").onchange=()=>{auto.type="\0"; causeFill();}; causeFill();
@@ -3410,7 +3411,7 @@ function dsForm(idx=null){
     const entry={briefId:$("f_brief").value||null,caseTitle:(_pickTitle||$("f_title").value.trim()),courtNo:$("f_court").value.trim(),itemNo:$("f_item").value.trim(),
       listType:$("f_listtype").value||"",appearingFor:$("f_appear").value||"",time:toDotted($("f_time").value),confTime:readConfTime("f_conf"),confDate:(readConfTime("f_conf")?($("f_confdate").value||listDate):($("f_confdate").value||"")),bench:$("f_bench").value.trim(),counsel:$("f_counsel").value.trim(),caseNo:typedNo,
       awaitingList:!($("f_court").value.trim()&&$("f_item").value.trim()),
-      seq:$("f_seq").value.trim(),juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
+      juniorUids,juniorUid:juniorUids[0]||null,remarks:$("f_rem").value.trim(),done:e.done||false};
     if(!((entry.courtNo&&entry.itemNo)||entry.caseTitle||entry.briefId)){toast("Enter the court no + item no (or a case title)","ti-alert-triangle");return;}
     // save-time backfill: whatever the fetched list already knows, store it
     const hit=(entry.courtNo&&entry.itemNo)?lookupCauselistItem(listDate,entry.courtNo,entry.itemNo,entry.listType):null;
