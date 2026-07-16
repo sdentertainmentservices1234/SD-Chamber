@@ -76,6 +76,19 @@ clerk only does day-to-day operational input.**
   sign-in lands as `pending` (the "Not approved yet" screen). Demo has no real
   auth, so the Chamber tab exposes a **"Simulate sign-in"** button on each
   invite to exercise the claim end-to-end.
+- **Restore credit for a re-added colleague (Jul 2026):** because members are
+  id-keyed, deleting a colleague (e.g. wrong email) and adding them back mints a
+  NEW id — their old matters still name the OLD id, so their credit disappears.
+  Nothing is destroyed: `orphanAssignees()` finds assignee ids referenced in
+  briefs / day sheets / leaves that are neither a current member nor a live invite
+  (`currentIdSet()`), and an **admin-only "Restore credit" panel** on the Team →
+  Workload snapshot view lets Adith map each orphan onto the right colleague.
+  `remapAssignee(oldId,newUid)` rewrites assignedTo / everAssigned / ackBy /
+  assignHistory(.uid+.by) / declinedBy / creditClaim across briefs, juniorUids on
+  day sheets, and leaves.uid — deduping so a shared matter isn't double-counted.
+  Works for a deleted invite (`pending:wrongEmail`) or a removed uid. jsc-verified
+  (detect + remap + dedup, no false positives) + live UI test (add invite → assign
+  → delete invite → restore onto a colleague).
 Priorities, in the owner's words:
 
 1. **Primary:** work allocation and distribution among ~10 juniors
