@@ -40,6 +40,12 @@ SEED = '''function seedDemo(db){
   ];
   db.set("daysheets/"+D,{date:D,updatedAt:n(),updatedBy:"u_clerk",entries,conferences:[]});
 
+  // Live remark column (only some benches publish it; in prod the relay parses it
+  // per court). Demo: Court 3 has finished our item 6 (OVER), Court 5 has passed
+  // our item 6 over (PASS OVER) — exercises both authoritative-remark paths.
+  remarksByCourt["3"]={at:Date.now(),items:{"5":"OVER","6":"OVER"}};
+  remarksByCourt["5"]={at:Date.now(),items:{"4":"HEARING","6":"PASS OVER"}};
+
   // Senior last marked in Court 6 40 min ago -> stale -> the app should INFER.
   db.set("config/live",{court:{court:"6",at:{_t:Date.now()-40*60000},by:"u_yash"},conf:null});
 

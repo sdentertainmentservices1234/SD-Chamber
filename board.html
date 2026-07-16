@@ -380,17 +380,15 @@ function parseBoard(html){
     const cz=raw.match(/id="cnbz_\d+"[^>]*>(.*?)<\/td>/is);
     const seqm=raw.match(/title="([^"]*(?:SEQUENCE|SEQ|sequence)[^"]*)"/i);
     if(!court) continue;
-    // The board flags a deferred matter as "Pass Over" — sometimes in the item's
-    // own status, sometimes in the small remark cell. Detect it anywhere in the
-    // row EXCEPT the case-title / advocate cells (a party name could coincidentally
-    // contain the words) and the sequence tooltip (a title attr — stripped with its
-    // tag). So a passed-over matter is never missed whichever column carries it.
-    const rmk=raw.match(/id="cr_sd_"[^>]*>(.*?)<\/td>/is);
-    const remark=rmk?strip(rmk[1]):"";
-    const scan=raw.replace(/<td[^>]*id="cnbz_\d+"[\s\S]*?<\/td>/i,"").replace(/<td[^>]*id="cncz_\d+"[\s\S]*?<\/td>/i,"");
-    const PO=/pass(?:ed)?[\s-]*over/i;                        // "pass over" / "passover" / "passed over"
-    const passover=PO.test(status)||PO.test(remark)||PO.test(strip(scan));
-    courts.push({ court, item, status, remark, passover, caseNo:cn?strip(cn[1]):"", title:cz?strip(cz[1]):"",
+    // Per-court detail link — the FULL cause list for this court, whose last
+    // (remark) column carries the authoritative OVER / PASS OVER per item. Only
+    // some benches populate it. We capture the link token here; the relay fetches
+    // + parses that heavy page and hands us a small item→remark map (refreshRemarks
+    // / remarksByCourt). The main board's own status rarely carries "pass over".
+    const tok=raw.match(/display_court_all_cases\.php\?([A-Za-z0-9.]+)/i);
+    const token=tok?tok[1]:"";
+    const passover=/pass\s*over/i.test(status);
+    courts.push({ court, item, status, token, passover, caseNo:cn?strip(cn[1]):"", title:cz?strip(cz[1]):"",
       sequence:seqm?strip(seqm[1]):"" });
   }
   return { courts };
@@ -457,11 +455,48 @@ function recordBoardPO(){
     if(boardPO.marks[k]) continue;
     boardPO.marks[k]=true;
     // share only OUR items (rare, high-value) — avoids write storms on other courts
-    if(!DEMO && me && !poFor(c.court,c.item) && myMatters().some(e=>String(e.courtNo)===String(c.court)&&String(e.itemNo)===String(c.item)))
+    if(!DEMO && me && !poFor(c.court,c.item) && courtMatters().some(e=>String(e.courtNo)===String(c.court)&&String(e.itemNo)===String(c.item)))
       setPO(c.court,c.item,"slot").catch(()=>{});
   }
 }
 const boardPOhas=(court,item)=>boardPO.date===todayISO() && !!boardPO.marks[poKey(court,item)];
+
+/* ---- Per-court REMARK column (authoritative OVER / PASS OVER) ----
+   The court-wise board shows only the item currently on. Each court's FULL cause
+   list (display_court_all_cases.php) carries a remark against every item — OVER
+   (matter finished), PASS OVER (deferred), or blank. Only some benches keep it
+   current, but where they do it is ground truth. That page is heavy (~0.5 MB), so
+   the relay parses it and returns a small { item: remark } map; we cache per court
+   and refresh only our own courts, on a slow cadence (remarks change far slower
+   than the live item). */
+let remarksByCourt={};                                     // court -> { at, items:{ "5":"OVER", "7":"PASS OVER" } }
+let _remarkAt={};                                          // court -> last fetch attempt ms (throttle)
+const REMARK_TTL=40000;
+function detailRemark(court,item){
+  const r=remarksByCourt[String(court)]; if(!r||!r.items) return "";
+  const s=String(item); if(r.items[s]) return r.items[s];
+  const n=String(Math.floor(parseFloat(item)));            // "12.1" -> "12"
+  return (n!=="NaN"&&r.items[n])||"";
+}
+const isOver     = (court,item)=>/^over$/i.test(detailRemark(court,item));
+const isPassOver = (court,item)=>/pass\s*over/i.test(detailRemark(court,item));
+async function fetchRemarksFor(court,token,force){
+  if(!token || BOARD_SAMPLE || !BOARD_PROXY) return;       // demo seeds remarksByCourt directly
+  const now=Date.now();
+  if(!force && _remarkAt[court] && now-_remarkAt[court]<REMARK_TTL) return;
+  _remarkAt[court]=now;
+  try{
+    const r=await fetch(BOARD_PROXY+"?remarks="+encodeURIComponent(token),{cache:"no-store"});
+    if(!r.ok) return;
+    const j=await r.json();
+    if(j&&j.items) remarksByCourt[String(court)]={at:now, items:j.items};
+  }catch(e){}
+}
+// Pull remarks for the courts we actually have matters in (keeps it light).
+function refreshRemarks(){
+  const want=new Set(courtMatters().map(e=>String(e.courtNo)));
+  for(const c of board){ if(want.has(String(c.court)) && c.token) fetchRemarksFor(c.court,c.token); }
+}
 
 /* ---- Regular list sits BEHIND the Miscellaneous list ----
    A court finishes its whole Miscellaneous list (main + supplementary) before it
@@ -519,11 +554,15 @@ function classify(e, bc){
   if(curBoardNum>=800 && curBoardNum<900) return {tier:"soon",label:"mentioning is on",short:"mentioning",ment:true};
   if(curBoardNum>=1500 && curBoardNum<1600) return {tier:"soon",label:"pronouncement is on",short:"pronouncement"};
   const oursNum=parseFloat(ours);
+  // Authoritative remark from the court's full cause list, where the bench keeps
+  // it current: OVER = our matter is finished (short-circuits everything else).
+  if(isOver(e.courtNo,ours)) return {tier:"passed",label:"matter is over",short:"over",over:true};
   const {seq,passIdx}=seqInfo(bc.sequence);
   const curPos = seq.length ? seq.indexOf(parseInt(bc.item,10)) : -1;
-  // Passed over? — marked by a colleague, observed live on the board, or declared
-  // in the board's own sequence text.
+  // Passed over? — the court's remark column (authoritative), a colleague's mark,
+  // observed live on the board, or declared in the board's own sequence text.
   const mark = poFor(e.courtNo,ours)
+    || (isPassOver(e.courtNo,ours) ? {mode:"detail"} : null)
     || (boardPOhas(e.courtNo,ours) ? {mode:"slot"} : null)
     || (boardPOitems(bc).has(Math.floor(oursNum)) ? {mode:"auto"} : null);
   if(mark){
@@ -787,7 +826,7 @@ async function fetchBoard(){
     else if(BOARD_PROXY){ html=await (await fetch(BOARD_PROXY+"?ctype=c",{cache:"no-store"})).text(); }
     else { boardErr="relay-unset"; renderBoard(); return; }
     const parsed=parseBoard(html);
-    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); }
+    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); refreshRemarks(); }
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
   runAlerts();
@@ -920,7 +959,7 @@ function renderRoute(){
 // one court tile: full island when we have matters there, mini otherwise
 function boardCell(c, senCourt, senMode){
   const idle=/not in session/i.test(c.status||"");
-  const ours=myMatters().filter(e=>String(e.courtNo)===String(c.court));
+  const ours=courtMatters().filter(e=>String(e.courtNo)===String(c.court));
   const sen = senCourt && String(senCourt)===String(c.court);
   const live = sen && senMode==="confirmed";
   const senCls = sen ? " sen"+(live?" senlive":"") : "";
@@ -970,7 +1009,7 @@ function renderBoard(){
 
 function renderList(){
   const bc=boardByCourt();
-  const mine=myMatters().slice().sort((a,b)=>(parseInt(a.courtNo)||999)-(parseInt(b.courtNo)||999)||(parseFloat(a.itemNo)||999)-(parseFloat(b.itemNo)||999));
+  const mine=courtMatters().slice().sort((a,b)=>(parseInt(a.courtNo)||999)-(parseInt(b.courtNo)||999)||(parseFloat(a.itemNo)||999)-(parseFloat(b.itemNo)||999));
   let h=`<div class="legend" style="margin-bottom:12px">Chamber cause list · ${todayISO().split("-").reverse().join(".")}</div>`;
   if(!mine.length){ $("main").innerHTML=h+`<div class="empty">Today's day sheet is empty.</div>`; return; }
   for(const e of mine){
@@ -1041,15 +1080,20 @@ function totalsFor(court){
   return out;
 }
 function closeModal(){ $("modalRoot").innerHTML=""; }
-function openCourtModal(court){
+function openCourtModal(court,_refetched){
   court=String(court);
   const bc=boardByCourt()[court];
+  // Pull this court's full-list remarks fresh on open (even courts we're not in),
+  // then re-render once when they arrive — so OVER / PASS OVER is up to date.
+  if(!_refetched && bc?.token) fetchRemarksFor(court,bc.token,true).then(()=>{
+    if($("modalRoot").querySelector(`.sheet[data-court="${court}"]`)) openCourtModal(court,true);
+  });
   const idle=bc?/not in session/i.test(bc.status||""):true;
   const {seq,passIdx}=seqInfo(bc?.sequence||"");
   const boardPO=bc?[...boardPOitems(bc)]:[];
-  const ours=myMatters().filter(e=>String(e.courtNo)===court);
+  const ours=courtMatters().filter(e=>String(e.courtNo)===court);
   const senCourt=seniorState().court;
-  let h=`<div class="ovl" data-close><div class="sheet"><div class="sheet-grab"></div>
+  let h=`<div class="ovl" data-close><div class="sheet" data-court="${esc(court)}"><div class="sheet-grab"></div>
     <h2>Court ${esc(court)} <span class="chip">${idle?"not sitting":"item "+esc(bc?.item||"·")}</span></h2>
     <div class="sh-sub">${idle?"Not in session":esc(bc?.status||"Hearing")+(bc?.caseNo?" · "+esc(bc.caseNo):"")}</div>`;
   if(ours.length){
@@ -1060,6 +1104,25 @@ function openCourtModal(court){
         <div class="mi">${esc(e.itemNo)}</div><div class="mt">${esc(shortTitle(e))}</div>
         <span class="badge2 ${k.tier}" style="flex:none">${esc(k.short||"")}</span></div>`;
     }
+  }
+  // Live remark column from this court's full cause list — OVER / PASS OVER as the
+  // bench itself records it. Only some courts keep it current.
+  {
+    const rmk=remarksByCourt[court], has=rmk&&rmk.items&&Object.keys(rmk.items).length;
+    h+=`<div class="sh-sec">Court remarks · live list</div><div class="sh-box">`;
+    if(has){
+      const ents=Object.entries(rmk.items);
+      const po=ents.filter(([,v])=>/pass\s*over/i.test(v)).map(([i])=>i);
+      const ov=ents.filter(([,v])=>/^over$/i.test(v)).map(([i])=>i);
+      const ot=ents.filter(([,v])=>!/pass\s*over/i.test(v)&&!/^over$/i.test(v));
+      const bits=[];
+      if(po.length) bits.push("Passed over: <b>"+po.map(esc).join(", ")+"</b>");
+      if(ov.length) bits.push("Over: <b>"+ov.map(esc).join(", ")+"</b>");
+      for(const [i,v] of ot) bits.push("Item "+esc(i)+": <b>"+esc(v)+"</b>");
+      h+=bits.length?bits.join("<br>"):"No item marked over or passed over yet.";
+    } else if(bc?.token){ h+=`<span style="color:var(--mut)">Reading the court's list…</span>`; }
+    else h+=`<span style="color:var(--mut)">This court doesn't publish a remark column.</span>`;
+    h+=`</div>`;
   }
   h+=`<div class="sh-sec">Declared sequence</div>
     <div class="sh-box">${bc?.sequence?esc(bc.sequence):"No sequence declared — runs in listed order."}</div>`;
@@ -1077,7 +1140,7 @@ function openCourtModal(court){
   $("modalRoot").innerHTML=h;
 }
 function openMatterModal(court,item){
-  const e=myMatters().find(x=>String(x.courtNo)===String(court)&&String(x.itemNo)===String(item));
+  const e=courtMatters().find(x=>String(x.courtNo)===String(court)&&String(x.itemNo)===String(item));
   if(!e) return;
   const bc=boardByCourt()[String(court)];
   const k=classify(e,bc);
