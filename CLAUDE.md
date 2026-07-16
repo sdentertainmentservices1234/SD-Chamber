@@ -115,13 +115,24 @@ jsc-verified small-Misc AND large-Misc (200) cases.
   base is `0.5` for `confCredit` (so solo ½, shared ¼). Added via the **Conference**
   button next to **Legal aid** on the Briefs topbar (`conferenceCreditForm`), and
   it counts in lifetime + the period tally like any matter (worth ½).
-- **Credit register**: clicking a Workload-snapshot island opens `renderRegisterSheet`
-  — an itemised, catalogued register (its own Week/Month/Year toggle, `_regPeriod`)
-  with columns **# · Matter/conference · Date · Credit**, tags for conf ½ / legal
-  aid / listing, and a period total. `creditLedger(uid,period)` enumerates the SAME
-  contributions as `loadInWindow` (briefs in the calendar period by listing date +
-  bare listings), so **the register total equals the snapshot number**. jsc-verified
-  (conf = 0.5 / shared 0.25; ledger total == loadInWindow; week ≤ month ≤ year).
+- **Ad-hoc conference credit (preferred path):** `confForm` (day sheet → Add
+  conference) has a **colleague multi-select** — a conference with colleagues set
+  earns ½ credit split, stored on `daysheet.conferences[].juniorUids`.
+  `conferenceCreditsOf(uid)` scans ALL day sheets' conferences (any date) so adding
+  a colleague to a PAST conference credits it at once; a conference with no colleague
+  earns nothing. Wired into `lifetimeCount` + `loadInWindow` + `creditLedger`. (The
+  earlier Briefs "Conference" button / `confCredit` brief was removed as a duplicate;
+  its credit math stays for backward-compat with any already created.)
+- **Credit register is a full SECTION, not a popup** (owner: "I want a proper
+  section redirect"): clicking a Workload-snapshot island sets `_regUid` and
+  `renderTeam` swaps the whole Team view for `registerSectionHtml` — a **real
+  `<table>`** with fixed columns (`.reg-table`: # 38px · Matter/conference flex ·
+  Date 112px · Credit 70px, zebra rows, tfoot total), a back-to-Snapshot button, a
+  Week/Month/Year toggle (`_regPeriod`), a big period total + a "N matters · N
+  conferences" breakdown. `creditLedger(uid,period)` enumerates the SAME
+  contributions as `loadInWindow`, so the register total and the island number match
+  in display (both via `fmtPts`). jsc-verified (conf 0.5 / shared 0.25 / past dates;
+  ledger==loadInWindow at display precision; week ≤ month ≤ year).
 Priorities, in the owner's words:
 
 1. **Primary:** work allocation and distribution among ~10 juniors
