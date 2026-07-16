@@ -112,6 +112,21 @@ pronouncement** — classify returns "mentioning is on" / "pronouncement is on" 
 NO gap (our matter just waits). jsc-verified: small/large-Misc, 800→mentioning,
 1500→pronouncement, "N away" not "Reg N".
 
+## Court-pace study (board.html, Jul 2026 — collection phase)
+
+Goal: learn each court's real disposal speed over ~a week, then replace the flat
+`MIN_PER_ITEM=1.1` default in `reachMinsFor` with a per-court, time-of-day pace so
+ETAs are right even before the live session pace calibrates. **Collection (built):**
+`logPaceSnapshot()` writes a compact 3-minute snapshot of every sitting court's
+sequence position (`posOf`) to `pacelog/{date}_{bucket}` (`{date,hm,t,cs:{court:{i,p}}}`),
+gated to 10:00–17:00 IST, prod + signed-in only; the bucket id dedups across
+devices/opens (~120 tiny writes/day). Needs the `pacelog` Firestore rule published
+(`allow read,write: if isApproved()` — added to firestore.rules). Coverage = when
+the app is open (the chamber's court-hours tool), so good but app-biased; a
+scheduled server-side poller (GitHub Action / Cloudflare cron) is the unbiased
+alternative if coverage proves patchy. **Analysis + calibration = after a week of
+data** (per-court items/hour by time slot → feed reachMinsFor).
+
 ## Conference credit + credit register (index.html, Jul 2026)
 
 - A standalone / preliminary / strategy conference (no listed matter, or a matter

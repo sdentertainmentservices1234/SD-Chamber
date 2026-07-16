@@ -638,6 +638,30 @@ function reachMinsFor(court,k){
 }
 const paceMeasured = court => paceVel(court)!=null;
 
+/* ---- WEEK-LONG PACE STUDY ----------------------------------------------------
+   Every court disposes at its own speed. To learn each court's real pace we log a
+   compact snapshot of all sitting courts' sequence positions every 3 minutes to
+   Firestore (pacelog/{date}_{bucket}). The bucket id dedups across devices/opens,
+   so the whole chamber costs ~120 tiny writes a day. After ~a week these give, per
+   court, items disposed per hour by time of day — which then replaces the flat
+   MIN_PER_ITEM guess in reachMinsFor (accurate even before the live session pace
+   calibrates). Only logs during court hours; skips demo + signed-out. */
+let _lastPaceBucket=null;
+async function logPaceSnapshot(){
+  if(DEMO || !me || !board.length) return;
+  const istMin=nowMinsIST(); if(istMin<600 || istMin>1020) return;     // ~10:00–17:00 IST only
+  const key=todayISO()+"_"+String(Math.floor(istMin/3)).padStart(3,"0");  // 3-minute buckets
+  if(_lastPaceBucket===key) return; _lastPaceBucket=key;
+  const cs={};
+  for(const c of board){
+    if(!c.court || /not in session/i.test(c.status||"")) continue;
+    const rec={i:String(c.item||"")}; const p=posOf(c); if(p!=null) rec.p=Math.round(p);
+    cs[c.court]=rec;
+  }
+  if(!Object.keys(cs).length) return;
+  try{ await db.set("pacelog/"+key,{date:todayISO(),hm:istMin,t:Date.now(),cs},false); }catch(_){}
+}
+
 /* ============================================================
    DATA LAYER — Firebase (prod) / in-memory mock (demo)
    ============================================================ */
@@ -717,7 +741,7 @@ async function fetchBoard(){
     else if(BOARD_PROXY){ html=await (await fetch(BOARD_PROXY+"?ctype=c",{cache:"no-store"})).text(); }
     else { boardErr="relay-unset"; renderBoard(); return; }
     const parsed=parseBoard(html);
-    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); }
+    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); logPaceSnapshot(); }
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
   renderBoard();
