@@ -28,7 +28,8 @@
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;
   -webkit-text-size-adjust:100%;touch-action:manipulation;background:var(--panel)}
 body{color:var(--ink);font-family:Inter,system-ui,sans-serif;
-  -webkit-font-smoothing:antialiased;overflow:hidden;position:fixed;inset:0}
+  -webkit-font-smoothing:antialiased;overflow:hidden;position:fixed;inset:0;
+  display:flex;flex-direction:column}
 .mono{font-family:'IBM Plex Mono',monospace}
 button{font-family:inherit;cursor:pointer}
 .hidden{display:none!important}
@@ -55,9 +56,11 @@ button{font-family:inherit;cursor:pointer}
 /* ---- app shell ---- */
 /* Fixed app shell: header + bottom nav never move; only <main> scrolls.
    100dvh tracks the phone's dynamic viewport so nothing is left blank. */
-#app{display:flex;flex-direction:column;position:fixed;top:0;left:0;right:0;
-  height:100vh;height:100dvh;max-width:760px;width:100%;
-  margin-inline:auto;background:var(--bg);overflow:hidden}
+/* #app fills the fixed, full-screen <body> via flex — no vh/dvh (which iOS
+   standalone PWAs report short, leaving a blank strip). Header + nav are flex:none,
+   only <main> scrolls; the nav therefore sits on the true screen bottom. */
+#app{flex:1;min-height:0;display:flex;flex-direction:column;
+  max-width:760px;width:100%;margin-inline:auto;background:var(--bg);overflow:hidden}
 @media(min-width:761px){ body{background:#d3d8dd} #app{border-inline:1px solid var(--line)} }
 
 header.top{display:flex;align-items:center;gap:10px;
@@ -134,7 +137,7 @@ select.mini{appearance:none}
 
 /* ===== bottom sheet (court / matter details) ===== */
 #modalRoot:empty{display:none}
-.ovl{position:fixed;top:0;left:0;right:0;height:100vh;height:100dvh;background:rgba(16,20,26,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.ovl{position:fixed;inset:0;background:rgba(16,20,26,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--panel);width:100%;max-width:760px;max-height:88%;border-radius:18px 18px 0 0;
   overflow-y:auto;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 40px rgba(0,0,0,.25)}
 .sheet-grab{width:38px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 12px}
@@ -413,15 +416,11 @@ function seqInfo(text){
   return {seq:out, passIdx};
 }
 const expandSequence = text => seqInfo(text).seq;
-// Items the BOARD itself declares passed over ("ITEM NOS 5 12 PASSED OVER" /
-// "PASS OVER: 5, 12"). Best-effort; manual marking covers boards that don't say.
-function boardPOitems(bc){
-  const t=(bc?.sequence||"").toUpperCase(); const set=new Set(); if(!t) return set;
-  let m=t.match(/PASS(?:ED)?\s*OVERS?\s*(?:ITEMS?\s*)?(?:NOS?\.?\s*)?[:\-]?\s*((?:\d+[\s,&]+)*\d+)/);
-  if(!m) m=t.match(/ITEMS?\s*(?:NOS?\.?\s*)?((?:\d+[\s,&]+)*\d+)\s*(?:IS|ARE)?\s*PASS(?:ED)?\s*OVER/);
-  if(m) m[1].split(/[\s,&]+/).forEach(n=>{ if(n) set.add(parseInt(n,10)); });
-  return set;
-}
+// NOTE: the sequence text never enumerates which items are passed over — a phrase
+// like "…ITEM 85 PASS OVER THEN ITEM 12…" only marks WHERE passed-over matters are
+// recalled (after item 85). Which items are actually passed over comes from the
+// remark column (isPassOver), the live board status, or a manual chamber mark. The
+// recall point is captured by seqInfo().passIdx.
 function proximity(seq,current,ours){
   current=parseInt(current,10); ours=Math.floor(parseFloat(ours));
   if(!seq.length||isNaN(current)||isNaN(ours)) return null;
@@ -574,11 +573,12 @@ function classify(e, bc){
   const {seq,passIdx}=seqInfo(bc.sequence);
   const curPos = seq.length ? seq.indexOf(parseInt(bc.item,10)) : -1;
   // Passed over? — the court's remark column (authoritative), a colleague's mark,
-  // observed live on the board, or declared in the board's own sequence text.
+  // or observed live on the board. NOT inferred from the sequence text: "…ITEM 85
+  // PASS OVER THEN ITEM 12…" means passovers are recalled AFTER item 85, it does
+  // NOT make 85 (or 12) a passed-over item — that only comes from the remark column.
   const mark = poFor(e.courtNo,ours)
     || (isPassOver(e.courtNo,ours) ? {mode:"detail"} : null)
-    || (boardPOhas(e.courtNo,ours) ? {mode:"slot"} : null)
-    || (boardPOitems(bc).has(Math.floor(oursNum)) ? {mode:"auto"} : null);
+    || (boardPOhas(e.courtNo,ours) ? {mode:"slot"} : null);
   if(mark){
     let gap=null;
     if(mark.mode==="after" && mark.after && seq.length){
@@ -1109,7 +1109,6 @@ function openCourtModal(court,_refetched){
   });
   const idle=bc?/not in session/i.test(bc.status||""):true;
   const {seq,passIdx}=seqInfo(bc?.sequence||"");
-  const boardPO=bc?[...boardPOitems(bc)]:[];
   const ours=courtMatters().filter(e=>String(e.courtNo)===court);
   const senCourt=seniorState().court;
   let h=`<div class="ovl" data-close><div class="sheet" data-court="${esc(court)}"><div class="sheet-grab"></div>
@@ -1134,9 +1133,8 @@ function openCourtModal(court,_refetched){
   const poBits=[];
   if(detailPO.length) poBits.push("Court's list shows passed over: <b>"+detailPO.map(esc).join(", ")+"</b>");
   else if(bc?.token && !rmk) poBits.push(`<span style="color:var(--mut)">Reading the court's list…</span>`);
-  if(boardPO.length) poBits.push("Board shows passed over: <b>"+boardPO.join(", ")+"</b>");
   if(poHere.length) poBits.push("Marked by chamber: <b>"+poHere.map(p=>p.item+(p.mode==="after"&&p.after?" (after "+esc(p.after)+")":"")).join(", ")+"</b>");
-  poBits.push(passIdx!=null?"Sequence takes passovers after <b>item "+esc(String(seq[passIdx-1]??"start"))+"</b>.":"Recall position not declared — assumed end of board.");
+  poBits.push(passIdx!=null?"Sequence recalls passovers after <b>item "+esc(String(seq[passIdx-1]??"start"))+"</b>.":"Recall position not declared — assumed end of board.");
   h+=poBits.join("<br>")+`</div>`;
   const tots=totalsFor(court);
   if(tots.length) h+=`<div class="sh-sec">Total matters today</div><div class="sh-box">${tots.map(esc).join("<br>")}</div>`;
