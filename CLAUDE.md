@@ -88,7 +88,22 @@ clerk only does day-to-day operational input.**
   day sheets, and leaves.uid — deduping so a shared matter isn't double-counted.
   Works for a deleted invite (`pending:wrongEmail`) or a removed uid. jsc-verified
   (detect + remap + dedup, no false positives) + live UI test (add invite → assign
-  → delete invite → restore onto a colleague).
+  → delete invite → restore onto a colleague). `remapAssignee` updates the local
+  `briefs`/`dsAll`/`leaves` optimistically before the Firestore echo, so the panel
+  clears at once instead of lingering a round-trip (owner: "still flashing").
+
+## Display board — Regular list is numbered 101+ (board.html)
+
+Regular-list matters are numbered from **101** up (Miscellaneous holds 1–100), and
+the court finishes its whole Misc list (main + supp) before starting Regular. In
+`classify()` for a `listType=Regular` matter: while the court is still on Misc,
+`gap = miscLeft + (regRank − 1)` where `regRank = itemNo − 100` (item 101 = the 1st
+Regular matter, so it's `miscLeft` away, NOT `miscLeft + 101`). `miscLeft` comes
+from the causelist Misc total (`miscTotalFor`, main+supp) or the live sequence
+position. `onRegularList()` treats **any current board item ≥ 101** as "Regular has
+started" (`REG_BASE=101`) and then falls through to normal within-Regular proximity
+(both items are 101+, so they compare directly). Shows "Reg N · Misc: K to go".
+jsc-verified (Reg#101 behind 11 Misc → 11 not 112; reached-Regular → within-list).
 Priorities, in the owner's words:
 
 1. **Primary:** work allocation and distribution among ~10 juniors

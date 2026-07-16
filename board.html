@@ -460,6 +460,10 @@ const boardPOhas=(court,item)=>boardPO.date===todayISO() && !!boardPO.marks[poKe
    reached its Regular list (note: Regular can be LONGER than Misc, so item-number
    size alone can't tell the lists apart — we use "past the whole Misc list" or a
    downward item reset instead). */
+// Regular-list matters are numbered from 101 up (Miscellaneous holds 1–100), so
+// an item's place IN the Regular list is itemNo − 100 (item 101 = the 1st Regular
+// matter), and any current board item ≥ 101 means the court has reached Regular.
+const REG_BASE=101;
 function miscTotalFor(court){
   const rec=courtUpdates?.by_date?.[todayISO()]?.lists?.["Miscellaneous"]?.[String(court)];
   if(!rec) return null;
@@ -467,19 +471,12 @@ function miscTotalFor(court){
   const m=parseInt(rec.main,10), s=parseInt(rec.supp,10);
   return isNaN(m)?null:(m+(isNaN(s)?0:s));
 }
-let itemHi={date:todayISO(),max:{}};   // highest raw item seen per court today
-function noteItemHi(){
-  if(itemHi.date!==todayISO()) itemHi={date:todayISO(),max:{}};
-  for(const c of board){ const n=parseInt(c.item,10); if(!isNaN(n)) itemHi.max[c.court]=Math.max(itemHi.max[c.court]||0,n); }
-}
 // Has the court moved off its Miscellaneous list onto its Regular list?
 function onRegularList(court, miscTotal){
-  if(miscTotal==null) return false;
   const bc=boardByCourt()[court]; const cur=bc?parseInt(bc.item,10):NaN;
   if(isNaN(cur)) return false;
-  if(cur>miscTotal+2) return true;                       // current item is beyond the entire Misc list
-  const hi=itemHi.max[court]||0;
-  if(hi>=miscTotal-2 && cur<hi-8) return true;           // ran deep into Misc, then the item reset low → Regular began
+  if(cur>=REG_BASE) return true;                         // Regular items are numbered from 101 up
+  if(miscTotal!=null && cur>miscTotal+2) return true;    // belt-and-braces: past the whole Misc list
   return false;
 }
 
@@ -519,7 +516,8 @@ function classify(e, bc){
   if(/^reg/i.test((e.listType||"").trim())){
     const miscTotal=miscTotalFor(e.courtNo);
     if(!onRegularList(e.courtNo, miscTotal)){
-      const regPos=Math.max(1, Math.floor(oursNum)||1);        // our place in the Regular order
+      // our PLACE in the Regular list: item 101 -> 1st, 112 -> 12th (Regular is 101+)
+      const regRank=(Math.floor(oursNum)>=REG_BASE)?(Math.floor(oursNum)-(REG_BASE-1)):Math.max(1,Math.floor(oursNum)||1);
       if(miscTotal==null && !seq.length)
         return {tier:"later",label:"Regular list — after the Miscellaneous list",short:"after Misc",reg:true};
       // Misc matters still to be called: from the live sequence position, else the
@@ -527,7 +525,7 @@ function classify(e, bc){
       const cur=parseInt(bc.item,10);
       const miscDone=(seq.length&&curPos>=0)?curPos+1:(isNaN(cur)?0:cur);
       const miscLeft=Math.max(0,(miscTotal!=null?miscTotal:seq.length)-miscDone);
-      const gap=miscLeft+regPos;
+      const gap=miscLeft+(regRank-1);                          // misc still to go, then regular matters before ours
       const detail=miscLeft>0?"Misc: "+miscLeft+" to go":"Misc done";
       if(gap<=1) return {tier:"now", label:"Regular — get in now", short:"NOW", gap, reg:true};
       if(gap<=4) return {tier:"soon",label:"Regular — ~"+gap+" away · "+detail, short:"Reg "+gap, gap, reg:true};
@@ -701,7 +699,7 @@ async function fetchBoard(){
     else if(BOARD_PROXY){ html=await (await fetch(BOARD_PROXY+"?ctype=c",{cache:"no-store"})).text(); }
     else { boardErr="relay-unset"; renderBoard(); return; }
     const parsed=parseBoard(html);
-    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); }
+    if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); }
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
   renderBoard();

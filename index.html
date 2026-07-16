@@ -4050,15 +4050,16 @@ async function remapAssignee(oldId,newUid){
     if(Array.isArray(b.assignHistory)&&b.assignHistory.some(h=>h.uid===oldId||h.by===oldId)){ patch.assignHistory=b.assignHistory.map(h=>({...h,uid:h.uid===oldId?newUid:h.uid,by:h.by===oldId?newUid:h.by})); ch=true; }
     if(Array.isArray(b.declinedBy)&&b.declinedBy.some(d=>d.uid===oldId)){ patch.declinedBy=b.declinedBy.map(d=>d.uid===oldId?{...d,uid:newUid}:d); ch=true; }
     if(b.creditClaim&&b.creditClaim.uid===oldId){ patch.creditClaim={...b.creditClaim,uid:newUid}; ch=true; }
-    if(ch){ patch.updatedAt=db.now(); try{ await db.update("briefs/"+b.id,patch); }catch(_){} }
+    if(ch){ briefs[b.id]={...b,...patch};   // optimistic local so the panel clears at once (Firestore echo confirms it)
+      try{ await db.update("briefs/"+b.id,{...patch,updatedAt:db.now()}); }catch(_){} }
   }
   for(const [date,ds] of Object.entries(dsAll)){
     let ch=false;
     const entries=(ds.entries||[]).map(e=>{ const jrs=jrsOf(e); if(!jrs.includes(oldId))return e; ch=true;
       const nj=[...new Set(jrs.map(u=>u===oldId?newUid:u))]; return {...e,juniorUids:nj,juniorUid:nj[0]||null}; });
-    if(ch){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
+    if(ch){ dsAll[date]={...ds,entries}; try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
   }
-  for(const l of Object.values(leaves)){ if(l.uid===oldId){ try{ await db.update("leaves/"+l.id,{uid:newUid}); }catch(_){} } }
+  for(const l of Object.values(leaves)){ if(l.uid===oldId){ leaves[l.id]={...l,uid:newUid}; try{ await db.update("leaves/"+l.id,{uid:newUid}); }catch(_){} } }
 }
 function roleForm(uid){const u=users[uid];
   openSheet(`<div class="sheet-head"><div><h3>${esc(u.name)}</h3><div class="sub">${esc(u.email||'')}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
