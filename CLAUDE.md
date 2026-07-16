@@ -371,15 +371,18 @@ populate config/holidays the way the cause-list Action populates scindex.
   the brief it falls back to `isSkippable` (on leave today). Every pickNext call
   site now passes the date (autoAssign/objection via `brief.nextDate`; day sheet
   via the listing date; brief form via `b_next`). jsc-verified + live (Vikram on
-  leave 19th → skipped for a 20th matter, still fine for the 18th). **The SAME
-  `leaveClash` window governs CREDIT (Jul 2026):** `presentSharers` /
-  `shareForDate` now zero a colleague's share when he's on leave on the matter's
-  date OR the day before (prep day) — so a co-assignee on leave the day before a
-  listing earns no credit even if back on the listing day, and his share
-  redistributes to whoever actually carries it. This flows through `shareFor` →
-  `activeLoad` / `lifetimeCount` / `loadInWindow` (load and credit stay coupled, as
-  before). 12-case jsc suite: leave-prev-day → 0, leave-2-days-before → kept,
-  deleted leave ignored, both-out → nobody credited.
+  leave 19th → skipped for a 20th matter, still fine for the 18th). **CREDIT vs
+  ASSIGNMENT split on the leave window (owner fix Jul 2026 — REVERSED the earlier
+  coupling):** ASSIGNMENT still uses the full `leaveClash` (on leave the listing day
+  OR the prep day before → don't hand them the matter). But CREDIT follows actual
+  PRESENCE ON THE LISTING DAY only — `presentSharers` / `shareForDate` zero a
+  colleague's share ONLY if he's on leave THAT day (`onLeaveOn(date)`), NOT the day
+  before. Rationale (owner): a colleague marked on a matter who was on leave merely
+  the previous day still appeared and did the work, so the credit is his; only leave
+  ON the listing day zeroes his share and redistributes it to whoever was present.
+  This flows through `shareFor` → `activeLoad` / `lifetimeCount` / `loadInWindow`.
+  Live-verified: on-leave-yesterday → credited; on-leave-today → 0, share to the
+  present co-assignee.
 - **Workload snapshot is a CALENDAR period (Jul 2026 fix), not a rolling ±window.**
   The Chamber-tab week/month/year tally (`loadInWindow`/`casesInWindow` via
   `periodRange`) attributes a matter to the calendar week (Mon–Sun) / month / year

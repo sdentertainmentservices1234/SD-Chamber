@@ -1687,14 +1687,16 @@ async function syncRegister(force){
 // so two colleagues on one brief each carry half its point / half its load.
 // A matter shared by N colleagues splits 1/N — BUT a co-assignee who can't work
 // it earns NO credit; their share redistributes to whoever actually carries it.
-// "Can't work it" = on leave on the matter's date OR the day before, because the
-// preparation happens the day before the listing (owner's rule Jul 2026) — so a
-// colleague on leave the previous day gets no credit even if back on the listing
-// day itself. Same window as the assignment skip (`leaveClash`).
-function presentSharers(arr, date){ return date ? (arr||[]).filter(u=>!leaveClash(u,date)) : (arr||[]); }
+// CREDIT follows actual PRESENCE on the listing day (owner's fix Jul 2026): a
+// colleague marked on a matter earns credit if they were NOT on leave that day —
+// even if they were on leave the day before. (The day-before "prep day" rule still
+// governs ASSIGNMENT via leaveClash, so we don't hand a matter to someone who can't
+// prep; but once someone actually appears, the credit is theirs.) Only leave ON the
+// listing date zeroes the share and redistributes it to whoever was present.
+function presentSharers(arr, date){ return date ? (arr||[]).filter(u=>!onLeaveOn(u,date)) : (arr||[]); }
 function shareForDate(arr, uid, date){
   arr=arr||[]; if(!arr.length) return 0;
-  if(date && leaveClash(uid,date)) return 0;              // on leave on/ before the date → no credit
+  if(date && onLeaveOn(uid,date)) return 0;               // on leave ON the listing day → no credit
   const present=presentSharers(arr,date);
   return idIn(present,uid) ? 1/present.length : (idIn(arr,uid)?1/arr.length:0);
 }
