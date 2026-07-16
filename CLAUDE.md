@@ -112,20 +112,22 @@ pronouncement** — classify returns "mentioning is on" / "pronouncement is on" 
 NO gap (our matter just waits). jsc-verified: small/large-Misc, 800→mentioning,
 1500→pronouncement, "N away" not "Reg N".
 
-## Court-pace study (board.html, Jul 2026 — collection phase)
+## Court-pace study — SEPARATE collector (`pace-collector.html`, Jul 2026)
 
 Goal: learn each court's real disposal speed over ~a week, then replace the flat
-`MIN_PER_ITEM=1.1` default in `reachMinsFor` with a per-court, time-of-day pace so
-ETAs are right even before the live session pace calibrates. **Collection (built):**
-`logPaceSnapshot()` writes a compact 3-minute snapshot of every sitting court's
-sequence position (`posOf`) to `pacelog/{date}_{bucket}` (`{date,hm,t,cs:{court:{i,p}}}`),
-gated to 10:00–17:00 IST, prod + signed-in only; the bucket id dedups across
-devices/opens (~120 tiny writes/day). Needs the `pacelog` Firestore rule published
-(`allow read,write: if isApproved()` — added to firestore.rules). Coverage = when
-the app is open (the chamber's court-hours tool), so good but app-biased; a
-scheduled server-side poller (GitHub Action / Cloudflare cron) is the unbiased
-alternative if coverage proves patchy. **Analysis + calibration = after a week of
-data** (per-court items/hour by time slot → feed reachMinsFor).
+`MIN_PER_ITEM=1.1` default in `reachMinsFor` with a per-court, time-of-day pace.
+Owner's call: keep the display app (board.html) UNBURDENED — do the collection in a
+**standalone page**. `pace-collector.html` is self-contained (no Firebase/auth):
+polls the board relay every 60s, reuses the same `parseBoard`/`seqInfo`/`posOf`, and
+whenever a court moves to a new item appends `[t, seqPos, item, phase]` to a
+per-court, per-day movement log in **localStorage** (`scPaceData_v1`). phase: 0
+hearing · 1 idle · 2 mentioning(800s) · 3 pronouncement(1500s) — analysis ignores
+1/2/3. UI: live status + per-court moves/≈items-per-hr + **Download / Copy** (owner
+pastes the JSON back into chat). Served at `…/pace-collector.html`; leave it open
+during court hours. **Analysis + calibration are done HERE from the pasted data**,
+then only the resulting timing logic goes into board.html — the collector never
+ships to the display app. jsc-verified (parse real sample, phase codes, movement
+dedup) + live (fetched the live board, recorded 19 courts, no errors).
 
 ## Conference credit + credit register (index.html, Jul 2026)
 
