@@ -175,7 +175,7 @@ select.mini{appearance:none}
 .cell[data-setcourt]{cursor:pointer}
 .cell[data-setcourt]:active{transform:scale(.97)}
 
-main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px 14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px 66px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 /* legend */
 .legend{display:flex;gap:12px;font-size:10px;color:var(--mut);margin:0 2px 8px;flex-wrap:wrap}
@@ -253,11 +253,13 @@ main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px 14px;-webkit-overflow
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
 
 /* ===== bottom navigation (mobile-standard) ===== */
-/* Bottom nav sits flush on the real screen bottom on BOTH platforms. We do NOT
-   reserve the iOS home-indicator inset here (that reserved strip read as a
-   thumb-wide blank gap — owner feedback); each button keeps its own 8px bottom
-   padding, matching Android, and the home-indicator bar is translucent over it. */
-nav.botnav{flex:none;display:flex;
+/* Fixed to the real screen bottom. A flex child of the fixed-inset body stops at
+   the iOS home-indicator boundary (leaving a thumb-wide blank strip in standalone
+   PWAs); a directly position:fixed;bottom:0 bar reaches the physical edge on both
+   iOS and Android (same pattern as the chamber app). No safe-inset reserve, so the
+   buttons sit flush; the translucent home-indicator bar floats over them. */
+nav.botnav{position:fixed;bottom:0;left:0;right:0;max-width:760px;margin-inline:auto;
+  display:flex;z-index:30;
   background:var(--panel);border-top:1px solid var(--line)}
 nav.botnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
   background:transparent;border:none;color:var(--mut);font-size:11px;font-weight:600;
