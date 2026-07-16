@@ -3362,11 +3362,15 @@ function dsForm(idx=null){
   // we appear for (petitioner-side vs respondent-side), always editable by staff.
   let lastAdv=null;
   function fillCounsel(){
-    if(!lastAdv || !$("f_counsel")) return;
+    const el=$("f_counsel"); if(!el || !lastAdv) return;
     const ap=$("f_appear").value;
-    const resp=["Respondent","Caveator"].includes(ap);   // else petitioner-side (incl. blank)
-    const name=resp?lastAdv.resp:lastAdv.pet;
-    if(name) setAuto("f_counsel","counsel",name);
+    if(!ap) return;                                       // no side chosen yet -> don't guess
+    const resp=["Respondent","Caveator"].includes(ap);   // else petitioner-side
+    const name=(resp ? lastAdv.resp : lastAdv.pet) || "";
+    // Reflect the CHOSEN party's AoR exactly — the respondent's when Respondent is
+    // picked, empty if the list names none for that side (NEVER the other party's).
+    // A value the staff typed (auto.counsel === "\0") is never touched.
+    if(!el.value.trim() || el.value===auto.counsel){ el.value=name; auto.counsel=name; }
   }
   const setAuto=(id,key,val)=>{ const el=$(id); if(!el.value.trim()||el.value===auto[key]){ el.value=val; } auto[key]=val; };
   const clearAuto=(id,key)=>{ const el=$(id); if(el.value&&el.value===auto[key]){ el.value=""; } auto[key]=""; };
