@@ -36,6 +36,7 @@ SEED = '''function seedDemo(db){
     {courtNo:"14",itemNo:"2",  caseTitle:"Test Passed Matter vs State (sample)", time:"10:30", bench:"", counsel:"", juniorUids:["u_shaishir"]},
     {courtNo:"1", itemNo:"12", caseTitle:"Sugandha Hiemath & Ors. vs Babasaheb N. Kalyani & Ors.", time:"10:30", bench:"C.J.I., Joymala Bagchi, V. Mohana", counsel:"Karanjawala & Co.", juniorUids:["u_yash"]},
     {courtNo:"2", itemNo:"101", listType:"Regular", caseTitle:"Test Regular Matter vs Union of India (regular list)", time:"10:30", bench:"Surya Kant, N.K. Singh", counsel:"AZB & Partners", juniorUids:["u_rishit"]},
+    {courtNo:"21",itemNo:"2",  caseTitle:"Test Registrar Matter vs State (must NOT show as a board island)", time:"10:30", bench:"Registrar", counsel:"", juniorUids:["u_yash"]},
   ];
   db.set("daysheets/"+D,{date:D,updatedAt:n(),updatedBy:"u_clerk",entries,conferences:[]});
 

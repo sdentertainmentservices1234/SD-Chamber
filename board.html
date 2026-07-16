@@ -380,10 +380,17 @@ function parseBoard(html){
     const cz=raw.match(/id="cnbz_\d+"[^>]*>(.*?)<\/td>/is);
     const seqm=raw.match(/title="([^"]*(?:SEQUENCE|SEQ|sequence)[^"]*)"/i);
     if(!court) continue;
-    // The new board writes "Pass Over" as the item's live status when a matter is
-    // deferred. Capture it so we can track recall from the published sequence.
-    const passover=/pass\s*over/i.test(status);
-    courts.push({ court, item, status, passover, caseNo:cn?strip(cn[1]):"", title:cz?strip(cz[1]):"",
+    // The board flags a deferred matter as "Pass Over" — sometimes in the item's
+    // own status, sometimes in the small remark cell. Detect it anywhere in the
+    // row EXCEPT the case-title / advocate cells (a party name could coincidentally
+    // contain the words) and the sequence tooltip (a title attr — stripped with its
+    // tag). So a passed-over matter is never missed whichever column carries it.
+    const rmk=raw.match(/id="cr_sd_"[^>]*>(.*?)<\/td>/is);
+    const remark=rmk?strip(rmk[1]):"";
+    const scan=raw.replace(/<td[^>]*id="cnbz_\d+"[\s\S]*?<\/td>/i,"").replace(/<td[^>]*id="cncz_\d+"[\s\S]*?<\/td>/i,"");
+    const PO=/pass(?:ed)?[\s-]*over/i;                        // "pass over" / "passover" / "passed over"
+    const passover=PO.test(status)||PO.test(remark)||PO.test(strip(scan));
+    courts.push({ court, item, status, remark, passover, caseNo:cn?strip(cn[1]):"", title:cz?strip(cz[1]):"",
       sequence:seqm?strip(seqm[1]):"" });
   }
   return { courts };
@@ -654,7 +661,7 @@ function runAlerts(){
   if(!notifyOn || !("Notification" in window) || Notification.permission!=="granted") return;
   if(_alerted.date!==todayISO()) _alerted={date:todayISO(),lv:{}};
   const bc=boardByCourt();
-  for(const e of myMatters()){
+  for(const e of courtMatters()){
     const k=classify(e,bc[e.courtNo]); const lvl=alertLevel(k);
     const key=e.courtNo+"|"+e.itemNo; const prev=_alerted.lv[key]||0;
     if(lvl>prev){ _alerted.lv[key]=lvl; fireCourtAlert(e,k,lvl); }
@@ -762,6 +769,11 @@ let curTab="board", lastSeenChat=0, userDocUnsub=null, unsub=[], pollId=null, ti
 
 const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
 const myMatters = () => (daysheet?.entries||[]).filter(e=>e.courtNo);
+// The SC has 17 courtrooms; anything above is the Registrar / administrative list.
+// The display board tracks the courtrooms only (owner: no registrar under the
+// court headings) — registrar matters still appear in "Our list".
+const isCourtroom = n => { const x=parseInt(n,10); return x>=1 && x<=17; };
+const courtMatters = () => myMatters().filter(e=>isCourtroom(e.courtNo));
 const shortTitle = e => e.caseTitle || ("Court "+e.courtNo+" item "+e.itemNo);
 const isSenior = () => me?.role==="senior";           // the Senior doesn't set/see his own location
 
@@ -787,7 +799,7 @@ async function fetchBoard(){
 // cycle and never lets two fetches overlap.
 function pollDelay(){
   const bc=boardByCourt();
-  const hot=myMatters().some(e=>{ const t=classify(e,bc[e.courtNo]).tier; return t==="now"||t==="soon"; });
+  const hot=courtMatters().some(e=>{ const t=classify(e,bc[e.courtNo]).tier; return t==="now"||t==="soon"; });
   return hot?6000:12000;
 }
 async function pollLoop(){ if(!pollOn) return; await fetchBoard(); if(!pollOn) return; pollId=setTimeout(pollLoop, pollDelay()); }
@@ -824,7 +836,7 @@ function seniorState(){
   const fresh=at && (Date.now()-at)<25*60*1000;
   if(c && c.court && fresh) return {court:c.court, mode:"confirmed", at, by:c.by};
   const bc=boardByCourt(); let best=null;
-  for(const e of myMatters()){
+  for(const e of courtMatters()){
     const k=classify(e,bc[e.courtNo]);
     if(k.tier==="now"||k.tier==="soon"){ if(!best || (k.gap??99)<(best.gap??99)) best={court:e.courtNo,gap:k.gap}; }
   }
@@ -848,7 +860,7 @@ function renderRoute(){
   }
   const bc=boardByCourt();
   // our actionable matters, soonest first (by estimated minutes to our item)
-  const cands=myMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
+  const cands=courtMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
     .filter(x=>["now","soon","later"].includes(x.k.tier))
     .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMinsFor(x.e.courtNo,x.k), meas:paceMeasured(x.e.courtNo)}))
     .sort((a,b)=>((a.mins==null?999:a.mins)-(b.mins==null?999:b.mins)));
@@ -935,18 +947,19 @@ function renderBoard(){
   let h="";
   if(boardErr && boardErr!=="relay-unset") h+=`<div class="notice"><b>Can't reach the board</b> — retrying every 15 seconds.</div>`;
   if(!board.length){ $("main").innerHTML=h+`<div class="empty">Loading the display board…</div>`; return; }
-  const ourCourts=new Set(myMatters().map(e=>String(e.courtNo)));
+  const ourCourts=new Set(courtMatters().map(e=>String(e.courtNo)));
   if(ourCourts.size) h+=`<div class="legend">
     <span><i style="background:var(--now)"></i>at our item</span>
     <span><i style="background:var(--soon)"></i>approaching</span>
     <span><i style="background:var(--later)"></i>later</span>
     <span><i style="background:var(--passed)"></i>over</span>
   </div>`;
-  // Courts 1–17 always; registrar / extra courts (>17) only when we're in them.
-  // Our courts render first at full size; the rest shrink to minis — all fit
-  // one screen, no scrolling.
+  // Only the 17 courtrooms — never the Registrar / administrative list (courts
+  // >17), even if we have a matter there (owner: no registrar under the court
+  // headings; those still show in "Our list"). Our courts render first at full
+  // size; the rest shrink to minis — all fit one screen, no scrolling.
   const ss=seniorState(), senCourt=ss.court, senMode=ss.mode;
-  const shown=[...board].filter(c=>{ const n=parseInt(c.court); return (n>=1 && n<=17) || ourCourts.has(String(c.court)); });
+  const shown=[...board].filter(c=>isCourtroom(c.court));
   const byNo=(a,b)=>(parseInt(a.court)||999)-(parseInt(b.court)||999);
   const full=shown.filter(c=>ourCourts.has(String(c.court))).sort(byNo);
   const mini=shown.filter(c=>!ourCourts.has(String(c.court))).sort(byNo);
