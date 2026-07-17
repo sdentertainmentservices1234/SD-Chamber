@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-17T06:19:15.438286Z",
+  "generated_at": "2026-07-17T15:02:16.578953Z",
   "parser_version": 8,
   "window": [
     "2026-07-17",
@@ -17925,7 +17925,8 @@
     },
     "2026-07-21": {
       "lists_found": [
-        "Registrar (main)"
+        "Registrar (main)",
+        "Curative & Review (main)"
       ],
       "lists": {
         "Registrar": {
@@ -18407,7 +18408,8 @@
       "M_R_1": 539445
     },
     "2026-07-21": {
-      "M_R_1": 528681
+      "M_R_1": 528681,
+      "M_CC_1": 575531
     }
   },
   "note": "Per-court bench + per-item case line from the SC published lists. Drafting aid only — the court's published list is authoritative."
