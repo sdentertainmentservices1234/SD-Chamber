@@ -238,6 +238,13 @@ main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px calc(64px + env(safe-
 .li .t{font-weight:700;font-size:13.5px;margin-bottom:2px}
 .li .m{font-size:11.5px;color:var(--mut);line-height:1.5}
 .li .m b{color:var(--ink);font-weight:600}
+/* per-matter status dropdown (mark passed over / over) */
+.li-stat{margin-top:8px;font:inherit;font-size:12px;color:var(--ink);background:var(--panel2);
+  border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:220px;width:100%}
+/* a matter marked OVER (attended / not) is struck through here and on the island */
+.li.struck .i,.li.struck .t{text-decoration:line-through}
+.li.struck{opacity:.6}
+.cell-ours s{opacity:.7}
 
 /* chat */
 #chatWrap{display:flex;flex-direction:column;height:100%}
@@ -449,6 +456,21 @@ async function clearPO(court,item){
   const marks={...poMarks()}; delete marks[poKey(court,item)];
   await db.set("config/live",{po:{date:todayISO(),marks}},true);
 }
+/* ---- Matter OVER marks (attended / did-not-attend) — shared live via
+   config/live.done, any member sets it. A matter marked over is done for the day
+   and shows struck through on the board + list. (Passover is separate — that
+   matter isn't over, it's recalled later, so it is NOT struck.) ---- */
+const doneMarks=()=>(live?.done && live.done.date===todayISO() && live.done.marks)||{};
+const doneOf=(court,item)=>doneMarks()[poKey(court,item)]||null;   // {v:"att"|"abs",by,at} | null
+async function setDone(court,item,v){
+  const marks={...doneMarks()}; marks[poKey(court,item)]={v,by:me.uid,at:Date.now()};
+  await db.set("config/live",{done:{date:todayISO(),marks}},true);
+  if(poFor(court,item)) await clearPO(court,item);   // it's over now, not deferred
+}
+async function clearDone(court,item){
+  const marks={...doneMarks()}; delete marks[poKey(court,item)];
+  await db.set("config/live",{done:{date:todayISO(),marks}},true);
+}
 /* Board-observed passovers. The board flashes "Pass Over" on an item only while
    it's being deferred, then moves on — so we REMEMBER each one we see (per court,
    today only). When the passed-over item is one of OUR matters we also push it to
@@ -561,6 +583,11 @@ function onRegularList(court, miscTotal){
 // classify our matter against its board court -> {tier,label,short,gap,approx,ment,po}
 function classify(e, bc){
   const ours=e.itemNo;
+  // Manually marked OVER for the whole chamber (attended / did-not-attend) — done
+  // for the day, struck through. Wins over everything else.
+  const dn=doneOf(e.courtNo,ours);
+  if(dn) return {tier:"passed", label:dn.v==="att"?"over — attended":"over — not attended",
+                 short:dn.v==="att"?"over ✓":"over ✗", over:true, done:true};
   if(!bc) return {tier:"unknown",label:"court not on the board",short:"—"};
   if(/not in session/i.test(bc.status||"")) return {tier:"idle",label:"court not sitting",short:"not sitting"};
   if(isMentioning(ours)){
@@ -998,7 +1025,8 @@ function boardCell(c, senCourt, senMode){
   }
   const ks=ours.map(e=>({e,k:classify(e,c)})).sort((a,b)=>(TIER_RANK[a.k.tier]-TIER_RANK[b.k.tier])||((a.k.gap??999)-(b.k.gap??999)));
   const tier=ks[0].k.tier;
-  const items=ks.map(x=>esc(x.e.itemNo)).join(" · ");
+  // a matter marked over (attended / not attended) is struck through here
+  const items=ks.map(x=> x.k.done ? `<s>${esc(x.e.itemNo)}</s>` : esc(x.e.itemNo)).join(" · ");
   return `<div class="cell ours ${tier} ${idle?"idle":""}${senCls}" data-court="${esc(c.court)}">
     ${pin}
     <div class="cell-ct">Court <span class="ctn">${esc(c.court)}</span></div>
@@ -1041,13 +1069,32 @@ function renderList(){
   for(const e of mine){
     const k=classify(e,bc[e.courtNo]);
     const jl=(e.juniorUids||[]).map(u=>users[u]?.name||"").filter(Boolean).map(n=>n.split(" ")[0]).join(" / ");
-    h+=`<div class="li"><div class="ci"><div class="c">Ct ${esc(e.courtNo)}</div><div class="i">${esc(e.itemNo)}</div>
+    const dn=doneOf(e.courtNo,e.itemNo);
+    const cur=dn?("over_"+dn.v):(poFor(e.courtNo,e.itemNo)?"po":"");
+    h+=`<div class="li ${k.done?'struck':''}"><div class="ci"><div class="c">Ct ${esc(e.courtNo)}</div><div class="i">${esc(e.itemNo)}</div>
         <span class="badge2 ${k.tier}">${esc(k.short||"")}</span></div>
       <div class="d"><div class="t">${esc(e.caseTitle||"—")}</div>
       <div class="m">${e.bench?`<b>Bench:</b> ${esc(e.bench)}<br>`:""}${e.counsel?`${esc(e.counsel)}`:""}${jl?` — ${esc(jl)}`:""}${e.confTime?`<br><b>Conf:</b> ${esc(e.confTime)}`:""}</div>
+      <select class="li-stat" data-court="${esc(e.courtNo)}" data-item="${esc(e.itemNo)}" aria-label="Mark status">
+        <option value="">Mark status…</option>
+        <option value="po" ${cur==="po"?"selected":""}>Passed over</option>
+        <option value="over_att" ${cur==="over_att"?"selected":""}>Over — attended</option>
+        <option value="over_abs" ${cur==="over_abs"?"selected":""}>Over — didn't attend</option>
+        ${cur?`<option value="clear">Clear status</option>`:""}
+      </select>
       </div></div>`;
   }
   $("main").innerHTML=h;
+  // any member marks a matter's status live for the whole chamber
+  $("main").querySelectorAll(".li-stat").forEach(sel=>sel.onchange=async()=>{
+    const court=sel.dataset.court, item=sel.dataset.item, v=sel.value; sel.disabled=true;
+    try{
+      if(v==="po"){ await clearDone(court,item); await setPO(court,item,"slot"); }
+      else if(v==="over_att") await setDone(court,item,"att");
+      else if(v==="over_abs") await setDone(court,item,"abs");
+      else if(v==="clear"){ await clearDone(court,item); await clearPO(court,item); }
+    }catch(err){ sel.disabled=false; }
+  });
 }
 
 function renderChat(){
