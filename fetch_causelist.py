@@ -51,7 +51,7 @@ OUTPUT_FILE = "court-updates.json"
 # based change-detection reuses a cached parse when the PDF is unchanged; without
 # this, a parser FIX never reaches already-cached dates (their PDFs don't change).
 # A version mismatch forces a full re-parse of every date in the window.
-PARSER_VERSION = 7   # bumped: capture per-party Advocate-on-Record (advocates{})
+PARSER_VERSION = 8   # bumped: skip page-header boilerplate (was leaking as respondent)
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; sd-chamber-causelist-bot/1.0)"}
 
 COURT_RE = re.compile(r"COURT\s*NO\.?\s*[:\-]?\s*([0-9]+)", re.I)
@@ -67,6 +67,11 @@ TOTAL_RE = re.compile(r"total\s*(?:matters)?\s*[:\-]?\s*([0-9]+)", re.I)
 FRESH_RE = re.compile(r"fresh\s*(?:matters)?\s*[:\-]?\s*([0-9]+)", re.I)
 ITEM_RE  = re.compile(r"^\s*([0-9]{1,4})\b")
 SKIP_CORAM = re.compile(r"NOTE|APPRECIATED|ADJOURNMENT|ASSEMBLE|WILL SIT|NORMAL", re.I)
+# Page-header boilerplate repeated at the top of every page. When an item's
+# "Versus" sits at the foot of a page, this line is the first thing after it and
+# was wrongly captured as the respondent ("… VERSUS DAILY CAUSE LIST FOR DATED …").
+# Skip it wholesale so the real respondent (further down the next page) is used.
+HEADER_SKIP = re.compile(r"DAILY\s+CAUSE\s+LIST", re.I)
 
 
 def is_coram(line):
@@ -196,6 +201,8 @@ def parse_courts(text):
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
+            continue
+        if HEADER_SKIP.search(line):      # page-header boilerplate — never data
             continue
         court = None
         m = REG_RE.search(line) or COURT_RE.search(line)
