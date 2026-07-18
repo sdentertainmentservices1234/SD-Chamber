@@ -1515,6 +1515,9 @@ function activeListings(uid){ const t=todayISO(); return listingsOf(uid).filter(
 function conferenceCreditsOf(uid){
   const out=[];
   Object.entries(dsAll).forEach(([date,ds])=>(ds?.conferences||[]).forEach((c,i)=>{
+    if(c.briefId) return;   // a conference tied to a LISTED matter earns no separate
+                            // ½ credit — the colleague was already credited for the
+                            // listing (owner Jul 2026). Only a STANDALONE conference counts.
     const jrs=c.juniorUids||[]; if(!jrs.length||!idIn(jrs,uid)) return;
     out.push({date:c.date||date, name:c.name||"Conference", note:c.note||"", credit:0.5/jrs.length, id:date+"#c"+i});
   }));
@@ -1532,6 +1535,10 @@ function refsFromCauseLine(s){
   return {caseNo:"", diaryNo:""};
 }
 const _normNo=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+// Case numbers vary "SLP(C) No. 18036/2026" vs "SLP(C) 18036/2026" — drop the
+// NO / NOS token before normalising so both collapse to one key (keeps the case
+// TYPE so C.A. 18036 and SLP 18036 stay distinct).
+const _normCase=s=>String(s||"").toUpperCase().replace(/\bNOS?\b/g," ").replace(/[^A-Z0-9]/g,"");
 function guessMatterType(caseNo){
   const s=(caseNo||"").toUpperCase();
   if(/SLP\(C/.test(s))return "SLP (Civil)"; if(/SLP\(CRL/.test(s))return "SLP (Criminal)";
@@ -1544,12 +1551,21 @@ function guessMatterType(caseNo){
 }
 // find the register brief a listing belongs to: explicit link, else same case/diary
 // number, else an exact title match — so a matter isn't duplicated in the register.
+// Normalise a title for duplicate detection: drop the case-no prefix noise,
+// "& Ors./Anr.", the vs/versus joiner and all punctuation, so "Hala Kamel Zabal
+// vs Arya Trading Ltd & Ors." and "HALA KAMEL ZABAL VERSUS ARYA TRADING LTD"
+// collapse to the same key.
+const _normTitle=s=>String(s||"").toLowerCase()
+  .replace(/(?:\band\b|&)\s+(?:ors?|anr|another|others)\b\.?/g," ")
+  .replace(/\bv\/?s\.?\b|\bversus\b/g," ")
+  .replace(/[^a-z0-9]+/g," ").trim();
 function findBriefForListing(entry, caseNo, diaryNo){
   if(entry.briefId && briefs[entry.briefId]) return briefs[entry.briefId];
-  const cn=_normNo(caseNo); if(cn.length>=5){ const m=Object.values(briefs).find(b=>b.caseNo&&_normNo(b.caseNo)===cn); if(m)return m; }
-  const dn=_normNo(diaryNo); if(dn.length>=5){ const m=Object.values(briefs).find(b=>b.diaryNo&&_normNo(b.diaryNo)===dn); if(m)return m; }
-  const t=(entry.caseTitle||"").trim().toLowerCase();
-  if(t.length>6){ const m=Object.values(briefs).find(b=>(b.caseTitle||"").trim().toLowerCase()===t); if(m)return m; }
+  // strong keys first — a matter's case / diary number is its identity
+  const cn=_normCase(caseNo||entry.caseNo); if(cn.length>=5){ const m=Object.values(briefs).find(b=>b.caseNo&&_normCase(b.caseNo)===cn); if(m)return m; }
+  const dn=_normNo(diaryNo||entry.diaryNo); if(dn.length>=5){ const m=Object.values(briefs).find(b=>b.diaryNo&&_normNo(b.diaryNo)===dn); if(m)return m; }
+  const t=_normTitle(entry.caseTitle);
+  if(t.length>6){ const m=Object.values(briefs).find(b=>_normTitle(b.caseTitle)===t); if(m)return m; }
   return null;
 }
 // One-shot reconciliation (admin/clerk only — needs write access):
@@ -1562,7 +1578,7 @@ let _registerSynced=false, _briefsLoaded=false, _dsLoaded=false, _selfMigrated=f
 // empty-yet briefs map would make every already-linked listing look unlinked.
 // Staff/admin run the full syncRegister; a COLLEAGUE migrates their own briefs
 // (selfMigrateMine) so their matters are theirs from the very first login.
-function maybeSyncRegister(){ if(_briefsLoaded && _dsLoaded){ syncRegister(); selfMigrateMine(); } }
+async function maybeSyncRegister(){ if(_briefsLoaded && _dsLoaded){ await syncRegister(); selfMigrateMine(); mergeDuplicateBriefs(); } }
 // Rewrite "pending:<my email>" to my real uid on my own briefs. Day-sheet ids
 // stay until a Staff session runs syncRegister — the idIn() display alias
 // covers them in the meantime, so nothing is invisible while we wait.
@@ -1629,6 +1645,54 @@ async function syncRegister(force){
     }
     if(changed){ try{ await db.set("daysheets/"+date,{...ds,entries,updatedAt:db.now()},true); }catch(_){} }
   }
+  if(curTab==="briefs"||curTab==="team") renderActive();
+}
+// Merge duplicate register briefs — two briefs for the SAME matter (same case OR
+// diary number) collapse into one, so a matter listed twice (e.g. last week and
+// again this week) appears ONCE with both listing dates, and its credit isn't
+// double-counted (owner Jul 2026). Keeps the oldest; repoints the newer's
+// listings + conferences onto it; unions assignees; carries over any detail the
+// keeper lacks; deletes the duplicate. Number keys only (>= 8 chars incl. a year
+// = a real, unique matter number) so it can never merge two different matters.
+let _dupMerged=false;
+async function mergeDuplicateBriefs(){
+  if(_dupMerged || !me || !canManage()) return;
+  _dupMerged=true;
+  const byKey={};
+  for(const b of Object.values(briefs)){
+    const cn=_normCase(b.caseNo), dn=_normNo(b.diaryNo);
+    if(cn.length>=8) (byKey["c:"+cn]=byKey["c:"+cn]||[]).push(b.id);
+    if(dn.length>=8) (byKey["d:"+dn]=byKey["d:"+dn]||[]).push(b.id);
+  }
+  const done=new Set(); let merged=0;
+  for(const ids of Object.values(byKey)){
+    const grp=[...new Set(ids)].map(id=>briefs[id]).filter(Boolean);
+    if(grp.length<2) continue;
+    grp.sort((a,b)=>((a.createdAt?._t??a.createdAt??0)-(b.createdAt?._t??b.createdAt??0)));
+    const keep=grp[0];
+    for(const dup of grp.slice(1)){
+      if(dup.id===keep.id||done.has(dup.id)) continue; done.add(dup.id);
+      // repoint this dup's day-sheet listings + conferences onto the keeper
+      for(const [date,ds] of Object.entries(dsAll)){
+        let ch=false;
+        const entries=(ds.entries||[]).map(e=>{ if(e.briefId===dup.id){ch=true;return {...e,briefId:keep.id};} return e; });
+        const confs=(ds.conferences||[]).map(c=>{ if(c.briefId===dup.id){ch=true;return {...c,briefId:keep.id};} return c; });
+        if(ch){ try{ await db.set("daysheets/"+date,{...ds,entries,conferences:confs,updatedAt:db.now()},true); }catch(_){} }
+      }
+      const patch={updatedAt:db.now()};
+      ["assignedTo","everAssigned","ackBy"].forEach(f=>{ patch[f]=[...new Set([...(keep[f]||[]),...(dup[f]||[])])]; });
+      if(!keep.caseNo && dup.caseNo) patch.caseNo=dup.caseNo;
+      if(!keep.diaryNo && dup.diaryNo) patch.diaryNo=dup.diaryNo;
+      if(!keep.chamberNo && dup.chamberNo) patch.chamberNo=dup.chamberNo;
+      if(!keep.aor && dup.aor) patch.aor=dup.aor;
+      if((!keep.caseTitle||keep.caseTitle==="(from causelist)") && dup.caseTitle) patch.caseTitle=dup.caseTitle;
+      if(dup.status==="disposed" && keep.status!=="disposed") {} else if(keep.status==="received" && dup.status==="listed") patch.status="listed";
+      try{ await db.update("briefs/"+keep.id,patch); Object.assign(keep,patch); }catch(_){}
+      try{ await db.remove("briefs/"+dup.id); }catch(_){}
+      delete briefs[dup.id]; merged++;
+    }
+  }
+  if(merged) toast(`Merged ${merged} duplicate matter${merged>1?'s':''} — listings kept under one file`,"ti-git-merge");
   if(curTab==="briefs"||curTab==="team") renderActive();
 }
 // Immediate workload = assigned briefs + causelist listings (imminent counts 2×).

@@ -169,6 +169,23 @@ dedup) + live (fetched the live board, recorded 19 courts, no errors).
 
 ## Conference credit + credit register (index.html, Jul 2026)
 
+- **A day-sheet conference LINKED to a matter (`c.briefId`) earns NO ½ credit**
+  (owner fix Jul 2026): the colleague was already credited when the matter was
+  listed, so `conferenceCreditsOf` skips any conference with a `briefId`. Only a
+  STANDALONE conference (no linked matter) still earns the split ½.
+- **Duplicate-brief prevention + merge (owner Jul 2026):** a matter listed in two
+  different weeks must appear ONCE in the register with both listing dates, not as
+  two briefs. `findBriefForListing` dedups on input by case number (`_normCase` —
+  drops the "No." token so "SLP(C) No. 18036/2026" == "SLP(C) 18036/2026", keeps the
+  TYPE so C.A.≠SLP), diary number, then normalised title (`_normTitle` — strips
+  vs/versus + "& Ors./Anr." + punctuation). `mergeDuplicateBriefs()` (runs once per
+  admin/clerk session in `maybeSyncRegister`) collapses EXISTING duplicates that
+  share a case/diary number (>=8 normalised chars = a real unique number, so it can
+  never merge two different matters): keeps the oldest, repoints the newer's
+  listings + conferences, unions assignees, carries missing details, deletes the
+  dup; toasts "Merged N…". jsc-verified (key collapse + full merge mechanics; C.A. vs
+  SLP same-number NOT merged).
+
 - A standalone / preliminary / strategy conference (no listed matter, or a matter
   not yet listed) earns **½ credit**, split equally. Modelled as a brief with
   `confCredit:true` (status `disposed`, `nextDate`=conference date). `shareFor`'s
