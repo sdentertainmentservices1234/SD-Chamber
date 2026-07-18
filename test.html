@@ -1654,44 +1654,64 @@ async function syncRegister(force){
 // listings + conferences onto it; unions assignees; carries over any detail the
 // keeper lacks; deletes the duplicate. Number keys only (>= 8 chars incl. a year
 // = a real, unique matter number) so it can never merge two different matters.
+// Two briefs have CONFLICTING identity if both carry a real (>=8 char) case number
+// or both a real diary number and they DIFFER — then they are different matters and
+// must never be merged, even if their titles match.
+function _numConflict(a,b){
+  const ca=_normCase(a.caseNo), cb=_normCase(b.caseNo);
+  if(ca.length>=8 && cb.length>=8 && ca!==cb) return true;
+  const da=_normNo(a.diaryNo), db2=_normNo(b.diaryNo);
+  if(da.length>=8 && db2.length>=8 && da!==db2) return true;
+  return false;
+}
+async function _mergeBriefInto(keep, dup){
+  // repoint this dup's day-sheet listings + conferences onto the keeper
+  for(const [date,ds] of Object.entries(dsAll)){
+    let ch=false;
+    const entries=(ds.entries||[]).map(e=>{ if(e.briefId===dup.id){ch=true;return {...e,briefId:keep.id};} return e; });
+    const confs=(ds.conferences||[]).map(c=>{ if(c.briefId===dup.id){ch=true;return {...c,briefId:keep.id};} return c; });
+    if(ch){ try{ await db.set("daysheets/"+date,{...ds,entries,conferences:confs,updatedAt:db.now()},true); }catch(_){} }
+  }
+  const patch={updatedAt:db.now()};
+  ["assignedTo","everAssigned","ackBy"].forEach(f=>{ patch[f]=[...new Set([...(keep[f]||[]),...(dup[f]||[])])]; });
+  if(!keep.caseNo && dup.caseNo) patch.caseNo=dup.caseNo;
+  if(!keep.diaryNo && dup.diaryNo) patch.diaryNo=dup.diaryNo;
+  if(!keep.chamberNo && dup.chamberNo) patch.chamberNo=dup.chamberNo;
+  if(!keep.aor && dup.aor) patch.aor=dup.aor;
+  if((!keep.caseTitle||keep.caseTitle==="(from causelist)") && dup.caseTitle) patch.caseTitle=dup.caseTitle;
+  if(keep.status==="received" && dup.status==="listed") patch.status="listed";
+  try{ await db.update("briefs/"+keep.id,patch); Object.assign(keep,patch); }catch(_){}
+  try{ await db.remove("briefs/"+dup.id); }catch(_){}
+  delete briefs[dup.id];
+}
 let _dupMerged=false;
 async function mergeDuplicateBriefs(){
   if(_dupMerged || !me || !canManage()) return;
   _dupMerged=true;
-  const byKey={};
+  const numKey={}, titleKey={};
   for(const b of Object.values(briefs)){
     const cn=_normCase(b.caseNo), dn=_normNo(b.diaryNo);
-    if(cn.length>=8) (byKey["c:"+cn]=byKey["c:"+cn]||[]).push(b.id);
-    if(dn.length>=8) (byKey["d:"+dn]=byKey["d:"+dn]||[]).push(b.id);
+    if(cn.length>=8) (numKey["c:"+cn]=numKey["c:"+cn]||[]).push(b.id);
+    if(dn.length>=8) (numKey["d:"+dn]=numKey["d:"+dn]||[]).push(b.id);
+    const t=_normTitle(b.caseTitle);
+    if(t.length>=8) (titleKey[t]=titleKey[t]||[]).push(b.id);
   }
   const done=new Set(); let merged=0;
-  for(const ids of Object.values(byKey)){
-    const grp=[...new Set(ids)].map(id=>briefs[id]).filter(Boolean);
-    if(grp.length<2) continue;
+  // guard=true for TITLE groups: only merge a pair whose case/diary numbers don't
+  // conflict (so two different matters between the same parties stay separate).
+  const mergeGroup=async(ids, guard)=>{
+    const grp=[...new Set(ids)].map(id=>briefs[id]).filter(b=>b&&!done.has(b.id));
+    if(grp.length<2) return;
     grp.sort((a,b)=>((a.createdAt?._t??a.createdAt??0)-(b.createdAt?._t??b.createdAt??0)));
     const keep=grp[0];
     for(const dup of grp.slice(1)){
-      if(dup.id===keep.id||done.has(dup.id)) continue; done.add(dup.id);
-      // repoint this dup's day-sheet listings + conferences onto the keeper
-      for(const [date,ds] of Object.entries(dsAll)){
-        let ch=false;
-        const entries=(ds.entries||[]).map(e=>{ if(e.briefId===dup.id){ch=true;return {...e,briefId:keep.id};} return e; });
-        const confs=(ds.conferences||[]).map(c=>{ if(c.briefId===dup.id){ch=true;return {...c,briefId:keep.id};} return c; });
-        if(ch){ try{ await db.set("daysheets/"+date,{...ds,entries,conferences:confs,updatedAt:db.now()},true); }catch(_){} }
-      }
-      const patch={updatedAt:db.now()};
-      ["assignedTo","everAssigned","ackBy"].forEach(f=>{ patch[f]=[...new Set([...(keep[f]||[]),...(dup[f]||[])])]; });
-      if(!keep.caseNo && dup.caseNo) patch.caseNo=dup.caseNo;
-      if(!keep.diaryNo && dup.diaryNo) patch.diaryNo=dup.diaryNo;
-      if(!keep.chamberNo && dup.chamberNo) patch.chamberNo=dup.chamberNo;
-      if(!keep.aor && dup.aor) patch.aor=dup.aor;
-      if((!keep.caseTitle||keep.caseTitle==="(from causelist)") && dup.caseTitle) patch.caseTitle=dup.caseTitle;
-      if(dup.status==="disposed" && keep.status!=="disposed") {} else if(keep.status==="received" && dup.status==="listed") patch.status="listed";
-      try{ await db.update("briefs/"+keep.id,patch); Object.assign(keep,patch); }catch(_){}
-      try{ await db.remove("briefs/"+dup.id); }catch(_){}
-      delete briefs[dup.id]; merged++;
+      if(dup.id===keep.id||done.has(dup.id)) continue;
+      if(guard && _numConflict(keep,dup)) continue;
+      done.add(dup.id); await _mergeBriefInto(keep,dup); merged++;
     }
-  }
+  };
+  for(const ids of Object.values(numKey))   await mergeGroup(ids, false);   // same number = definitely same matter
+  for(const ids of Object.values(titleKey)) await mergeGroup(ids, true);    // same title, no number conflict
   if(merged) toast(`Merged ${merged} duplicate matter${merged>1?'s':''} — listings kept under one file`,"ti-git-merge");
   if(curTab==="briefs"||curTab==="team") renderActive();
 }
