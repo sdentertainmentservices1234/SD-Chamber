@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-18T08:33:00.073631Z",
+  "generated_at": "2026-07-18T11:43:22.414530Z",
   "parser_version": 8,
   "window": [
     "2026-07-20",
@@ -20,8 +20,10 @@
       "lists_found": [
         "Miscellaneous (main)",
         "Chamber (main)",
+        "Chamber (supp)",
         "Single Judge (main)",
-        "Registrar (main)"
+        "Registrar (main)",
+        "Registrar (supp)"
       ],
       "lists": {
         "Miscellaneous": {
@@ -9927,7 +9929,7 @@
           },
           "6": {
             "coram": "HON'BLE MR. JUSTICE SHEEL NAGU",
-            "total": "28",
+            "total": "29",
             "fresh": "",
             "items": {
               "1701": "Diary No. 18447-2026 TULARAM PATEL VERSUS SUNIL SHUKLA",
@@ -9957,7 +9959,8 @@
               "1724": "SLP(C) No. 15645/2023 RUKMANI DEVI (D) THR LRS. AND ORS. VERSUS KAMLA RANI AND ORS.",
               "1725": "SLP(C) No. 22136/2022 PRAFULLA BHOI AND ANR. VERSUS TILA BEWA AND ANR.",
               "1726": "SLP(C) No. 9750/2025 M/S. GSP FASTENERS VERSUS AUTHORISED OFFICER, UNION OF INDIA",
-              "1727": "Diary No. 13996-2025 SABU JOSEPH AND ANR. VERSUS BENCY RAGHAVAN"
+              "1727": "Diary No. 13996-2025 SABU JOSEPH AND ANR. VERSUS BENCY RAGHAVAN",
+              "1728": "Diary No. 40526-2026 MUSTQIM VERSUS BSES RAJDHANI POWER LIMITED"
             },
             "advocates": {
               "1701": {
@@ -10057,10 +10060,13 @@
               },
               "1727": {
                 "pet": "SHISHIR PINAKI"
+              },
+              "1728": {
+                "pet": "NISCHAL KUMAR NEERAJ"
               }
             },
             "main": 28,
-            "supp": 0
+            "supp": 1
           },
           "12": {
             "coram": "HON'BLE MR. JUSTICE SHREE CHANDRASHEKHAR",
@@ -10190,7 +10196,7 @@
           },
           "14": {
             "coram": "HON'BLE MR. JUSTICE ATUL S. CHANDURKAR",
-            "total": "28",
+            "total": "30",
             "fresh": "",
             "items": {
               "1701": "MA 2474/2025 in C.A. BOUYANT TECHNOLOGY CONSTELLATIONS PVT.LTD VERSUS SUMAN KUMAR JHA AND ANR.",
@@ -10205,7 +10211,7 @@
               "1710": "Diary No. 40197-2026 RAJARAM VERSUS VILAS KUMAR JAIN",
               "1711": "Diary No. 40642-2026 D. JAYANARAYANA VERSUS STATE OF KERALA",
               "1712": "SLP(Crl) No. 9061/2026 BHURALAL ALIAS BHURIYA VERSUS STATE OF RAJASTHAN AND ORS.",
-              "1713": "Diary No. 31107-2026 S. GAYATHIRI VERSUS V.R. SELVARAJULU AND ANR.",
+              "1713": "MA/2079/2026 Vs. - DELETED.",
               "1714": "Diary No. 31518-2026 ABOOBACKER SIDHIQUE @ SUDHEER VERSUS THE STATE OF KERALA",
               "1715": "Crl.A. No. 3258/2025 G. RAVEENDRAN NAIR VERSUS STATE OF KERALA AND ORS.",
               "1716": "SLP(C) No. GULZAR SINGH (DEAD) VERSUS DIRECTOR RURAL DEVELOPMENT AND PANCHYATS",
@@ -10220,7 +10226,9 @@
               "1725": "Diary No. 56104-2025 PUNJAB STATE POWER CORPORATION LIMITED AND VERSUS JASKARAN SINGH",
               "2024": "was dismissed via inter-alia order.",
               "1726": "Diary No. 71554-2025 THE STATE OF UTTAR PRADESH VERSUS RAM PRASIDH TIWARI AND ORS.",
-              "1727": "Diary No. 23435-2026 T DHANGOPAL RAO VERSUS K RAMAKRISHNA RAO"
+              "1727": "Diary No. 23435-2026 T DHANGOPAL RAO VERSUS K RAMAKRISHNA RAO",
+              "1728": "Diary No. 38516-2026 BITRA VENKATA SWAMY VERSUS STATE OF ANDHRA PRADESH",
+              "1729": "Diary No. 26430-2026 RAJU NARAYANA SWAMY VERSUS BEENA M D AND ORS."
             },
             "advocates": {
               "1701": {
@@ -10306,10 +10314,16 @@
               },
               "1726": {
                 "pet": "SHAURYA SAHAY"
+              },
+              "1728": {
+                "pet": "B. SHRAVANTH SHANKER"
+              },
+              "1729": {
+                "pet": "SALVADOR SANTOSH"
               }
             },
             "main": 28,
-            "supp": 0
+            "supp": 2
           }
         },
         "Single Judge": {
@@ -10907,7 +10921,7 @@
           },
           "2": {
             "coram": "MS. GRACY L. BAWITLUNG, REGISTRAR",
-            "total": "42",
+            "total": "43",
             "fresh": "",
             "items": {
               "1": "Diary No. 19321-2019 THE STATE OF ODISHA AND ORS. VERSUS RUSIA NAYAK",
@@ -10969,7 +10983,7 @@
               "31": "T.P.(Crl.) No. 210/2026 MANISHA ASHISH DALAL VERSUS NANDA VIJA Y DALAL",
               "32": "C.A. No. 7958/2026 PUSHPA JAGANNATH SHETTY AND ORS. VERSUS M/S. SAHAJ ANKUR REALTORS AND ORS.",
               "32.1": "Connected M/S. SAHAJ ANKUR REALTORS VERSUS PUSHPA JAGANNATH SHETTY AND ORS.",
-              "33": "SLP(Crl) No. 6480/2026 RAKHI SITARAM PAWARA VERSUS SITARAM VIJAY PAWARA",
+              "33": "SLP(Crl) No./6480/2026 Vs.",
               "34": "SLP(Crl) No. 4317/2026 BANK OF INDIA VERSUS THE COMMISSIONER AND ORS.",
               "35": "SLP(C) No. RAMAN KUMAR VERSUS PROJECT DIRECTOR AND ORS.",
               "36": "SLP(C) No. 13361/2026 SHYAM YAGNESH SACHDEV VERSUS NAMEE",
@@ -10977,7 +10991,9 @@
               "38": "T.P.(C) No. 1172/2026 KRISHNA SHRIVASTAVA VERSUS AKSHAT SHRIVASTAVA",
               "39": "SLP(C) No. 17423/2026 M/S TRUE WALL SPECIALTIES PVT. LTD. VERSUS M/S AGRAVANSHI ALUMINIUM LTD.",
               "40": "T.P.(Crl.) No. 564/2026 MOHD. AKBAR HUSSAIN VERSUS QUDRAT PRAWEEN AND ORS.",
-              "40.1": "Connected MOHD. AKBAR HUSSAIN VERSUS QUDRAT PARWEEN AND ANR."
+              "40.1": "Connected MOHD. AKBAR HUSSAIN VERSUS QUDRAT PARWEEN AND ANR.",
+              "41": "SLP(C) No. ALL SPECIAL ASSISTANT PUBLIC PROSECUTOR VERSUS THE STATE OF MAHARASHTRA AND ORS.",
+              "41.1": "Connected THE STATE OF MAHARASHTRA AND ORS. VERSUS SUDHIR AND ORS."
             },
             "advocates": {
               "1": {
@@ -11203,10 +11219,18 @@
               },
               "40.1": {
                 "pet": "ASTHA SHARMA"
+              },
+              "41": {
+                "pet": "RAHUL JOSHI",
+                "resp": "AADITYA ANIRUDDHA PANDE"
+              },
+              "41.1": {
+                "pet": "AADITYA ANIRUDDHA",
+                "resp": "RAHUL JOSHI"
               }
             },
             "main": 42,
-            "supp": 0
+            "supp": 1
           }
         }
       }
@@ -19997,8 +20021,10 @@
     "2026-07-20": {
       "M_J_1": 1134190,
       "M_C_1": 732437,
+      "M_C_2": 508089,
       "M_S_1": 524592,
-      "M_R_1": 539445
+      "M_R_1": 539445,
+      "M_R_2": 506046
     },
     "2026-07-21": {
       "M_J_1": 1072569,
