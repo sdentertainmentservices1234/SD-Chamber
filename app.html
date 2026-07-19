@@ -3589,8 +3589,18 @@ function dsForm(idx=null){
         if(!brief.caseTitle && entry.caseTitle) patch.caseTitle=entry.caseTitle;
         if(!brief.aor && entry.counsel) patch.aor=entry.counsel;
         if(!brief.appearingFor && entry.appearingFor) patch.appearingFor=entry.appearingFor;
-        if(entry.juniorUids.length){ const a=[...new Set([...(brief.assignedTo||[]),...entry.juniorUids])];
-          if(a.length!==(brief.assignedTo||[]).length){ patch.assignedTo=a; patch.everAssigned=[...new Set([...(brief.everAssigned||[]),...a])]; patch.ackBy=[...new Set([...(brief.ackBy||[]),...entry.juniorUids])]; } }
+        // Reconcile the file's team with this listing's colleagues. A NEW listing
+        // ADDS its colleague(s) to the matter. EDITING a listing REPLACES: whoever
+        // this listing named before (oldJrs) is dropped and the new pick added, so
+        // swapping A→B on the listing moves the whole credit to B — not split A+B
+        // (owner fix Jul 2026). assignedTo stays authoritative for credit.
+        if(entry.juniorUids.length || idx!==null){
+          const oldJrs = idx!==null ? jrsOf(e) : [];                       // this listing's previous team
+          const removed = oldJrs.filter(u=>!entry.juniorUids.includes(u)); // swapped-out colleague(s)
+          const a=[...new Set([...(brief.assignedTo||[]).filter(u=>!removed.includes(u)), ...entry.juniorUids])];
+          if(a.join("|")!==(brief.assignedTo||[]).join("|")){ patch.assignedTo=a;
+            patch.everAssigned=[...new Set([...(brief.everAssigned||[]),...entry.juniorUids])];
+            patch.ackBy=[...new Set([...(brief.ackBy||[]).filter(u=>a.includes(u)),...entry.juniorUids])]; } }
         if((patch.caseNo||brief.caseNo||patch.diaryNo||brief.diaryNo)) patch.detailsAwaited=false;
         if(["received","assigned"].includes(brief.status)) patch.status="listed";
         patch.nextDate=listDate;

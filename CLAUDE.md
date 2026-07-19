@@ -169,6 +169,16 @@ dedup) + live (fetched the live board, recorded 19 courts, no errors).
 
 ## Conference credit + credit register (index.html, Jul 2026)
 
+- **Editing a listing's colleague REPLACES on the brief, not unions (owner fix
+  Jul 2026):** `f_save` reconciles the linked brief's `assignedTo` with the
+  listing's `juniorUids`. A NEW listing (idx null) ADDS its colleague; EDITING a
+  listing removes whoever that listing named before (`jrsOf(e)` swapped out) and
+  adds the new pick, so swapping A→B moves the WHOLE credit to B instead of
+  crediting `[A,B]` split. Colleagues assigned to the file elsewhere are kept.
+  The old code unioned + gated on length only, so a 1→1 swap silently split
+  credit. jsc-verified (5 reconcile cases) + live (day-sheet edit A→B → brief
+  detail shows B alone). `assignedTo` stays the single source of truth for credit
+  (linked listings' juniorUids don't feed credit; only `b.assignedTo` does).
 - **A day-sheet conference LINKED to a matter (`c.briefId`) earns NO ½ credit**
   (owner fix Jul 2026): the colleague was already credited when the matter was
   listed, so `conferenceCreditsOf` skips any conference with a `briefId`. Only a
