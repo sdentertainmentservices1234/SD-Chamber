@@ -179,6 +179,19 @@ dedup) + live (fetched the live board, recorded 19 courts, no errors).
   credit. jsc-verified (5 reconcile cases) + live (day-sheet edit A→B → brief
   detail shows B alone). `assignedTo` stays the single source of truth for credit
   (linked listings' juniorUids don't feed credit; only `b.assignedTo` does).
+- **Manual duplicate merge (`mergeDuplicateForm`, owner Jul 2026):** the
+  auto-merge only collapses briefs that share a case/diary number (≥8 norm chars)
+  or an EXACT normalised title — so a real duplicate slips through when one copy
+  is missing its number AND the titles differ (a different respondent captured, a
+  truncation, a typo). Loosening the auto-merge to partial-title matching was
+  REJECTED — it would wrongly merge distinct matters between common parties
+  ("Union of India vs A" / "…vs B"). Instead, the brief detail (canManage) has
+  **"This is a duplicate — merge into another file"** → a searchable picker of
+  every other brief; choosing the keeper runs the SAME `_mergeBriefInto(keep,dup)`
+  as the auto-merge (repoints listings + conferences, unions colleagues, carries
+  missing details, removes the dup, credit counted once). Live-verified (pick →
+  confirm → count −1, dup gone, no errors). Use this for the "listed twice, no
+  shared number" cases the auto-merge can't safely infer.
 - **A day-sheet conference LINKED to a matter (`c.briefId`) earns NO ½ credit**
   (owner fix Jul 2026): the colleague was already credited when the matter was
   listed, so `conferenceCreditsOf` skips any conference with a `briefId`. Only a

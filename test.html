@@ -522,6 +522,11 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .inline-add input{flex:1}
 .chk-row{display:flex;align-items:center;gap:9px;padding:8px 0;font-size:14px;color:var(--ink)}
 .chk-row input{width:auto}
+.mg-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:52vh;overflow:auto}
+.mg-row{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer}
+.mg-row:hover{border-color:var(--accent);background:var(--accent-bg,rgba(58,90,140,.06))}
+.mg-title{font-size:13.5px;font-weight:600;color:var(--ink)}
+.mg-sub{font-size:11.5px}
 .bell-badge{position:absolute;top:2px;right:2px;min-width:15px;height:15px;border-radius:8px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1}
 .notif-row{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .notif-row:last-child{border-bottom:none}
@@ -3854,6 +3859,10 @@ function openBrief(id){
       ${(b.confNotes&&b.confNotes.length)?`<label style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">Conference notes <button class="tbtn sm" data-brnoteexport="${id}"><span class="ic ti ti-file-type-doc"></span>Export to Word</button></label>
       <div class="cnote-list">${b.confNotes.slice().sort((a,z)=>(a.at||0)-(z.at||0)).map(n=>`<div class="cnote"><div class="cnote-t">${esc(n.text)}</div><div class="cnote-m">${esc(nameOf(n.by))}${n.confLabel?` · ${esc(n.confLabel)}`:''} · ${n.at?new Date(n.at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):''}</div></div>`).join("")}</div>`:''}
 
+      ${canManage()&&Object.values(briefs).length>1?`<div class="row" style="margin-top:18px">
+        <button class="tbtn" data-mergedup="${id}"><span class="ic ti ti-git-merge"></span>This is a duplicate — merge into another file</button>
+      </div>`:''}
+
       ${canManage()?`<div class="danger-zone">
         <button class="tbtn danger-btn" data-delbrief="${id}"><span class="ic ti ti-trash"></span>Delete this matter</button>
         <span class="muted" style="font-size:11.5px">Removes it from the register${listingDatesOf(id).length?` — it is listed on ${listingDatesOf(id).length} day sheet${listingDatesOf(id).length>1?'s':''}`:''}.</span>
@@ -3872,6 +3881,7 @@ function openBrief(id){
       body:`<b>${esc(labelOf(b))}</b> will be removed from the register for the whole chamber${ld.length?`, along with its ${ld.length} day-sheet listing${ld.length>1?'s':''} and any conference tied to it`:''}. Colleagues' credit for it is cleared.`,
       onYes:async()=>{ await purgeBriefEverywhere(id); toast("Matter deleted"); closeSheet(); }});
   });
+  document.querySelectorAll("[data-mergedup]").forEach(x=>x.onclick=()=>{closeSheet();mergeDuplicateForm(id);});
   document.querySelectorAll("[data-autoassign2]").forEach(x=>x.onclick=async()=>{const r=await autoAssign(id);if(r)notifyForm(id,r);else{closeSheet();openBrief(id);}});
   document.querySelectorAll("[data-notify]").forEach(x=>x.onclick=()=>notifyForm(x.dataset.notify));
   document.querySelectorAll("[data-reassign]").forEach(x=>x.onclick=()=>reassignForm(id));
@@ -3885,6 +3895,39 @@ function openBrief(id){
   document.querySelectorAll("[data-keepheld]").forEach(x=>x.onclick=async()=>{await db.update("briefs/"+id,{heldForClerk:false,updatedAt:db.now()});toast("Senior's direction upheld — assignment stands");closeSheet();openBrief(id);});
   document.querySelectorAll("[data-copy]").forEach(x=>x.onclick=()=>{navigator.clipboard?.writeText(x.dataset.copy);toast("Diary number copied","ti-copy");});
   document.querySelectorAll("[data-copymsg]").forEach(x=>x.onclick=()=>{navigator.clipboard?.writeText(nudgeMsg(b));toast("Nudge message copied — paste it anywhere","ti-copy");});
+}
+
+// Manual duplicate merge (canManage): when two files are the SAME matter but the
+// auto-merge couldn't tell (one missing its case/diary number, or the titles differ
+// — e.g. a different respondent captured), the clerk/admin picks the file THIS one
+// is a duplicate of. Everything (listings, conferences, colleagues, missing details)
+// moves onto the chosen keeper and this duplicate is removed — reusing the exact
+// same _mergeBriefInto the auto-merge uses, so credit is counted once.
+function mergeDuplicateForm(dupId){
+  const dup=briefs[dupId]; if(!dup)return;
+  const others=Object.values(briefs).filter(b=>b.id!==dupId)
+    .sort((a,z)=>(a.caseTitle||"").localeCompare(z.caseTitle||""));
+  const rowHtml=b=>{ const nd=listingDatesOf(b.id).length;
+    return `<button class="mg-row" data-keep="${b.id}">
+      <span class="mg-title">${esc(labelOf(b))}</span>
+      <span class="mg-sub muted">${esc([b.chamberNo?`File #${b.chamberNo}`:'',b.diaryNo?`Dy. ${b.diaryNo}`:'',b.caseNo,nd?`${nd} listing${nd>1?'s':''}`:''].filter(Boolean).join("  ·  "))||'no case number'}</span>
+    </button>`; };
+  openSheet(`<div class="sheet-head"><div><h3>Merge duplicate</h3><div class="sub">${esc(labelOf(dup))}</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <p class="muted" style="font-size:12.5px;line-height:1.5">Pick the file this one is a <b>duplicate of</b>. This entry's listing dates, conferences and colleagues move onto that file and this duplicate is removed — the matter then appears once. Credit is counted once.</p>
+      <input id="mg_search" placeholder="Search by case title or number" autocomplete="off">
+      <div id="mg_list" class="mg-list">${others.map(rowHtml).join("")||'<span class="muted">No other matters in the register.</span>'}</div>
+    </div>`);
+  const bind=()=>document.querySelectorAll("#mg_list [data-keep]").forEach(x=>x.onclick=()=>{
+    const keep=briefs[x.dataset.keep]; if(!keep)return;
+    confirmAsk({title:"Merge these two files?",confirmLabel:"Merge into one",
+      body:`<b>${esc(labelOf(dup))}</b> will be merged into <b>${esc(labelOf(keep))}</b> — one file, every listing date kept, credit counted once. This can't be undone from here.`,
+      onYes:async()=>{ await _mergeBriefInto(keep,dup); toast("Merged into one file","ti-git-merge"); if(curTab==="briefs"||curTab==="team")renderActive(); openBrief(keep.id); }});
+  });
+  $("mg_search").oninput=()=>{ const raw=$("mg_search").value.trim(); const qt=_normTitle(raw), qn=_normNo(raw);
+    const list=others.filter(b=> !raw || _normTitle(labelOf(b)).includes(qt) || (qn.length>=2 && (_normNo(b.caseNo).includes(qn)||_normNo(b.diaryNo).includes(qn))) );
+    $("mg_list").innerHTML=list.map(rowHtml).join("")||'<span class="muted">No match.</span>'; bind(); };
+  bind();
 }
 
 // A colleague notes a direction the Senior gave (e.g. "prepare written submissions"),
