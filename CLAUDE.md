@@ -132,6 +132,39 @@ pronouncement** — classify returns "mentioning is on" / "pronouncement is on" 
 NO gap (our matter just waits). jsc-verified: small/large-Misc, 800→mentioning,
 1500→pronouncement, "N away" not "Reg N".
 
+**Passover-aware "N away" (owner Jul 2026):** the normal-proximity gap now folds in
+passovers, not just OVER items. `passoverItemsFor(court)` gathers every passed-over
+item (remark column `isPassOver` + shared `config/live.po` marks + board-observed
+`boardPO`), and `poAdjust(court,cur,ours,seq,passIdx)` returns a net delta to the
+items-ahead count: **−1** for each item passed over ahead of us that is recalled
+AFTER us (deferred behind us → no longer ahead), **+1** for each passed-over matter
+recalled BEFORE us (pulled in ahead → adds to the wait). Recall point = the mark's
+own "after N" hint, else the sequence's declared passover slot (`seqInfo().passIdx`),
+else end-of-board. Works in sequence space when the bench declares a sequence, else
+in item-number space (where passIdx is ignored — it's a seq index). Applied right
+after the existing `overAhead` discount; the detail label gains "· N passed over
+ahead" / "· N recalled first". jsc-verified 8 cases (deferred-to-end, recalled-
+before-us via passIdx, behind-us-recalled-ahead, our-item-already-passed, none).
+
+## Display-board chat — fresh every day (board.html, Jul 2026)
+
+Owner: "Every day should be a fresh chat window, no past messages; old chats
+deleted." The chat now shows ONLY today's messages (`todayMsgs()` filters
+`messages` by `msgDay(m)===todayISO()`), so nothing from a past day ever renders.
+`purgeOldChat()` (once/session, best-effort) deletes messages older than today —
+the rules let a member delete their OWN and let Staff/PA/admin delete anyone's, so
+a manager opening the board clears the shared history fully, a colleague clears
+their own; either way the day-filter already hides the rest. `sendChat` stamps
+`day:todayISO()`. Interface reworked to best-practice: a sticky "Today · Wed 20 Jul"
+day pill, WhatsApp-style bubbles (mine right / others left, sender name on others
+only), consecutive same-sender messages grouped (`.grp`, 4-min window), IST clock
+times (HH:MM, not jittery "Xm ago"). The messages watcher now calls **`paintChatList()`**
+(rewrites only `#chatList`) instead of `renderChat()` — an incoming message can no
+longer wipe what a colleague is typing or steal focus; the view stays pinned to the
+newest message unless the reader scrolled up. `board-sw.js` cache `sdboard-v10→v11`.
+jsc-verified (day filter + purge selection) + live (render, grouping, send keeps
+composer focused, no errors).
+
 ## Display-board alerts (board.html, Jul 2026 — Phase 1, no backend)
 
 So nobody has to stare at the board. A **bell toggle** in the header
