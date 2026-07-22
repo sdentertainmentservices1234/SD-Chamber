@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-22T16:59:55.974394Z",
+  "generated_at": "2026-07-22T18:01:28.794403Z",
   "parser_version": 8,
   "window": [
     "2026-07-22",
@@ -8345,7 +8345,7 @@
         "Miscellaneous": {
           "1": {
             "coram": "HON'BLE THE CHIEF JUSTICE HON'BLE MR. JUSTICE JOYMALYA BAGCHI HON'BLE MRS. JUSTICE V. MOHANA",
-            "total": "23",
+            "total": "24",
             "fresh": "",
             "items": {
               "1": "C.A. No. 5796/2009 BANDARU @ BELLAM VENKATRAMAIAH . AND ANR. VERSUS K.SURYA KUMARI (DEAD) THR. LRS.)",
@@ -8434,7 +8434,8 @@
               "20": "W.P.(C) No. 1022/1989 ALL INDIA JUDGES ASSOCIATION AND ORS. VERSUS UNION OF INDIA AND ORS.",
               "21": "C.A. No. 3369/2020 SHOBHA CHEMICAL INDUSTRIES PVT. LTD. VERSUS UDIT JAGAT AND ORS.",
               "22": "SLP(C) No. 9388/2022 COMMITTEE OF MANAGEMENT ANJUMAN VERSUS RAKHI SINGH AND ORS.",
-              "22.1": "Connected COMMITTEE OF MANAGEMENT ANJUMAN VERSUS LAXMI DEVI AND ORS."
+              "22.1": "Connected COMMITTEE OF MANAGEMENT ANJUMAN VERSUS LAXMI DEVI AND ORS.",
+              "23": "SMW(C) No. 8/2026 IN RE: PROTECTION OF TREES AND GREEN COVER"
             },
             "advocates": {
               "1": {
@@ -8741,7 +8742,7 @@
               }
             },
             "main": 17,
-            "supp": 6
+            "supp": 7
           },
           "2": {
             "coram": "HON'BLE MR. JUSTICE VIKRAM NATH HON'BLE MR. JUSTICE SANDEEP MEHTA",
@@ -20742,7 +20743,7 @@
     },
     "2026-07-23": {
       "M_J_1": 744385,
-      "M_J_2": 571944,
+      "M_J_2": 574825,
       "F_J_1": 984789,
       "M_C_1": 538992,
       "M_C_2": 505259,
