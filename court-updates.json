@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-23T20:50:10.105625Z",
+  "generated_at": "2026-07-23T22:37:10.216637Z",
   "parser_version": 8,
   "window": [
     "2026-07-24",
@@ -21,6 +21,7 @@
         "Miscellaneous (main)",
         "Miscellaneous (supp)",
         "Chamber (main)",
+        "Chamber (supp)",
         "Single Judge (main)",
         "Single Judge (supp)",
         "Registrar (main)",
@@ -5599,7 +5600,7 @@
           },
           "17": {
             "coram": "HON'BLE MRS. JUSTICE V. MOHANA",
-            "total": "20",
+            "total": "23",
             "fresh": "",
             "items": {
               "1701": "Diary No. 67059-2025 BRANCH MANAGER VERSUS TEJASWINI MOHANSA SINGRI AND ANR.",
@@ -5621,7 +5622,10 @@
               "1717": "W.P.(Crl.) No. 319/2024 VIKRAM PAL VERSUS STATE GOVT. OF NCT OF DELHI",
               "1718": "C.A. No. 976-977/2025 UTTAR PRADESH PUBLIC SERVICE COMMISSION VERSUS SHIVAM SINGH AND ORS.",
               "1719": "SLP(C) No. 30454/2025 PADMAMMA AND ANR. VERSUS R. SANTHOSH AND ORS.",
-              "1720": "SLP(C) No. SHREE LAKSHMI DEVELOPERS VERSUS MEERA AND ORS."
+              "1720": "SLP(C) No. SHREE LAKSHMI DEVELOPERS VERSUS MEERA AND ORS.",
+              "1721": "MA 1301/2026 BAPURAO VERSUS THE STATE OF MAHARASHTRA",
+              "1722": "T.P.(C) No. 2594/2025 JAKKULA KRISHNA KUMARI VERSUS JAKKULA SURESH KUMAR",
+              "1723": "Diary No. 55064-2025 PRADEEP KHANNA AND ORS. VERSUS STATE OF UTTAR PRADESH AND ORS."
             },
             "advocates": {
               "1701": {
@@ -5686,10 +5690,17 @@
               },
               "1720": {
                 "pet": "K. KRISHNA KUMAR"
+              },
+              "1721": {
+                "pet": "KAILAS MORE"
+              },
+              "1722": {
+                "pet": "ANJUMAN TRIPATHY",
+                "resp": "S. NARAIN & CO"
               }
             },
             "main": 20,
-            "supp": 0
+            "supp": 3
           }
         },
         "Single Judge": {
@@ -13000,6 +13011,7 @@
       "M_J_1": 967078,
       "M_J_2": 620941,
       "M_C_1": 528974,
+      "M_C_2": 506115,
       "M_S_1": 519041,
       "M_S_2": 508473,
       "M_R_1": 529158,
