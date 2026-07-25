@@ -491,6 +491,47 @@ populate config/holidays the way the cause-list Action populates scindex.
   marker, per-junior joined date + active load / total load / live / lifetime
   / objection counts, pointer reset, and the matter-weights editor (clerk/pa).
 
+## Word-causelist import (index.html, Jul 2026 — REGRESSIBLE)
+
+Reads the clerk's own daily-causelist **Word (.docx)** and lifts each matter into
+the day sheet — court, item, briefing counsel (+ party), chamber colleague(s) and
+conference times — so the clerk can keep preparing his familiar Word file and Adith
+imports it in one step. **Fully isolated + removable** (owner: "if I don't like it,
+regress"): everything lives in ONE block (search `WORD-CAUSELIST IMPORT`) gated by
+`const WORD_IMPORT=true;` plus one button in `renderToday`. Set the flag false (button
+vanishes) or delete the block to return to the exact prior state — **no schema/data
+changes**; imported rows are ordinary day-sheet entries + briefs.
+
+- **Reading .docx with NO external library:** a .docx is a ZIP of WordprocessingML.
+  `_zipEntry` walks the ZIP central directory to `word/document.xml`, `_inflateRaw`
+  inflates it with the platform `DecompressionStream("deflate-raw")` (Safari 16.4+/
+  Chrome 80+ — fine on the clerk/Adith's phones), `_docxTable` parses it with
+  `DOMParser` (namespaced `w:tbl/w:tr/w:tc/w:p/w:t`; a cell's paragraphs → `\n`
+  lines). Hardened: stray `&` that isn't a valid entity is escaped before parse
+  (real Word escapes them, but a macro/paste doc may not).
+- **Clerk's layout (ground truth — matched to his real sheet):** table columns
+  `Court/Item | Time | Case Name | Judges | Advocates Name | Total matter`.
+  `Ct-1#28` → court 1, item 28. The Advocates cell: **line 1 = briefing counsel + a
+  party marker** (`(R)`,`(P)`,`-P`,`R-2`,`P`… → `_wiCounsel` sets appearingFor
+  Petitioner/Respondent); **the lines below = chamber colleagues**, `/`- or
+  `,`-separated (`Adith D/Anshula`), each matched to a uid by `_wiMatchColleague`
+  (first-name + initial fuzzy). Conferences (`2.30 - Nishant Patil`) are lifted and
+  **linked to the matter whose counsel matches the name** (sets that entry's
+  confTime); unmatched conferences become standalone daysheet.conferences rows (no
+  colleague → no ½-credit, exactly like a plain counsel meeting).
+- **Editable preview before any write** (`renderWiPreview`): every parsed matter with
+  an include checkbox, counsel+party, conf time, matched-colleague chips (removable)
+  and a "+ colleague" fixer for anything unrecognised; then "Add N to <date>".
+  `applyWordImport` reuses `findBriefForListing` (links an existing register file by
+  title, else creates one) — imported matters get credit/registered identically to
+  hand-typed ones. Blocked on senior-unavailable days like every other add.
+- Verified: jsc unit tests (counsel/party, colleague split, Ct-x#y, conf lines,
+  fuzzy name-match — 24 cases) + **full end-to-end in the demo**: a generated .docx
+  fed through the real ZIP→inflate→WordML→parse→preview→apply path produced 4 matters
+  (correct court/item, multi-line titles, counsel+party, colleagues matched to demo
+  users) and 5 conferences (4 auto-linked, 1 standalone), no console errors.
+  `sw.js` cache `chamber-shell-v22→v23`.
+
 ## Cause list (owner's "nothing would beat this" feature)
 
 Flow: SC list gets indexed once per day → clerk types **Court + Item** →

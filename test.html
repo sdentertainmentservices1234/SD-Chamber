@@ -527,6 +527,34 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .mg-row:hover{border-color:var(--accent);background:var(--accent-bg,rgba(58,90,140,.06))}
 .mg-title{font-size:13.5px;font-weight:600;color:var(--ink)}
 .mg-sub{font-size:11.5px}
+/* Word-causelist import preview */
+.spin{display:inline-block;animation:wispin 1s linear infinite}@keyframes wispin{to{transform:rotate(360deg)}}
+.wi-drop{display:flex;align-items:center;gap:12px;width:100%;padding:16px;border:1.5px dashed var(--line);border-radius:12px;background:var(--card);cursor:pointer}
+.wi-drop:hover{border-color:var(--accent);background:var(--accent-bg,rgba(58,90,140,.06))}
+.wi-summary{margin:14px 0 8px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.wi-list{display:flex;flex-direction:column;gap:8px}
+.wi-row{display:flex;gap:9px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.wi-row.off{opacity:.5}
+.wi-chk{flex:none;padding-top:2px}.wi-chk input{width:auto}
+.wi-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.wi-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.wi-ci{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--accent);flex:none}
+.wi-title{font-size:13.5px;font-weight:500;color:var(--ink)}
+.wi-warn{font-size:10.5px;color:var(--warn);background:var(--warn-bg,#fbf3e2);padding:1px 7px;border-radius:10px}
+.wi-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2)}
+.wi-k{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);flex:none;min-width:64px}
+.wi-party{font-size:10.5px;background:var(--s-assigned-bg,#e7effb);color:var(--accent);padding:1px 7px;border-radius:10px;font-weight:600}
+.wi-conf{font-size:11px;color:var(--ink-2);display:inline-flex;align-items:center;gap:2px}
+.wi-chip{display:inline-flex;align-items:center;gap:3px;font-size:12px;background:var(--chip-bg,#eef1f4);border-radius:12px;padding:2px 4px 2px 9px}
+.wi-chip.un{background:var(--warn-bg,#fbf3e2);color:#8a6d1a;padding-right:9px}
+.wi-x{border:none;background:none;cursor:pointer;font-size:14px;line-height:1;color:var(--ink-3);padding:0 3px}
+.wi-x:hover{color:var(--danger)}
+.wi-add{font-size:11.5px;padding:3px 6px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink-2)}
+.wi-conflist{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.wi-sub{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:6px}
+.wi-cfrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:3px 0}
+.wi-cfrow .mono{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--accent);min-width:44px}
+.wi-linked{font-size:10px;color:var(--ok,#3a7a52);background:var(--ok-bg,#e7f2ec);padding:1px 7px;border-radius:10px;margin-left:auto}
 .bell-badge{position:absolute;top:2px;right:2px;min-width:15px;height:15px;border-radius:8px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1}
 .notif-row{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .notif-row:last-child{border-bottom:none}
@@ -1157,6 +1185,14 @@ let approvals={};
 let courtUpdates=null, courtUpdatesAt=0;
 const COURT_UPDATES_STALE=10*60e3;   // re-fetch if older than 10 minutes
 const CAUSELIST_TYPES=["Miscellaneous","Regular","Chamber","Single Judge","Registrar","Curative & Review"];
+// --- Word-causelist import (owner Jul 2026) --------------------------------
+// Read the clerk's own daily-causelist Word (.docx) and lift each Ct-x#y matter
+// with its briefing counsel, chamber colleague(s) and conference time. Everything
+// for it lives in ONE isolated block (search "WORD-CAUSELIST IMPORT") plus this
+// flag and one button in renderToday — so it fully regresses to the prior state by
+// setting WORD_IMPORT=false (button vanishes; no data-model change) or deleting the
+// block. Nothing else in the app depends on it.
+const WORD_IMPORT = true;
 // Suggestions for the briefing-counsel field (a datalist — Staff can still type
 // any AoR / individual advocate). Firms that brief at the SC, ordered roughly.
 const LAW_FIRMS=["Karanjawala & Co.","AZB & Partners","Cyril Amarchand Mangaldas",
@@ -2992,7 +3028,7 @@ function renderToday(){
   $("pageSub").textContent = isToday? "Today · "+fmtDateY(dsDate) : fmtDateY(dsDate);
   // No Add / Import when the senior is unavailable (owner's rule) — nothing may be
   // listed for a day he isn't sitting.
-  $("topbarAction").innerHTML = (canManage()&&!senOff)? `<button class="btn ghost sm" id="tbImport"><span class="ic ti ti-file-import"></span>Import cause list</button> <button class="btn" id="tbAddDs"><span class="ic ti ti-plus"></span>Add matter</button>`:"";
+  $("topbarAction").innerHTML = (canManage()&&!senOff)? `${WORD_IMPORT?`<button class="btn ghost sm" id="tbWordImport" title="Import the clerk's Word causelist"><span class="ic ti ti-file-type-docx"></span>Import Word list</button> `:''}<button class="btn ghost sm" id="tbImport"><span class="ic ti ti-file-import"></span>Import cause list</button> <button class="btn" id="tbAddDs"><span class="ic ti ti-plus"></span>Add matter</button>`:"";
 
   const clDay=courtUpdates?.by_date?.[dsDate];
   const clStatus = clDay
@@ -3082,6 +3118,7 @@ function renderToday(){
   $("dsDateInp").onchange=e=>{ dsDate=e.target.value||todayISO(); watchDaysheet(); renderToday(); };
   if($("tbAddDs"))$("tbAddDs").onclick=()=>dsForm();
   if($("tbImport"))$("tbImport").onclick=importCauseList;
+  if($("tbWordImport"))$("tbWordImport").onclick=wordImportForm;
   if($("tbShare"))$("tbShare").onclick=shareDaySheet;
   if($("tbPrint"))$("tbPrint").onclick=()=>printCauseList(dsDate);
   if($("tbAddConf"))$("tbAddConf").onclick=()=>confForm();
@@ -3600,6 +3637,244 @@ function dsForm(idx=null){
     // straight to the share composer so the colleague(s) can be informed at once
     if(juniorUids.length && notifyBrief) notifyForm(notifyBrief.id, {...notifyBrief, assignedTo:juniorUids});
   };
+}
+
+/* ============================================================
+   WORD-CAUSELIST IMPORT  (isolated — gated by WORD_IMPORT; see the flag note)
+   Reads the clerk's daily causelist .docx (a zipped WordprocessingML file) fully
+   in-browser — no external library. A .docx is a ZIP; we pull word/document.xml,
+   inflate it with the platform DecompressionStream, parse the table, and lift each
+   Ct-x#y row → court, item, briefing counsel (+ the party marker), chamber
+   colleague(s) and the conference time. An editable preview confirms before any
+   write. To remove the feature: set WORD_IMPORT=false, or delete this block + its
+   button in renderToday. No data model or schema changes — imported rows are plain
+   day-sheet entries + briefs, identical to hand-typed ones.
+   ============================================================ */
+// ---- .docx reading (ZIP + inflate + WordML table extraction) ----
+async function _inflateRaw(bytes){
+  const ds=new DecompressionStream("deflate-raw");
+  const ab=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+  return new Uint8Array(ab);
+}
+// Pull one entry's bytes from a ZIP via its central directory (robust to data
+// descriptors, which local headers hide). Returns Uint8Array or null.
+async function _zipEntry(buf, name){
+  const dv=new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  // find End Of Central Directory (0x06054b50), scanning back from the tail
+  let eocd=-1;
+  for(let i=buf.length-22; i>=0 && i>buf.length-22-65536; i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) return null;
+  let off=dv.getUint32(eocd+16,true);                       // central dir start
+  const count=dv.getUint16(eocd+10,true);
+  for(let n=0;n<count;n++){
+    if(dv.getUint32(off,true)!==0x02014b50) break;
+    const method=dv.getUint16(off+10,true);
+    const compSize=dv.getUint32(off+20,true);
+    const fnLen=dv.getUint16(off+28,true), exLen=dv.getUint16(off+30,true), cmLen=dv.getUint16(off+32,true);
+    const lho=dv.getUint32(off+42,true);
+    const fn=new TextDecoder().decode(buf.subarray(off+46, off+46+fnLen));
+    if(fn===name){
+      const lfnLen=dv.getUint16(lho+26,true), lexLen=dv.getUint16(lho+28,true);
+      const start=lho+30+lfnLen+lexLen;
+      const data=buf.subarray(start, start+compSize);
+      return method===0 ? data.slice() : await _inflateRaw(data);
+    }
+    off += 46+fnLen+exLen+cmLen;
+  }
+  return null;
+}
+// WordprocessingML → rows of the FIRST table, each cell a string (paragraphs → \n).
+function _docxTable(xml){
+  // harden against a stray & that isn't a valid entity (Word escapes them, but a
+  // copy-pasted / macro-produced doc may not) — else the strict XML parse aborts.
+  const safe=xml.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g,"&amp;");
+  const doc=new DOMParser().parseFromString(safe,"application/xml");
+  const tbl=doc.getElementsByTagName("w:tbl")[0]; if(!tbl) return [];
+  const cellText=tc=>{
+    const lines=[];
+    for(const p of tc.getElementsByTagName("w:p")){
+      let s=""; for(const t of p.getElementsByTagName("w:t")) s+=t.textContent;
+      lines.push(s);
+    }
+    return lines.join("\n").replace(/\n{2,}/g,"\n").trim();
+  };
+  const rows=[];
+  for(const tr of tbl.getElementsByTagName("w:tr")){
+    // only this row's own cells (not cells of a nested table, which the clerk never uses)
+    const cells=[...tr.childNodes].filter(n=>n.nodeName==="w:tc").map(cellText);
+    if(cells.length) rows.push(cells);
+  }
+  return rows;
+}
+async function readDocxCauselist(file){
+  const buf=new Uint8Array(await file.arrayBuffer());
+  const xmlBytes=await _zipEntry(buf,"word/document.xml");
+  if(!xmlBytes) throw new Error("This doesn't look like a Word .docx file.");
+  const xml=new TextDecoder().decode(xmlBytes);
+  return parseClerkCauselist(_docxTable(xml), xml);
+}
+// ---- parse the clerk's layout ----
+const _wiName=s=>String(s||"").toLowerCase().replace(/\b(adv|mr|mrs|ms|dr|sr|jr)\b\.?/g," ").replace(/[^a-z ]/g," ").replace(/\s+/g," ").trim();
+// A briefing-counsel cell's first line is "Name <party>"; the marker is a trailing
+// P/R (optionally (…), -…, or a party number like R-2). Returns {counsel, party}.
+function _wiCounsel(raw){
+  let s=String(raw||"").replace(/\s+/g," ").trim(); let party="";
+  const m=s.match(/[\s(–\-]*\b([PR])\b\s*[-–)]?\s*\d*\s*$/i);
+  if(m && m.index>0){ party=/p/i.test(m[1])?"Petitioner":"Respondent"; s=s.slice(0,m.index).trim(); }
+  s=s.replace(/[\s(–\-]+$/,"").trim();
+  return {counsel:s, party};
+}
+// Map a short colleague token ("Adith D", "Anshula", "Yash") to a chamber uid.
+function _wiMatchColleague(token){
+  const t=_wiName(token); if(!t) return null;
+  const tw=t.split(" ");
+  let best=null,score=0;
+  for(const c of chamberColleagues()){
+    const n=_wiName(c.name), nw=n.split(" "); let s=0;
+    if(n===t) s=100;
+    else if(nw[0]===tw[0]){ s=60; if(tw[1]&&nw[1]&&nw[1][0]===tw[1][0]) s+=25; if(tw.length===1) s+=5; }
+    else if(nw[0].length>=4 && (nw[0].startsWith(tw[0])||tw[0].startsWith(nw[0]))) s=42;
+    if(s>score){ score=s; best=c; }
+  }
+  return score>=42 ? {id:best.id,name:best.name,score} : null;
+}
+// Split a colleague line ("Adith D/Anshula", "Arpith JV /Rishit V.") into tokens.
+const _wiColl=line=>String(line||"").split(/[\/,]/).map(x=>x.trim()).filter(Boolean);
+function parseClerkCauselist(rows, xml){
+  const matters=[];
+  // locate the header row (has "Court" and "Advocate")
+  let start=0;
+  for(let i=0;i<rows.length;i++){ const j=rows[i].join(" ").toLowerCase();
+    if(/court/.test(j)&&/advocate/.test(j)){ start=i+1; break; } }
+  for(let i=start;i<rows.length;i++){
+    const c=rows[i]; if(!c.length) continue;
+    const cm=(c[0]||"").match(/ct[\s.\-]*(\d+)\s*#\s*(\d+(?:\.\d+)?)/i);
+    if(!cm) continue;                                       // not a matter row (blank / stray)
+    const court=cm[1], item=cm[2];
+    const time=((c[1]||"").match(/\d{1,2}[.:]\d{2}/)||["10.30"])[0].replace(":",".");
+    const title=(c[2]||"").replace(/\n/g," ").replace(/\s+/g," ").trim();
+    const bench=(c[3]||"").replace(/\n/g," ").replace(/\s+/g," ").trim();
+    const advLines=String(c[4]||"").split("\n").map(x=>x.trim()).filter(Boolean);
+    const {counsel,party}=_wiCounsel(advLines[0]||"");
+    const tokens=advLines.slice(1).flatMap(_wiColl);
+    const jrs=[], unmatched=[];
+    for(const tk of tokens){ const m=_wiMatchColleague(tk); if(m&&!jrs.some(j=>j.id===m.id)) jrs.push(m); else if(!m) unmatched.push(tk); }
+    matters.push({court,item,time,title,bench,counsel,party,
+      jrs:jrs.map(j=>j.id), jrNames:jrs.map(j=>j.name), unmatched, confTime:"", include:true,
+      err: (!court||!item)?"court/item unclear":"" });
+  }
+  // conferences: after the table, lines "2.30 - Nishant Patil"
+  const confs=[];
+  const flat=(xml? xml.replace(/<[^>]+>/g," ") : rows.flat().join("\n"));
+  const text=flat.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
+  for(const line of text.split(/[\n\r]|(?=\d{1,2}[.:]\d{2}\s*[-–])/)){
+    const m=line.match(/(?:^|\s)(\d{1,2}[.:]\d{2})\s*[-–]\s*([A-Za-z][A-Za-z.\s,&]{1,40})/);
+    if(m){ const time=m[1].replace(":","."), name=m[2].replace(/\s+/g," ").trim();
+      if(name && !/case name|advocate|judges|total|supreme court/i.test(name) && !confs.some(x=>x.time===time&&x.name===name))
+        confs.push({time,name}); }
+  }
+  // link a conference to its matter by matching the conference name to the counsel
+  for(const cf of confs){
+    const cn=_wiName(cf.name.split(",")[0]);
+    const hit=matters.find(mt=>{ const mc=_wiName(mt.counsel); if(!mc||!cn) return false;
+      return mc===cn || mc.split(" ")[0]===cn.split(" ")[0]; });
+    if(hit && !hit.confTime){ hit.confTime=cf.time; cf.matched=true; }
+  }
+  return {matters, conferences:confs};
+}
+// ---- preview + apply ----
+let _wiData=null;
+function wordImportForm(){
+  if(seniorOff(dsDate)){ toast("Senior is not available on "+fmtDateY(dsDate)+" — no matter can be listed that day","ti-user-off"); return; }
+  _wiData=null;
+  openSheet(`<div class="sheet-head"><div><h3>Import Word causelist</h3><div class="sub">Read the clerk's .docx for ${esc(fmtDateY(dsDate))} — court, item, colleague, counsel &amp; conference times</div></div><button class="x-btn"><span class="ti ti-x"></span></button></div>
+    <div class="sheet-body">
+      <label class="wi-drop" id="wi_drop"><input type="file" id="wi_file" accept=".docx" hidden>
+        <span class="ti ti-file-type-docx" style="font-size:26px;color:var(--accent)"></span>
+        <span><b style="font-weight:600">Choose the Word file</b><br><span class="muted" style="font-size:12px">the clerk's daily causelist (.docx)</span></span></label>
+      <div id="wi_res"></div>
+    </div>`);
+  $("wi_drop").onclick=()=>$("wi_file").click();
+  $("wi_file").onchange=async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    $("wi_res").innerHTML=`<div class="muted" style="padding:14px 2px"><span class="ti ti-loader-2 spin"></span> Reading ${esc(f.name)}…</div>`;
+    try{ _wiData=await readDocxCauselist(f); renderWiPreview(); }
+    catch(err){ $("wi_res").innerHTML=`<div class="empty"><span class="ic ti ti-alert-triangle"></span>${esc(err.message||String(err))}</div>`; }
+  };
+}
+function renderWiPreview(){
+  const d=_wiData; if(!d){ return; }
+  const cols=chamberColleagues();
+  const collSel=(mi)=>`<select class="wi-add" data-mi="${mi}"><option value="">+ colleague</option>${cols.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select>`;
+  const nInc=d.matters.filter(m=>m.include&&m.court&&m.item).length;
+  const rows=d.matters.map((m,i)=>`<div class="wi-row ${m.include?'':'off'}">
+    <label class="wi-chk"><input type="checkbox" data-inc="${i}" ${m.include?'checked':''}></label>
+    <div class="wi-main">
+      <div class="wi-top"><span class="wi-ci">Ct ${esc(m.court||'?')} · #${esc(m.item||'?')}</span>
+        <span class="wi-title">${esc(m.title||'(no title)')}</span>${m.err?`<span class="wi-warn">${esc(m.err)}</span>`:''}</div>
+      <div class="wi-line"><span class="wi-k">Counsel</span> ${esc(m.counsel||'—')}${m.party?` <span class="wi-party">${esc(m.party)}</span>`:''}${m.confTime?` <span class="wi-conf"><span class="ti ti-clock" style="font-size:11px"></span>${esc(m.confTime)}</span>`:''}</div>
+      <div class="wi-line"><span class="wi-k">Colleagues</span>
+        ${m.jrs.map((id,ji)=>`<span class="wi-chip">${esc(nameOf(id))}<button class="wi-x" data-rm="${i}:${id}">×</button></span>`).join("")}
+        ${m.unmatched.map(tk=>`<span class="wi-chip un" title="not recognised">${esc(tk)} ?</span>`).join("")}
+        ${collSel(i)}
+      </div>
+    </div>
+  </div>`).join("");
+  const confRows=d.conferences.length?`<div class="wi-conflist"><div class="wi-sub">Conferences (${d.conferences.length})</div>${d.conferences.map(c=>`<div class="wi-cfrow"><span class="mono">${esc(c.time)}</span><span>${esc(c.name)}</span>${c.matched?'<span class="wi-linked">linked</span>':''}</div>`).join("")}</div>`:'';
+  $("wi_res").innerHTML=`<div class="wi-summary">${d.matters.length} matter${d.matters.length!==1?'s':''} · ${d.conferences.length} conference${d.conferences.length!==1?'s':''} found</div>
+    <div class="wi-list">${rows||'<div class="empty">No Ct-x#y matters recognised in this file.</div>'}</div>
+    ${confRows}
+    <div style="margin-top:16px"><button class="btn" id="wi_add" ${nInc?'':'disabled'}><span class="ic ti ti-plus"></span>Add ${nInc} matter${nInc!==1?'s':''} to ${esc(fmtDateY(dsDate))}</button></div>`;
+  document.querySelectorAll("[data-inc]").forEach(x=>x.onchange=()=>{ _wiData.matters[+x.dataset.inc].include=x.checked; renderWiPreview(); });
+  document.querySelectorAll("[data-rm]").forEach(x=>x.onclick=()=>{ const [i,id]=x.dataset.rm.split(":"); const m=_wiData.matters[+i]; m.jrs=m.jrs.filter(j=>j!==id); renderWiPreview(); });
+  document.querySelectorAll(".wi-add").forEach(sel=>sel.onchange=()=>{ const m=_wiData.matters[+sel.dataset.mi]; if(sel.value&&!m.jrs.includes(sel.value)) m.jrs.push(sel.value); renderWiPreview(); });
+  if($("wi_add"))$("wi_add").onclick=applyWordImport;
+}
+async function applyWordImport(){
+  const d=_wiData; if(!d) return;
+  if(seniorOff(dsDate)){ toast("Senior is not available on "+fmtDateY(dsDate)+" — no matter can be listed that day","ti-user-off"); return; }
+  const date=dsDate;
+  const arr=[...(dsAll[date]?.entries||[])];
+  const use=d.matters.filter(m=>m.include&&m.court&&m.item);
+  for(const m of use){
+    const entry={ briefId:null, caseTitle:m.title||"", courtNo:String(m.court), itemNo:String(m.item),
+      listType:"", appearingFor:m.party||"", time:m.time||"10.30",
+      confTime:m.confTime||"", confDate:m.confTime?date:"", bench:m.bench||"", counsel:m.counsel||"", caseNo:"",
+      awaitingList:false, juniorUids:m.jrs.slice(), juniorUid:m.jrs[0]||null, remarks:"", done:false };
+    const brief=findBriefForListing(entry,"","");            // link an existing register file by title
+    if(brief){
+      entry.briefId=brief.id;
+      const patch={updatedAt:db.now()};
+      if(!brief.caseTitle && entry.caseTitle) patch.caseTitle=entry.caseTitle;
+      if(!brief.aor && entry.counsel) patch.aor=entry.counsel;
+      if(!brief.appearingFor && entry.appearingFor) patch.appearingFor=entry.appearingFor;
+      if(entry.juniorUids.length){ const a=[...new Set([...(brief.assignedTo||[]),...entry.juniorUids])];
+        patch.assignedTo=a; patch.everAssigned=[...new Set([...(brief.everAssigned||[]),...entry.juniorUids])];
+        patch.ackBy=[...new Set([...(brief.ackBy||[]),...entry.juniorUids])]; }
+      if(["received","assigned"].includes(brief.status)) patch.status="listed";
+      patch.nextDate=date; if(entry.confTime) patch.conferenceAt=date;
+      try{ await db.update("briefs/"+brief.id,patch); }catch(_){}
+    } else {
+      const jr=entry.juniorUids;
+      const nb={ caseTitle:entry.caseTitle||"(from causelist)", caseNo:"", diaryNo:"", matterType:"Other court / tribunal",
+        appearingFor:entry.appearingFor||"", aor:entry.counsel||"", chamberNo:"",
+        assignedTo:jr.slice(), everAssigned:jr.slice(), ackBy:jr.slice(), declinedBy:[],
+        assignHistory:jr.map(u=>({uid:u,at:Date.now(),by:me.uid,mode:"listed"})),
+        status:"listed", priority:false, nextDate:date, detailsAwaited:true,
+        conferenceAt:entry.confTime?date:null, fromListing:true, wordImport:true,
+        createdBy:me.uid, createdAt:db.now(), updatedAt:db.now() };
+      try{ entry.briefId=await db.add("briefs",nb); }catch(_){}
+    }
+    arr.push(entry);
+  }
+  // conferences the parser couldn't tie to a matter → keep as standalone rows (no
+  // colleague, so no ½-credit — these are counsel meetings, exactly like today's).
+  const confs=[...(dsAll[date]?.conferences||[])];
+  for(const cf of d.conferences){ if(cf.matched) continue;
+    if(!confs.some(x=>x.time===cf.time && (x.name||"")===cf.name)) confs.push({date,time:cf.time,name:cf.name,briefId:null,juniorUids:[]}); }
+  try{ await db.set("daysheets/"+date,{date,entries:byCourt(arr,date),conferences:confs,updatedAt:db.now(),updatedBy:me.uid},true); }catch(_){}
+  closeSheet();
+  toast(`Imported ${use.length} matter${use.length!==1?'s':''} from the Word list`,"ti-file-check");
 }
 
 function importCauseList(){
