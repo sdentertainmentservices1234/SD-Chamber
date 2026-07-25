@@ -552,9 +552,14 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .wi-add{font-size:11.5px;padding:3px 6px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink-2)}
 .wi-conflist{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
 .wi-sub{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:6px}
-.wi-cfrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:3px 0}
+.wi-cfrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:4px 0;flex-wrap:wrap}
 .wi-cfrow .mono{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--accent);min-width:44px}
-.wi-linked{font-size:10px;color:var(--ok,#3a7a52);background:var(--ok-bg,#e7f2ec);padding:1px 7px;border-radius:10px;margin-left:auto}
+.wi-cfname{flex:1;min-width:90px}
+.wi-linked{font-size:10px;color:var(--ok,#3a7a52);background:var(--ok-bg,#e7f2ec);padding:1px 7px;border-radius:10px}
+.wi-standalone{font-size:10px;color:var(--ink-3);background:var(--chip-bg,#eef1f4);padding:1px 7px;border-radius:10px}
+.wi-cfdate{font-size:11.5px;padding:3px 6px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+.wi-bulk{font-size:11px;padding:2px 9px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--accent);cursor:pointer}
+.wi-bulk:hover{border-color:var(--accent);background:var(--accent-bg,rgba(58,90,140,.06))}
 .bell-badge{position:absolute;top:2px;right:2px;min-width:15px;height:15px;border-radius:8px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1}
 .notif-row{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .notif-row:last-child{border-bottom:none}
@@ -3773,12 +3778,15 @@ function parseClerkCauselist(rows, xml){
       if(name && !/case name|advocate|judges|total|supreme court/i.test(name) && !confs.some(x=>x.time===time&&x.name===name))
         confs.push({time,name}); }
   }
-  // link a conference to its matter by matching the conference name to the counsel
+  // link a conference to its matter by matching the conference name to the counsel.
+  // date starts null → the preview defaults it to the listing day, and the user can
+  // move any conference to another day (the clerk's list mixes eve-before + day-of).
   for(const cf of confs){
+    cf.date=null;
     const cn=_wiName(cf.name.split(",")[0]);
-    const hit=matters.find(mt=>{ const mc=_wiName(mt.counsel); if(!mc||!cn) return false;
+    const idx=matters.findIndex(mt=>{ const mc=_wiName(mt.counsel); if(!mc||!cn) return false;
       return mc===cn || mc.split(" ")[0]===cn.split(" ")[0]; });
-    if(hit && !hit.confTime){ hit.confTime=cf.time; cf.matched=true; }
+    if(idx>=0 && !matters[idx].confTime){ matters[idx].confTime=cf.time; cf.matched=true; cf.matterIdx=idx; }
   }
   return {matters, conferences:confs};
 }
@@ -3812,7 +3820,7 @@ function renderWiPreview(){
     <div class="wi-main">
       <div class="wi-top"><span class="wi-ci">Ct ${esc(m.court||'?')} · #${esc(m.item||'?')}</span>
         <span class="wi-title">${esc(m.title||'(no title)')}</span>${m.err?`<span class="wi-warn">${esc(m.err)}</span>`:''}</div>
-      <div class="wi-line"><span class="wi-k">Counsel</span> ${esc(m.counsel||'—')}${m.party?` <span class="wi-party">${esc(m.party)}</span>`:''}${m.confTime?` <span class="wi-conf"><span class="ti ti-clock" style="font-size:11px"></span>${esc(m.confTime)}</span>`:''}</div>
+      <div class="wi-line"><span class="wi-k">Counsel</span> ${esc(m.counsel||'—')}${m.party?` <span class="wi-party">${esc(m.party)}</span>`:''}${(()=>{const cf=d.conferences.find(c=>c.matterIdx===i);return m.confTime?` <span class="wi-conf"><span class="ti ti-clock" style="font-size:11px"></span>${esc(m.confTime)}${cf&&cf.date&&cf.date!==dsDate?` · ${esc(fmtDateY(cf.date))}`:''}</span>`:'';})()}</div>
       <div class="wi-line"><span class="wi-k">Colleagues</span>
         ${m.jrs.map((id,ji)=>`<span class="wi-chip">${esc(nameOf(id))}<button class="wi-x" data-rm="${i}:${id}">×</button></span>`).join("")}
         ${m.unmatched.map(tk=>`<span class="wi-chip un" title="not recognised">${esc(tk)} ?</span>`).join("")}
@@ -3820,7 +3828,22 @@ function renderWiPreview(){
       </div>
     </div>
   </div>`).join("");
-  const confRows=d.conferences.length?`<div class="wi-conflist"><div class="wi-sub">Conferences (${d.conferences.length})</div>${d.conferences.map(c=>`<div class="wi-cfrow"><span class="mono">${esc(c.time)}</span><span>${esc(c.name)}</span>${c.matched?'<span class="wi-linked">linked</span>':''}</div>`).join("")}</div>`:'';
+  // each conference carries its own DATE (the clerk's list mixes the eve-before and
+  // the day-of). Default to the listing day; the two quick buttons bulk-set, and each
+  // row's date picker overrides one. A linked conference's date rides onto its matter.
+  d.conferences.forEach(c=>{ if(!c.date) c.date=dsDate; });
+  const prevDay=(()=>{ const dt=new Date(dsDate+"T00:00"); dt.setDate(dt.getDate()-1); return dt.toLocaleDateString('en-CA'); })();
+  const confRows=d.conferences.length?`<div class="wi-conflist">
+    <div class="wi-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">Conferences (${d.conferences.length})
+      <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">— set the day each is held:</span>
+      <button class="wi-bulk" data-alld="${prevDay}">all → ${esc(fmtDateY(prevDay))} (eve before)</button>
+      <button class="wi-bulk" data-alld="${dsDate}">all → ${esc(fmtDateY(dsDate))}</button></div>
+    ${d.conferences.map((c,i)=>`<div class="wi-cfrow">
+      <span class="mono">${esc(c.time)}</span>
+      <span class="wi-cfname">${esc(c.name)}</span>
+      ${c.matched?`<span class="wi-linked">→ Ct-${esc(d.matters[c.matterIdx]?.court||'?')}#${esc(d.matters[c.matterIdx]?.item||'?')}</span>`:'<span class="wi-standalone">on its own</span>'}
+      <input type="date" class="wi-cfdate" data-cfd="${i}" value="${esc(c.date)}">
+    </div>`).join("")}</div>`:'';
   $("wi_res").innerHTML=`<div class="wi-summary">${d.matters.length} matter${d.matters.length!==1?'s':''} · ${d.conferences.length} conference${d.conferences.length!==1?'s':''} found</div>
     <div class="wi-list">${rows||'<div class="empty">No Ct-x#y matters recognised in this file.</div>'}</div>
     ${confRows}
@@ -3828,18 +3851,23 @@ function renderWiPreview(){
   document.querySelectorAll("[data-inc]").forEach(x=>x.onchange=()=>{ _wiData.matters[+x.dataset.inc].include=x.checked; renderWiPreview(); });
   document.querySelectorAll("[data-rm]").forEach(x=>x.onclick=()=>{ const [i,id]=x.dataset.rm.split(":"); const m=_wiData.matters[+i]; m.jrs=m.jrs.filter(j=>j!==id); renderWiPreview(); });
   document.querySelectorAll(".wi-add").forEach(sel=>sel.onchange=()=>{ const m=_wiData.matters[+sel.dataset.mi]; if(sel.value&&!m.jrs.includes(sel.value)) m.jrs.push(sel.value); renderWiPreview(); });
+  document.querySelectorAll("[data-cfd]").forEach(inp=>inp.onchange=()=>{ _wiData.conferences[+inp.dataset.cfd].date=inp.value||dsDate; renderWiPreview(); });
+  document.querySelectorAll("[data-alld]").forEach(b=>b.onclick=()=>{ const dv=b.dataset.alld; _wiData.conferences.forEach(c=>c.date=dv); renderWiPreview(); });
   if($("wi_add"))$("wi_add").onclick=applyWordImport;
 }
 async function applyWordImport(){
   const d=_wiData; if(!d) return;
   if(seniorOff(dsDate)){ toast("Senior is not available on "+fmtDateY(dsDate)+" — no matter can be listed that day","ti-user-off"); return; }
   const date=dsDate;
+  // carry each conference's chosen date onto its linked matter, so the matter's
+  // conference lands on the day the clerk actually holds it (eve-before or day-of).
+  for(const cf of d.conferences){ if(cf.matched && cf.matterIdx!=null && d.matters[cf.matterIdx]) d.matters[cf.matterIdx].confDate=cf.date||date; }
   const arr=[...(dsAll[date]?.entries||[])];
   const use=d.matters.filter(m=>m.include&&m.court&&m.item);
   for(const m of use){
     const entry={ briefId:null, caseTitle:m.title||"", courtNo:String(m.court), itemNo:String(m.item),
       listType:"", appearingFor:m.party||"", time:m.time||"10.30",
-      confTime:m.confTime||"", confDate:m.confTime?date:"", bench:m.bench||"", counsel:m.counsel||"", caseNo:"",
+      confTime:m.confTime||"", confDate:m.confTime?(m.confDate||date):"", bench:m.bench||"", counsel:m.counsel||"", caseNo:"",
       awaitingList:false, juniorUids:m.jrs.slice(), juniorUid:m.jrs[0]||null, remarks:"", done:false };
     const brief=findBriefForListing(entry,"","");            // link an existing register file by title
     if(brief){
@@ -3852,7 +3880,7 @@ async function applyWordImport(){
         patch.assignedTo=a; patch.everAssigned=[...new Set([...(brief.everAssigned||[]),...entry.juniorUids])];
         patch.ackBy=[...new Set([...(brief.ackBy||[]),...entry.juniorUids])]; }
       if(["received","assigned"].includes(brief.status)) patch.status="listed";
-      patch.nextDate=date; if(entry.confTime) patch.conferenceAt=date;
+      patch.nextDate=date; if(entry.confTime) patch.conferenceAt=entry.confDate||date;
       try{ await db.update("briefs/"+brief.id,patch); }catch(_){}
     } else {
       const jr=entry.juniorUids;
@@ -3870,8 +3898,8 @@ async function applyWordImport(){
   // conferences the parser couldn't tie to a matter → keep as standalone rows (no
   // colleague, so no ½-credit — these are counsel meetings, exactly like today's).
   const confs=[...(dsAll[date]?.conferences||[])];
-  for(const cf of d.conferences){ if(cf.matched) continue;
-    if(!confs.some(x=>x.time===cf.time && (x.name||"")===cf.name)) confs.push({date,time:cf.time,name:cf.name,briefId:null,juniorUids:[]}); }
+  for(const cf of d.conferences){ if(cf.matched) continue; const cdate=cf.date||date;
+    if(!confs.some(x=>x.time===cf.time && (x.name||"")===cf.name && (x.date||date)===cdate)) confs.push({date:cdate,time:cf.time,name:cf.name,briefId:null,juniorUids:[]}); }
   try{ await db.set("daysheets/"+date,{date,entries:byCourt(arr,date),conferences:confs,updatedAt:db.now(),updatedBy:me.uid},true); }catch(_){}
   closeSheet();
   toast(`Imported ${use.length} matter${use.length!==1?'s':''} from the Word list`,"ti-file-check");

@@ -519,6 +519,15 @@ changes**; imported rows are ordinary day-sheet entries + briefs.
   **linked to the matter whose counsel matches the name** (sets that entry's
   confTime); unmatched conferences become standalone daysheet.conferences rows (no
   colleague → no ½-credit, exactly like a plain counsel meeting).
+- **Per-conference DATE (owner Jul 2026):** the clerk's flat conference list has no
+  dates but the meetings span the eve-before and the day-of. The preview gives every
+  conference a date picker (default = the listing day) plus two bulk buttons ("all →
+  eve before", "all → day-of"). A linked conference's chosen date rides onto its
+  matter's `confDate` (so the matter's conference lands on the right day); a
+  standalone one is stored with that `date`. The day sheet already groups conferences
+  by date, so a mixed set shows under separate day headings (e.g. Fri 24th + Sat
+  25th). Verified live: moving two of the 13 confs to the day-before regrouped them
+  under a 24 Jul heading while the rest stayed on 25 Jul.
 - **Editable preview before any write** (`renderWiPreview`): every parsed matter with
   an include checkbox, counsel+party, conf time, matched-colleague chips (removable)
   and a "+ colleague" fixer for anything unrecognised; then "Add N to <date>".
