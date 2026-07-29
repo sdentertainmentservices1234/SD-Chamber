@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-28T18:59:25.514115Z",
+  "generated_at": "2026-07-29T11:37:47.635015Z",
   "parser_version": 8,
   "window": [
     "2026-07-29",
@@ -25,6 +25,7 @@
         "Chamber (main)",
         "Chamber (supp)",
         "Single Judge (main)",
+        "Single Judge (supp)",
         "Registrar (main)",
         "Registrar (supp)",
         "Curative & Review (main)"
@@ -3233,7 +3234,7 @@
         "Regular": {
           "1": {
             "coram": "HON'BLE THE CHIEF JUSTICE HON'BLE MR. JUSTICE JOYMALYA BAGCHI HON'BLE MRS. JUSTICE V. MOHANA",
-            "total": "21",
+            "total": "22",
             "fresh": "",
             "items": {
               "101": "C.A. No. 329-330/2004 GHAZI SAADUDDIN VERSUS STATE OF MAHARAHSTRA THR. SECY AND ORS.",
@@ -3437,6 +3438,7 @@
               "119.13": "C.A. No. 799/2014 RASILA S MEHTA VERSUS CUSTODIAN AND ORS.",
               "119.14": "C.A. No. 9880/2016 RASILA S. MEHTA AND ANR. VERSUS CUSTODIAN AND ORS.",
               "120": "Crl.A. No. 695/2015 STATE OF KARNATAKA VERSUS MANJU @ MANJUNATH",
+              "121": "C.A. No. BHARAT ALUMINIUM CO.LTD. VERSUS M/S ENG.PROJECTS(I)LTD.. AND ORS.",
               "1501": "W.P.(C) No. 1394/2023 VANASHAKTI VERSUS UNION OF INDIA"
             },
             "advocates": {
@@ -3507,12 +3509,16 @@
                 "pet": "D. L. CHIDANANDA",
                 "resp": "KUNAL CHATTERJI"
               },
+              "121": {
+                "pet": "P. S. SUDHEER",
+                "resp": "AMBHOJ KUMAR SINHA MADHULIKA UPADHYAY"
+              },
               "1501": {
                 "pet": "A. VENAYAGAM BALAN"
               }
             },
             "main": 20,
-            "supp": 1
+            "supp": 2
           },
           "2": {
             "coram": "HON'BLE MR. JUSTICE VIKRAM NATH HON'BLE MR. JUSTICE SANDEEP MEHTA",
@@ -6385,7 +6391,7 @@
           },
           "14": {
             "coram": "HON'BLE MR. JUSTICE ARUN PALLI",
-            "total": "15",
+            "total": "16",
             "fresh": "",
             "items": {
               "1601": "T.P.(C) No. 2067/2026 PRIYANKA KUMARI VERSUS ABHISHEK CHOUDHARY",
@@ -6402,7 +6408,8 @@
               "1612": "T.P.(Crl.) No. 716/2026 SHIVKANT VERSUS STATE OF UTTAR PRADESH AND ANR.",
               "1613": "T.P.(Crl.) No. 707/2026 SHAKUNTLA CHAURASIA AND ORS. VERSUS THE STATE (NCT OF DELHI)",
               "1614": "T.P.(Crl.) No. 732/2026 MIPASA AND ANR. VERSUS UGRO CAPITAL LIMITED",
-              "1615": "T.P.(Crl.) No. 734/2026 LOKNEESH PITAMBER SINGH VERSUS JOYTI CHAHAR"
+              "1615": "T.P.(Crl.) No. 734/2026 LOKNEESH PITAMBER SINGH VERSUS JOYTI CHAHAR",
+              "1616": "T.P.(Crl.) No. 679/2026 MIPASA AND ANR. VERSUS UGRO CAPITAL LIMITED"
             },
             "advocates": {
               "1601": {
@@ -6449,10 +6456,13 @@
               },
               "1615": {
                 "pet": "SHASHI SHEKHAR PANDEY"
+              },
+              "1616": {
+                "pet": "AJAY VIKRAM SINGH"
               }
             },
             "main": 15,
-            "supp": 0
+            "supp": 1
           }
         },
         "Registrar": {
@@ -16383,7 +16393,7 @@
       "M_J_1": 769015,
       "M_J_2": 584890,
       "F_J_1": 913510,
-      "F_J_2": 660061,
+      "F_J_2": 661994,
       "M_C_1": 540960,
       "M_C_2": 505364,
       "M_S_1": 514482,
