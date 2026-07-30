@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-30T15:50:01.806497Z",
+  "generated_at": "2026-07-30T17:15:46.503656Z",
   "parser_version": 8,
   "window": [
     "2026-07-30",
@@ -6921,7 +6921,8 @@
         "Chamber (supp)",
         "Single Judge (main)",
         "Single Judge (supp)",
-        "Registrar (main)"
+        "Registrar (main)",
+        "Registrar (supp)"
       ],
       "lists": {
         "Miscellaneous": {
@@ -13440,7 +13441,7 @@
           },
           "2": {
             "coram": "MS. GRACY L. BAWITLUNG, REGISTRAR",
-            "total": "41",
+            "total": "42",
             "fresh": "",
             "items": {
               "1": "Diary No. 49823-2024 INDIRABEN KRISHANLAL SEVAK AND ANR. VERSUS TRUSTEES OF DAKOR TEMPLE COMMITTEE AND",
@@ -13469,7 +13470,7 @@
               "14": "SLP(C) No. 31873/2025 GOLDEN EDUCATION TRUST VERSUS ESAKKIAMMAL AND ORS.",
               "14.1": "Connected GOLDEN EDUCATIONAL TRUST AND ORS. VERSUS TAMIL NADU WAKF BOARD AND ORS.",
               "15": "T.P.(C) No. 3129/2025 VARTIKA VERSUS YASH JAYAPRAKASH SHARMA",
-              "16": "T.P.(Crl.) No. PREETI VERSUS GAURAV SINGH AND ORS.",
+              "16": "Vs. RAHUL GUPTA",
               "17": "SLP(C) No. 37679/2025 KARNATAKA NIRAVARI NIGAMA LIMITED VERSUS NINGAPPA AND ORS.",
               "17.1": "Connected THE EXECUTIVE ENGINEER, KARNATAKA VERSUS DHAREPPA AND ORS.",
               "18": "T.P.(C) No. 3235/2025 NAMITA BHARTI VERSUS ROHIT BARSEWAL",
@@ -13479,7 +13480,7 @@
               "22": "SLP(C) No. 15837/2026 ANITA CHITNIS VERSUS KALAISELVI MOHAN AND ORS.",
               "23": "Diary No. 73227-2025 PURNESH KUMAR SAHU AND ORS. VERSUS STATE OF CHHATTISGARH AND ORS.",
               "24": "SLP(C) No. 13335/2026 THE ORIENTAL INSURANCE CO. LTD. VERSUS AHILYA SAHU AND ORS.",
-              "25": "SLP(C) No. 5582/2026 G VENKATARAMAKRISHNA RAO VERSUS A.V. SRIDHAR REDDY AND ORS.",
+              "25": "Vs. [CAVEAT] , NIKILESH",
               "26": "SLP(C) No. 10162/2026 GREATER NOIDA INDUSTRIAL DEVELOPMENT VERSUS M/S TANISHA BUILDER (P) LTD AND ORS.",
               "27": "SLP(Crl) No. THE STATE OF MADHYA PRADESH VERSUS SOSAN MINZ",
               "27.1": "Connected THE STATE OF MADHYA PRADESH NOW VERSUS SOSAN MINZ ETC.",
@@ -13503,7 +13504,9 @@
               "39": "SLP(Crl) No. LAKHANLAL KUSHWAHA VERSUS STATE OF MADHYA PRADESH AND ANR.",
               "40": "SLP(C) No. 20587/2022 M/S. EXPERION DEVELOPERS PVT. LTD. VERSUS THE STATE OF HARYANA AND ORS.",
               "40.1": "Connected M/S EXPERION DEVELOPERS PVT. LTD VERSUS NARESH ARORA AND ANR.",
-              "41": "ORGNL.SUIT No. STATE OF RAJASTHAN VERSUS STATE OF PUNJAB AND ORS."
+              "41": "ORGNL.SUIT No. STATE OF RAJASTHAN VERSUS STATE OF PUNJAB AND ORS.",
+              "42": "T.P.(C) No. 3525/2025 RUBI NAVEEN KAPOOR VERSUS ANITA SHAM SIBAL",
+              "42.1": "Connected RUBI NAVEEN KAPOOR VERSUS ANITA SHAM SIBAL"
             },
             "advocates": {
               "1": {
@@ -13723,10 +13726,17 @@
               },
               "41": {
                 "pet": "NIDHI JASWAL"
+              },
+              "42": {
+                "pet": "DAGA SACHIN SUBHASH",
+                "resp": "KANCHAN KAUR DHODI"
+              },
+              "42.1": {
+                "pet": "DAGA SACHIN SUBHASH"
               }
             },
             "main": 41,
-            "supp": 0
+            "supp": 1
           }
         }
       }
@@ -19960,7 +19970,8 @@
       "M_C_2": 507327,
       "M_S_1": 533042,
       "M_S_2": 506748,
-      "M_R_1": 534728
+      "M_R_1": 534728,
+      "M_R_2": 506582
     },
     "2026-08-03": {
       "M_J_1": 949477,
