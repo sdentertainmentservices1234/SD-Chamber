@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-01T14:51:01.912894Z",
+  "generated_at": "2026-08-01T15:51:21.587177Z",
   "parser_version": 8,
   "window": [
     "2026-08-03",
@@ -14234,6 +14234,7 @@
       "lists_found": [
         "Miscellaneous (main)",
         "Regular (main)",
+        "Chamber (main)",
         "Single Judge (main)",
         "Registrar (main)"
       ],
@@ -19101,6 +19102,135 @@
             "supp": 0
           }
         },
+        "Chamber": {
+          "17": {
+            "coram": "HON'BLE MR. JUSTICE SHEEL NAGU",
+            "total": "25",
+            "fresh": "",
+            "items": {
+              "1701": "Diary No. 11186-2026 SEVARAM JANGDE AND ANR. VERSUS STATE OF CHHATTISGARH",
+              "1702": "SLP(Crl) No. 6057/2019 HARYANA SHEHRI VIKAS PRADHIKARAN VERSUS DHARAM SINGH YADAV AND ORS.",
+              "1703": "SLP(C) No. 14442/2023 RAMESH VERSUS RATHNAMMA AND ORS.",
+              "1704": "SLP(C) No. 15192/2024 STATE OF ODISHA AND ORS. VERSUS PRAFULLA KUMAR PRADHAN",
+              "1705": "SLP(Crl) No. 6405/2023 M/S NTH PIXEL FACTORY PRIVATE LIMITED VERSUS THE STATE OF UTTAR PRADESH AND ORS.",
+              "1706": "SLP(C) No. 5332/2024 RAGHUVAR DUTT MAULAKHI AND ORS. VERSUS THE STATE OF UTTARAKHAND AND ORS.",
+              "1707": "Crl.A. No. 5455/2024 VIRENDRA SINGH @ VIJENDRA VERSUS THE STATE OF UTTAR PRADESH AND ANR.",
+              "1708": "SLP(C) No. 7549/2023 SANJAY SHARMA (GOUR) DIED THR. LRS. VERSUS OMPRAKASH THAKUR AND ORS.",
+              "1709": "SLP(C) No. MEGHRAJ AND ORS. VERSUS ANAND AND ORS.",
+              "1710": "SLP(C) No. 14549/2023 THE PRINCIPAL COMMISSIONER OF INCOME TAX 1 VERSUS M/S. POSCO INDIA PVT. LTD.",
+              "1711": "SLP(C) No. MANISH KUMAR AND ORS. VERSUS ARUN KUMAR SAHU AND ORS.",
+              "1712": "C.A. No. THE BOARD OF MAJOR PORT AUTHORITY FOR VERSUS HINDUSTAN STEEL WORKS CONSTRUCTION",
+              "1713": "Diary No. 23958-2023 BHEEMAPPA SINCE DECEASED BY HIS LR. RAMESH VERSUS SHEELA AND ORS.",
+              "1714": "SLP(C) No. 24430/2023 SANTE VERSUS CHHAJU (SINCE DECEASED) THROUGH LR AND ORS.",
+              "1715": "SLP(C) No. GANESH VERSUS HIRAMAN AND ORS.",
+              "1716": "SLP(C) No. 19709/2023 NAVNATH RAMCHANDRA DESHMUKH VERSUS ASSISTANT CHARITY COMMISSIONER-I AND ORS.",
+              "1717": "SLP(C) No. 26465/2023 SANTOSH GOGYA VERSUS ASHOK KUMAR DULHANI AND ORS.",
+              "1718": "SLP(C) No. 28383/2023 U.T. OF JAMMU AND KASHMIR VERSUS MOHAMMAD SHARIEF KHAN AND ORS.",
+              "1719": "SLP(C) No. 27251/2023 MEHAR SINGH VERSUS SUDESH RANI AND ORS.",
+              "1720": "SLP(C) No. 8626/2024 SAROJ DEVI VERSUS PARMESH CHANDRA AND ANR.",
+              "1721": "SLP(C) No. 17796/2024 THE STATE OF BIHAR AND ORS. VERSUS M/S NONPAREIL CONSTRUCTIONS LLP",
+              "1722": "SLP(C) No. 4694/2024 MADAN LAL AND ANR. VERSUS UNION OF INDIA AND ORS.",
+              "1723": "SLP(C) No. 6644/2024 BAL KRISHNA VERSUS SMT. KUSUM TIWARI AND ORS.",
+              "1724": "C.A. No. 4851/2024 R.TAMILSELVI VERSUS HDFC STANDARD LIFE AT GROUP OPERATIONS",
+              "1725": "SLP(C) No. 12108/2024 BHUPENDRA SINGH VERSUS MINISTRY OF POWER AND ORS."
+            },
+            "advocates": {
+              "1701": {
+                "pet": "KAUSTUBH SHUKLA"
+              },
+              "1702": {
+                "pet": "B. K. SATIJA",
+                "resp": "DEEPAK GOEL ANKOLEKAR GURUDATTA"
+              },
+              "1703": {
+                "pet": "ANURADHA MUTATKAR"
+              },
+              "1704": {
+                "pet": "DIVYA ROY",
+                "resp": "BHABNA DAS"
+              },
+              "1705": {
+                "pet": "R. SUDHAKARAN",
+                "resp": "VIJENDRA SINGH PAREKH & CO"
+              },
+              "1706": {
+                "pet": "NARENDER KUMAR VERMA",
+                "resp": "THOMAS OOMMEN"
+              },
+              "1707": {
+                "pet": "SADASHIV"
+              },
+              "1708": {
+                "pet": "KAUSTUBH SHUKLA",
+                "resp": "VMZ CHAMBERS VISHAL PRASAD"
+              },
+              "1709": {
+                "pet": "S-LEGAL ASSOCIATES",
+                "resp": "ANKOLEKAR GURUDATTA"
+              },
+              "1710": {
+                "pet": "SUDARSHAN LAMBA"
+              },
+              "1711": {
+                "pet": "VENKITA SUBRAMONIAM",
+                "resp": "K. SARADA DEVI"
+              },
+              "1712": {
+                "pet": "ASTHA SHARMA",
+                "resp": "CHARULATA CHAUDHARY"
+              },
+              "1713": {
+                "pet": "ANIRUDH SANGANERIA",
+                "resp": "DHARMAPRABHAS LAW ASSOCIATES"
+              },
+              "1714": {
+                "pet": "SAROJ TRIPATHI",
+                "resp": "SARVAM RITAM KHARE"
+              },
+              "1715": {
+                "pet": "VATSALYA VIGYA",
+                "resp": "SANDEEP SUDHAKAR DESHMUKH"
+              },
+              "1716": {
+                "pet": "AAKARSH KAMRA",
+                "resp": "ANAND DILIP LANDGE AADITYA ANIRUDDHA PANDE"
+              },
+              "1717": {
+                "pet": "AKSHAT SHRIVASTAVA",
+                "resp": "K. KRISHNA KUMAR SAMEER SHRIVASTAVA"
+              },
+              "1718": {
+                "pet": "PASHUPATHI NATH RAZDAN",
+                "resp": "SHUBHAM SAIGAL"
+              },
+              "1720": {
+                "pet": "SOUMIK GHOSAL",
+                "resp": "D. K. DEVESH"
+              },
+              "1721": {
+                "pet": "SAMIR ALI KHAN",
+                "resp": "SIDDARTH AGARWAL"
+              },
+              "1722": {
+                "pet": "PANKHURI BHARDWAJ",
+                "resp": "PRIYA PURI , N VISAKAMURTHY"
+              },
+              "1723": {
+                "pet": "SANCHIT GARGA"
+              },
+              "1724": {
+                "pet": "M. A. CHINNASAMY",
+                "resp": "ABID ALI BEERAN P"
+              },
+              "1725": {
+                "pet": "PRAVEEN SWARUP",
+                "resp": "ADARSH TRIPATHI"
+              }
+            },
+            "main": 25,
+            "supp": 0
+          }
+        },
         "Single Judge": {
           "17": {
             "coram": "HON'BLE MR. JUSTICE SHEEL NAGU",
@@ -19803,6 +19933,7 @@
     "2026-08-05": {
       "M_J_1": 775194,
       "F_J_1": 967633,
+      "M_C_1": 513516,
       "M_S_1": 510383,
       "M_R_1": 532290
     }
