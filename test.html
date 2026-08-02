@@ -4538,7 +4538,12 @@ function renderSnapshotBody(){
   // (The "Restore credit" orphan panel was removed Jul 2026 — owner: it kept
   //  nagging for a removed-then-re-added colleague. remapAssignee() is retained
   //  below for a one-off manual fix if ever needed, but nothing renders it.)
-  $("teamBody").innerHTML=loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+invitePanel+pendingPanel;
+  const former=Object.values(users).filter(u=>u.active===false&&u.role!=="pending").sort((a,b)=>(b.leftOn||"").localeCompare(a.leftOn||"")||(a.name||"").localeCompare(b.name||""));
+  const formerPanel=(canAdmin()&&former.length)?`<div class="panel" style="margin-top:16px"><div class="panel-head">Former members <span class="muted" style="font-weight:400;font-size:12px">${former.length} · record kept</span></div>
+    ${former.map(u=>`<div class="trow" style="opacity:.7"><div class="sb-ava" style="background:var(--surface-2);color:var(--ink-3)">${esc(initials(u.name))}</div>
+      <div class="info"><div class="nm">${esc(u.name)}</div><div class="rl">${ROLES[u.role]||u.role} · left${u.leftOn?` ${fmtDateY(u.leftOn)}`:''}</div></div>
+      <button class="tbtn" data-role="${u.id}" title="View / bring back"><span class="ic ti ti-settings"></span></button></div>`).join("")}</div>`:"";
+  $("teamBody").innerHTML=loadPanel+`<div class="team-grid">${teamPanel}${availPanel}</div>`+formerPanel+invitePanel+pendingPanel;
   document.querySelectorAll("#loadPeriodSeg [data-lp]").forEach(x=>x.onclick=()=>{ loadPeriod=x.dataset.lp; renderSnapshotBody(); });
   document.querySelectorAll("#tab-team [data-island]").forEach(x=>x.onclick=()=>islandSheet(x.dataset.island,loadPeriod,_plab));
   if($("tbInvite"))$("tbInvite").onclick=()=>inviteForm();
@@ -4632,8 +4637,49 @@ function roleForm(uid){const u=users[uid];
       <label>Date of joining the chamber <span class="muted" style="font-weight:400">(sets roster seniority)</span></label><input type="date" id="r_joined" value="${esc(u.joinedOn||'')}">
       <label class="chk-row" style="margin-top:12px"><input type="checkbox" id="r_active" ${u.active!==false?'checked':''}>Active member</label>
       <div style="margin-top:20px"><button class="btn" id="r_save">Save</button></div>
+      ${canAdmin()&&uid!==me.uid&&u.role!=="admin"&&u.active!==false?`<div class="danger-zone" style="margin-top:22px">
+        <button class="tbtn danger-btn" id="r_left"><span class="ic ti ti-user-off"></span>Colleague has left the chamber</button>
+        <span class="muted" style="font-size:11.5px">Removes them from the roster, workload/credit and assignment everywhere, and frees any active matter they hold. Their past record is kept.</span>
+      </div>`:''}
     </div>`);
   $("r_save").onclick=async()=>{await db.update("users/"+uid,{name:$("r_name").value.trim()||u.name,phone:$("r_phone").value.trim(),role:$("r_role").value,joinedOn:$("r_joined").value||null,active:$("r_active").checked});closeSheet();toast("Member updated");};
+  if($("r_left"))$("r_left").onclick=()=>{
+    const act=Object.values(briefs).filter(b=>b.status!=="disposed"&&idIn(b.assignedTo,uid));
+    const solo=act.filter(b=>(b.assignedTo||[]).length===1).length, sh=act.length-solo;
+    confirmAsk({title:`Remove ${u.name} from the chamber?`, danger:true, confirmLabel:"Remove — they've left",
+      body:`<b>${esc(u.name)}</b> will be taken off the roster, the workload/credit snapshot, assignment and every colleague list. Their past record stays — their name still shows on the matters they worked.${act.length?`<br><br>They currently hold <b>${act.length}</b> active matter${act.length>1?'s':''}: ${solo?`<b>${solo}</b> will become unassigned (reassign from the board)`:''}${solo&&sh?', ':''}${sh?`<b>${sh}</b> shared will pass fully to the co-colleague`:''}.`:''}<br><br><span class="muted" style="font-size:12px">Reversible — bring them back later from “Former members”.</span>`,
+      onYes:async()=>{ const r=await retireColleague(uid); closeSheet(); toast(`${(nameOf(uid)||u.name).split(' ')[0]} removed from the chamber${r.freed?` — ${r.freed} matter${r.freed>1?'s':''} to reassign`:''}`,"ti-user-off"); if(curTab==="team")renderTeam(); }});
+  };
+}
+// A colleague has left the chamber. Keep their RECORD (user doc + name, and every
+// disposed/past matter and past day sheet untouched) but take them out of everything
+// LIVE: deactivate — which drops them from the roster, snapshot, assignment and all
+// colleague pickers via the active!==false filters — and detach them from ACTIVE
+// matters + today/future listings so their credit stops and any co-colleague inherits
+// the full share. Solo active matters fall back to unassigned (reassign from board).
+async function retireColleague(uid){
+  const u=users[uid]; if(!u) return {freed:0,shared:0};
+  const rm=aliasIds(uid); let freed=0, shared=0;
+  for(const b of Object.values(briefs)){
+    if(b.status==="disposed" || !idIn(b.assignedTo,uid)) continue;         // past matters keep their record
+    const assignedTo=(b.assignedTo||[]).filter(x=>!rm.includes(x));
+    const patch={ assignedTo, ackBy:(b.ackBy||[]).filter(x=>!rm.includes(x)), updatedAt:db.now() };
+    if(b.creditClaim && rm.includes(b.creditClaim.uid)) patch.creditClaim=null;
+    if(b.reassignReq && (rm.includes(b.reassignReq.from)||(b.reassignReq.to||[]).some(t=>rm.includes(t)))) patch.reassignReq=null;
+    assignedTo.length ? shared++ : freed++;
+    briefs[b.id]={...b,...patch};                                          // optimistic; Firestore echo confirms
+    try{ await db.update("briefs/"+b.id,patch); }catch(_){}
+  }
+  const today=todayISO();
+  for(const [date,ds] of Object.entries(dsAll)){
+    if(date<today) continue;                                               // past sheets stay as printed
+    let ch=false;
+    const entries=(ds.entries||[]).map(e=>{ const jrs=jrsOf(e); if(!jrs.includes(uid))return e; ch=true; const nj=jrs.filter(x=>!rm.includes(x)); return {...e,juniorUids:nj,juniorUid:nj[0]||null}; });
+    const conferences=(ds.conferences||[]).map(c=>{ const jrs=c.juniorUids||[]; if(!jrs.some(x=>rm.includes(x)))return c; ch=true; return {...c,juniorUids:jrs.filter(x=>!rm.includes(x))}; });
+    if(ch){ dsAll[date]={...ds,entries,conferences}; try{ await db.set("daysheets/"+date,{...ds,entries,conferences,updatedAt:db.now()},true); }catch(_){} }
+  }
+  try{ await db.update("users/"+uid,{active:false, leftOn:today, updatedAt:db.now()}); }catch(_){}
+  return {freed, shared};
 }
 
 /* ============================================================

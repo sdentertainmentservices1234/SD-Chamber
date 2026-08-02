@@ -89,6 +89,25 @@ clerk only does day-to-day operational input.**
   sign-in lands as `pending` (the "Not approved yet" screen). Demo has no real
   auth, so the Chamber tab exposes a **"Simulate sign-in"** button on each
   invite to exercise the claim end-to-end.
+- **Colleague has LEFT the chamber (`retireColleague`, Jul 2026):** the member
+  editor (`roleForm`, admin-only, not on self/admin) has a danger-zone **"Colleague
+  has left the chamber"** button. It keeps their RECORD (user doc + name; every
+  disposed matter and past day sheet untouched, so their name still shows on the work
+  they did) but removes them from everything LIVE: sets `active:false` + `leftOn`
+  (the existing `active!==false` filters already drop them from roster, snapshot,
+  assignment and all colleague pickers/People), and DETACHES them from every
+  NON-disposed brief (assignedTo/ackBy, clears their creditClaim/reassignReq) plus
+  today/future day-sheet listings + conferences — so their live credit stops and a
+  co-colleague inherits the FULL share (a solo active matter falls back to
+  unassigned → reassign from the board). The confirm dialog counts solo-vs-shared
+  active matters. A muted **"Former members"** panel on the Workload snapshot lists
+  `active===false` members (record kept) and reopens them in `roleForm`, where
+  re-checking "Active member" brings them back — so removal is reversible.
+  jsc-verified (solo→unassigned, shared→co-colleague inherits, disposed record kept,
+  claim cleared) + live demo (removed a colleague: island/People/roster/picker drop,
+  Former-members shows them, solo matters freed, no errors). Distinct from the old
+  soft "Active member" checkbox, which only hid them and left them attached to live
+  matters (stale credit dilution). sw.js `chamber-shell-v24→v25`.
 - **Restore-credit PANEL removed (Jul 2026, owner):** the amber "Restore credit —
   N removed identities" panel on the Workload-snapshot view kept nagging for a
   colleague who was deleted and re-added, so it was deleted from `renderSnapshotBody`.
