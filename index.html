@@ -53,6 +53,10 @@
   --mono:'IBM Plex Mono',ui-monospace,monospace;
   --r:9px; --r-lg:13px;
   --sb-w:236px;
+  /* layered soft shadows for depth (elegance pass) */
+  --sh-1:0 1px 2px rgba(20,23,25,.05), 0 1px 3px rgba(20,23,25,.03);
+  --sh-2:0 4px 16px rgba(20,23,25,.08);
+  --sh-3:0 16px 40px rgba(20,23,25,.11);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -257,53 +261,55 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .wt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 22px;padding:6px 0}
 .wt-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink);margin:0}
 .wt-row input{width:58px;text-align:center;font-family:"IBM Plex Mono",monospace}
-/* calendar — the home screen, set like a chamber diary */
-.cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-.cal-month{font-family:'Cormorant Garamond',Georgia,serif;font-size:25px;font-weight:600;min-width:186px;text-align:center;letter-spacing:.01em;color:var(--ink)}
-.cal-legend{display:flex;align-items:center;gap:8px;font-size:11.5px;flex-wrap:wrap}
+/* calendar — the home screen, set like a chamber diary. Elegance pass: working days
+   are softly-floating cards; rest days recede as flat tints; refined typography. */
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.cal-month{font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;font-weight:600;min-width:210px;text-align:center;letter-spacing:.004em;color:var(--ink);line-height:1}
+.cal-toolbar .row .tbtn.icon-only{width:34px;height:34px;border-radius:50%;color:var(--ink-2)}
+.cal-toolbar .row .tbtn.icon-only:hover{background:var(--accent-soft);color:var(--accent-ink)}
+#calToday{border-radius:22px;font-weight:600;padding:6px 15px}
+.cal-legend{display:flex;align-items:center;gap:11px;font-size:11px;flex-wrap:wrap}
 .leg-hol{width:12px;height:12px;border-radius:3px;background:var(--warn-bg);border:1px solid var(--warn);display:inline-block}
-.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-bottom:8px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.11em;color:var(--ink-3);
-  border-top:1px solid rgba(203,182,130,.45);border-bottom:1px solid var(--line);padding:8px 0 7px}
-.cal-dow div{padding:0 10px;text-align:left}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
-.cal-cell{background:var(--surface);border:1px solid var(--line);border-radius:11px;height:96px;overflow:hidden;padding:8px 10px;text-align:left;display:flex;flex-direction:column;gap:4px;cursor:pointer;font-family:inherit;transition:border-color .12s,box-shadow .12s,transform .06s}
-.cal-cell:hover{border-color:var(--accent);box-shadow:0 3px 12px rgba(16,20,24,.07);transform:translateY(-1px)}
-.cal-cell.blank{background:none;border:none;cursor:default;min-height:0}
-.cal-cell.wknd{background:var(--surface-2)}
-/* Calm calendar: neutral cells; one thin left accent for non-working days;
-   workload lives in a single small dot beside the count. */
-.cal-cell.day-off{background:var(--surface-2)}
-.cal-cell.day-hol{background:var(--surface-2);box-shadow:inset 3px 0 0 #8b7fb0}
-.cal-cell.day-vac{background:var(--surface-2);box-shadow:inset 3px 0 0 #d9a35a}
-.cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.cal-cell.day-hol.today{box-shadow:inset 3px 0 0 #8b7fb0,0 0 0 1px var(--accent)}
-.cal-cell.day-vac.today{box-shadow:inset 3px 0 0 #d9a35a,0 0 0 1px var(--accent)}
-/* Senior unavailable — deliberately loud (owner: important). Red-tinted cell +
-   red left bar; wins over the neutral day-kind background. */
-.cal-cell.sen-away{background:#fbe9e9;box-shadow:inset 3px 0 0 #c0392b}
-.cal-cell.sen-away.today{box-shadow:inset 3px 0 0 #c0392b,0 0 0 1px var(--accent)}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:9px;margin-bottom:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-3);
+  border-bottom:1px solid var(--line);padding:0 4px 9px}
+.cal-dow div{padding:0 5px;text-align:left}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:9px}
+.cal-cell{background:var(--surface);border:1px solid var(--line);border-radius:14px;height:106px;overflow:hidden;padding:9px 11px;text-align:left;display:flex;flex-direction:column;gap:4px;cursor:pointer;font-family:inherit;box-shadow:var(--sh-1);transition:box-shadow .17s,transform .1s,border-color .17s}
+.cal-cell:hover{border-color:var(--line-2);box-shadow:var(--sh-2);transform:translateY(-2px)}
+.cal-cell.blank{background:none;border:none;box-shadow:none;cursor:default;min-height:0}
+/* rest days recede: flat, warmly tinted, no lift; a thin left accent names the kind */
+.cal-cell.wknd,.cal-cell.day-off{background:linear-gradient(180deg,#fafaf7,#f4f3ee);border-color:transparent;box-shadow:none}
+.cal-cell.day-hol{background:#f7f4fb;border-color:transparent;box-shadow:inset 3px 0 0 #9b8fbf}
+.cal-cell.day-vac{background:#faf4ea;border-color:transparent;box-shadow:inset 3px 0 0 #d9a35a}
+.cal-cell.today{background:var(--accent-soft);border-color:var(--accent);box-shadow:0 0 0 1.5px var(--accent),var(--sh-1)}
+.cal-cell.day-hol.today,.cal-cell.day-vac.today{box-shadow:0 0 0 1.5px var(--accent),var(--sh-1)}
+/* Senior unavailable — deliberately loud (owner: important) */
+.cal-cell.sen-away{background:#fbecea;border-color:transparent;box-shadow:inset 3px 0 0 #c0392b}
+.cal-cell.sen-away.today{box-shadow:inset 3px 0 0 #c0392b,0 0 0 1.5px var(--accent)}
 .cal-cell.sen-away .cal-sen{color:#c0392b}
-.cal-load{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1px 8px 1px 6px}
+.cal-load{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:2px 9px 2px 7px;box-shadow:var(--sh-1)}
 .ld{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
 .ld.lg{background:#4e7a5e}.ld.ly{background:#c99a2e}.ld.lr{background:#b4472e}
 .cal-tag{font-size:10px;line-height:1.25;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-tag.t-hol{color:#6a5a86}.cal-tag.t-vac{color:#a3612a}.cal-tag.t-off{color:var(--ink-3)}
 .cal-tag.t-sen{color:#c0392b;font-weight:600}
 .lg-key.t-sen{color:#c0392b}
-.lg-grp{display:inline-flex;align-items:center;gap:4px}.lg-sep{opacity:.5}
+.lg-grp{display:inline-flex;align-items:center;gap:4px}.lg-sep{opacity:.4}
 .lg-key{padding-left:2px}.lg-key.t-hol{color:#6a5a86}.lg-key.t-vac{color:#a3612a}.lg-key.t-off{color:var(--ink-3)}
 .cal-top{display:flex;justify-content:space-between;align-items:center}
-.cal-num{font-family:"Fraunces",serif;font-size:15px;color:var(--ink)}
+.cal-num{font-family:"Fraunces",serif;font-size:16.5px;font-weight:500;color:var(--ink);line-height:1}
 .cal-cell.today .cal-num{color:var(--accent-ink);font-weight:600}
 .cal-sen{color:var(--warn);font-size:14px}
-.cal-chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:auto}
-.cal-chip{font-size:10.5px;padding:2px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
+.cal-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:auto}
+.cal-chip{font-size:10.5px;font-weight:500;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
 .cal-chip.mine{background:var(--s-ready-bg);color:var(--s-ready)}
 .cal-chip.conf{background:var(--s-conf-bg);color:var(--s-conf)}
 @media(max-width:860px){
-  .cal-cell{height:70px;padding:5px 6px;border-radius:8px}
-  .cal-cell .cal-chip{font-size:9px;padding:1px 5px}
-  .cal-month{font-size:17px;min-width:130px}
+  .cal-dow{gap:6px}
+  .cal-grid{gap:6px}
+  .cal-cell{height:74px;padding:6px 7px;border-radius:11px}
+  .cal-cell .cal-chip{font-size:9px;padding:1px 6px}
+  .cal-month{font-size:20px;min-width:150px}
 }
 /* day sheet as the clerk's paper table on desktop; card rail on mobile */
 .ds-table{display:none}
@@ -587,8 +593,10 @@ label{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);letter-s
 .auth-card label{margin-top:15px}
 .auth-card input{background:#fff;border-radius:10px;padding:12px 14px;font-size:14.5px;transition:border-color .15s,box-shadow .15s}
 .auth-card input:focus{border-color:#cbb682;box-shadow:0 0 0 3px rgba(203,182,130,.18)}
-.auth-card .btn{width:100%;justify-content:center;padding:12px;border-radius:10px;letter-spacing:.02em;transition:background .15s,transform .05s}
-.auth-card .btn:hover{background:#1c232c}
+.auth-card .btn{width:100%;justify-content:center;padding:13px;border-radius:11px;letter-spacing:.02em;font-weight:600;
+  background:linear-gradient(180deg,#20272f,#12171d);box-shadow:0 6px 18px rgba(13,16,20,.28),0 1px 0 rgba(255,255,255,.06) inset;
+  transition:background .15s,box-shadow .15s,transform .05s}
+.auth-card .btn:hover{background:linear-gradient(180deg,#28303a,#171d24);box-shadow:0 8px 22px rgba(13,16,20,.34),0 1px 0 rgba(255,255,255,.08) inset}
 .auth-card .btn:active{transform:translateY(1px)}
 .err{color:var(--danger);font-size:12.5px;margin-top:10px;min-height:16px;text-align:center}
 .auth-note{font-size:12px;color:var(--ink-3);text-align:center;margin-top:16px;line-height:1.5}
