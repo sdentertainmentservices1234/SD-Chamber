@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-02T08:58:36.034794Z",
+  "generated_at": "2026-08-03T06:02:59.228111Z",
   "parser_version": 8,
   "window": [
     "2026-08-03",
@@ -2712,7 +2712,7 @@
           },
           "8": {
             "coram": "HON'BLE MR. JUSTICE SANJAY KAROL HON'BLE MR. JUSTICE AUGUSTINE GEORGE MASIH",
-            "total": "76",
+            "total": "77",
             "fresh": "",
             "items": {
               "1": "Diary No. 31337-2026 RABIUL ISLAM VERSUS STATE OF WEST BENGAL",
@@ -2780,8 +2780,9 @@
               "306": "C.A. No. 4400/2026 MALKIT SINGH AND ANR. VERSUS STATE OF U.T. CHANDIGARH AND ORS. SHREEKANT NEELAP",
               "307": "C.A. No. 3799/2026 JYOTI DEVI AND ORS. VERSUS NARAYAN PRASAD YADAV AND ORS.",
               "308": "SLP(Crl) No. HELENA ANNA MARIA LERSCH VERSUS STATE OF GOA AND ANR.",
-              "1501": "C.A. No. 14369/2025 NATIONAL INSURANCE COMPANY LIMITED VERSUS SMT. THUNGALA DHANA LAXMI AND ORS.",
-              "1502": "SLP(Crl) No. LOKESH B.H AND ORS. VERSUS STATE OF KARNATAKA AND ANR.",
+              "1503": "SLP(Crl) No. LOKESH B.H AND ORS. VERSUS STATE OF KARNATAKA AND ANR.",
+              "1502": "NAVEEN SHARMA[R-1], HETU",
+              "1504": "Crl.A. No. 502-507/2023 NIRMALA BAI DEVIDAS CHAVHAN VERSUS THE STATE OF MAHARASHTRA AND ORS. ETC.",
               "51": "Diary No. 33897-2026 VIKRANT VERSUS STATE OF UP",
               "52": "SLP(Crl) No. JANEESHA P A VERSUS STATE OF KERALA AND ORS.",
               "53": "SLP(Crl) No. RAJ SINGH YADAV VERSUS STATE OF HARYANA",
@@ -3015,11 +3016,14 @@
                 "pet": "SHAGUFA SALIM",
                 "resp": "VISHAL PRASAD"
               },
-              "1501": {
-                "pet": "CHANDER SHEKHAR ASHRI"
+              "1503": {
+                "pet": "NULI & NULI"
               },
               "1502": {
-                "pet": "NULI & NULI"
+                "pet": "DELETED"
+              },
+              "1504": {
+                "pet": "AADITYA ANIRUDDHA"
               },
               "51": {
                 "pet": "RONAK KARANPURIA"
@@ -3094,7 +3098,7 @@
               }
             },
             "main": 58,
-            "supp": 18
+            "supp": 19
           },
           "17": {
             "coram": "HON'BLE MR. JUSTICE SATISH CHANDRA SHARMA HON'BLE MR. JUSTICE NONGMEIKAPAM KOTISWAR SINGH",
@@ -19916,7 +19920,7 @@
   "sources": {
     "2026-08-03": {
       "M_J_1": 949477,
-      "M_J_2": 600337,
+      "M_J_2": 604236,
       "M_C_1": 537550,
       "M_C_2": 505320,
       "M_S_1": 528540,
