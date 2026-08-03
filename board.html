@@ -263,6 +263,32 @@ main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px calc(64px + env(safe-
 .chatbar input{flex:1;padding:11px 14px;border-radius:22px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:15px}
 .chatbar input:focus{outline:none;border-color:var(--accent)}
 .chatbar button{border:none;background:var(--accent);color:#fff;width:44px;height:44px;border-radius:50%;font-size:19px;flex:none}
+/* Keyboard-aware chat: when the chat tab is open we pin #chatWrap to the VISUAL
+   viewport (JS sets --chat-top/--chat-h from window.visualViewport), so the composer
+   always sits just above the on-screen keyboard and only the message list scrolls —
+   the box itself never grows or scrolls. Bottom nav hides while typing. */
+body.chat-vv #chatWrap{position:fixed;left:50%;transform:translateX(-50%);width:100%;max-width:760px;
+  top:var(--chat-top,0);height:var(--chat-h,100%);padding:8px 12px;box-sizing:border-box;background:var(--bg);z-index:25}
+body.kb-open nav.botnav{display:none}
+
+/* Full-screen APPROACH FLASH — a matter ≤2 away. Splits into one panel per reaching
+   court; big bold Court / item-on / our-item / distance; blinks, auto-clears in 3s. */
+#flashHost{position:fixed;inset:0;z-index:60;display:grid;gap:6px;padding:6px;
+  background:var(--navy);animation:flashpulse .7s steps(1,end) infinite;cursor:pointer}
+#flashHost.n1{grid-template-columns:1fr}
+#flashHost.n2,#flashHost.n3,#flashHost.n4{grid-template-columns:1fr 1fr}
+#flashHost.n5,#flashHost.n6{grid-template-columns:1fr 1fr 1fr}
+@keyframes flashpulse{0%{background:#b3122a}50%{background:#101418}}
+.flash-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vmin;
+  background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.15);border-radius:16px;color:#fff;text-align:center;padding:12px;min-height:0}
+.flash-ct{font-family:Fraunces,serif;font-weight:800;font-size:clamp(30px,13vw,72px);line-height:.95;letter-spacing:.5px}
+.flash-dist{font-weight:800;font-size:clamp(24px,10vw,54px);color:#ffd34d;letter-spacing:.5px}
+.flash-rows{display:flex;flex-direction:column;gap:4px;font-size:clamp(16px,5.5vw,30px);font-weight:800}
+.flash-rows>div{display:flex;gap:10px;justify-content:center;align-items:baseline}
+.fl-k{color:#aeb8c2;font-weight:600;font-size:.7em}
+.fl-v{color:#fff;font-family:var(--mono);font-weight:800}
+.flash-cell.multi .flash-ct{font-size:clamp(24px,9vw,52px)}
+.flash-cell.multi .flash-dist{font-size:clamp(18px,7vw,38px)}
 
 .empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
@@ -845,6 +871,49 @@ function fireCourtAlert(e,k,lvl){
     : `Item ${e.itemNo} approaching`+(mins!=null&&mins>=1?` · ~${Math.round(mins)} min`:(k.gap!=null?` · ${k.gap} away`:""))+`.`;
   pushNotify(title,body,"court-"+e.courtNo,head);
 }
+/* Full-screen approach flash: any of our matters ≤2 away triggers a big blinking
+   overlay (one panel per reaching court) — Court, item on, our item, distance — for
+   3 seconds, then it clears back to the board. Independent of the notification bell
+   (it's an on-screen visual). De-duped per court+item so it fires once per approach
+   and re-arms when the matter recedes past 2. */
+let _flash={date:"",set:new Set()}, _flashTimer=null;
+function reachingMatters(){
+  const bc=boardByCourt(); const seen={};
+  for(const e of courtMatters()){
+    const k=classify(e,bc[e.courtNo]);
+    if(!k||k.ment||k.done||k.over||k.gap==null) continue;
+    if(k.gap<0||k.gap>2) continue;
+    const c=String(e.courtNo);
+    if(!seen[c]||k.gap<seen[c].gap) seen[c]={court:e.courtNo,item:e.itemNo,cur:bc[e.courtNo]?.item,gap:k.gap};
+  }
+  return Object.values(seen).sort((a,b)=>a.gap-b.gap);
+}
+const _distLabel=g=>g<=0?"ON NOW":g===1?"NEXT":g+" AWAY";
+function runFlash(){
+  if(document.hidden) return;
+  if(_flash.date!==todayISO()) _flash={date:todayISO(),set:new Set()};
+  const reaching=reachingMatters();
+  const keys=new Set(reaching.map(r=>r.court+"|"+r.item));
+  for(const key of [..._flash.set]) if(!keys.has(key)) _flash.set.delete(key);   // re-arm receded matters
+  if(!reaching.some(r=>!_flash.set.has(r.court+"|"+r.item))) return;              // nothing NEW crossed in
+  reaching.forEach(r=>_flash.set.add(r.court+"|"+r.item));
+  showFlash(reaching);
+}
+function showFlash(items){
+  hideFlash();
+  const n=Math.min(items.length,6), multi=n>1?" multi":"";
+  const host=document.createElement("div"); host.id="flashHost"; host.className="n"+n;
+  host.innerHTML=items.slice(0,6).map(r=>`<div class="flash-cell${multi}">
+    <div class="flash-ct">COURT ${esc(r.court)}</div>
+    <div class="flash-dist">${esc(_distLabel(r.gap))}</div>
+    <div class="flash-rows"><div><span class="fl-k">ON</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
+      <div><span class="fl-k">OURS</span><span class="fl-v">${esc(r.item)}</span></div></div>
+  </div>`).join("");
+  host.onclick=hideFlash;
+  document.body.appendChild(host);
+  _flashTimer=setTimeout(hideFlash,3000);
+}
+function hideFlash(){ if(_flashTimer){clearTimeout(_flashTimer);_flashTimer=null;} const h=$("flashHost"); if(h) h.remove(); }
 async function pushNotify(title,body,tag,urgent){
   const opts={body,tag,renotify:true,icon:"icon-192.png",badge:"icon-192.png",
     vibrate:urgent?[250,120,250,120,250]:[160,90,160],requireInteraction:!!urgent};
@@ -960,6 +1029,7 @@ async function fetchBoard(){
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
   runAlerts();
+  runFlash();
   renderBoard();
 }
 // Adaptive polling — we track the SC board as tightly as it moves. When one of
@@ -1215,6 +1285,31 @@ function paintChatList(){
   cl.innerHTML=chatListHtml();
   if(nearBottom) cl.scrollTop=cl.scrollHeight;
 }
+// Keyboard-aware sizing: pin #chatWrap to the visual viewport so the composer stays
+// just above the on-screen keyboard and only the message list scrolls (the box never
+// grows or scrolls itself). Driven by window.visualViewport, which shrinks when the
+// keyboard opens. Falls back to the CSS flex layout where visualViewport is absent.
+let _vvBound=false;
+function bindVV(){ if(_vvBound) return; _vvBound=true;
+  const on=()=>fitChat();
+  if(window.visualViewport){ window.visualViewport.addEventListener("resize",on); window.visualViewport.addEventListener("scroll",on); }
+  window.addEventListener("resize",on);
+}
+function fitChat(){
+  const wrap=$("chatWrap");
+  if(curTab!=="chat" || !wrap || !window.visualViewport){ document.body.classList.remove("chat-vv","kb-open"); return; }
+  const vv=window.visualViewport;
+  const headH=document.querySelector("header.top")?.getBoundingClientRect().height||0;
+  const kbOpen=(window.innerHeight - vv.height) > 120;                 // keyboard is up
+  const navH=kbOpen?0:(document.querySelector("nav.botnav")?.getBoundingClientRect().height||0);
+  const cl=$("chatList"); const wasBottom=cl?(cl.scrollHeight-cl.scrollTop-cl.clientHeight<90):true;
+  const rs=document.documentElement.style;
+  rs.setProperty("--chat-top",(vv.offsetTop+headH)+"px");
+  rs.setProperty("--chat-h",Math.max(140, vv.height-headH-navH)+"px");
+  document.body.classList.add("chat-vv");
+  document.body.classList.toggle("kb-open",kbOpen);
+  if(cl&&wasBottom) cl.scrollTop=cl.scrollHeight;
+}
 function renderChat(){
   $("main").innerHTML=`<div id="chatWrap"><div id="chatList">${chatListHtml()}</div>
     <div class="chatbar"><input id="chatIn" placeholder="Message the chamber…" autocomplete="off" maxlength="1000">
@@ -1222,6 +1317,10 @@ function renderChat(){
   const cl=$("chatList"); cl.scrollTop=cl.scrollHeight;
   $("chatSend").onclick=sendChat;
   $("chatIn").onkeydown=ev=>{ if(ev.key==="Enter"&&!ev.shiftKey){ ev.preventDefault(); sendChat(); } };
+  // when the field gains/loses focus the keyboard toggles — re-fit after it settles
+  $("chatIn").addEventListener("focus",()=>{ setTimeout(fitChat,200); setTimeout(fitChat,500); });
+  $("chatIn").addEventListener("blur",()=>setTimeout(fitChat,200));
+  bindVV(); fitChat();
   $("chatIn").focus();
   lastSeenChat=Date.now(); updateChatBadge(); purgeOldChat();
 }
@@ -1380,7 +1479,7 @@ function gateUI(){
 document.querySelectorAll("nav.botnav button").forEach(b=>b.onclick=()=>{
   curTab=b.dataset.tab;
   document.querySelectorAll("nav.botnav button").forEach(x=>x.classList.toggle("on",x===b));
-  render();
+  render(); fitChat();
 });
 $("main").addEventListener("click",ev=>{
   const c=ev.target.closest("[data-court]");

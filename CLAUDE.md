@@ -205,6 +205,33 @@ newest message unless the reader scrolled up. `board-sw.js` cache `sdboard-v10�
 jsc-verified (day filter + purge selection) + live (render, grouping, send keeps
 composer focused, no errors).
 
+**Keyboard-aware chat (owner fix Jul 2026):** on a phone the soft keyboard used to
+cover half the chat and the box scrolled/resized. `fitChat()` now pins `#chatWrap`
+to `window.visualViewport` — `body.chat-vv` makes it `position:fixed` with JS-set
+`--chat-top`(header bottom)/`--chat-h`(`vv.height − header − nav`), so the composer
+always sits just above the keyboard and ONLY `#chatList` scrolls; the box never
+grows. When the keyboard is up (`innerHeight−vv.height>120`) the bottom nav hides
+(`body.kb-open`) and the nav-height reserve drops to 0. Re-fits on
+`visualViewport` resize/scroll, window resize, and input focus/blur; the tab-switch
+handler and `renderChat` call it (leaving chat clears the classes). Falls back to the
+flex layout where `visualViewport` is absent. Verified live (fixed box, list is the
+only scroller, composer pinned, leaving clears) — the keyboard-shrink path itself
+needs a real device to see, but is the standard visualViewport pattern.
+
+## Display-board FULL-SCREEN approach flash (board.html, Jul 2026)
+
+Any of our matters **≤2 away** triggers a blinking full-screen overlay (`runFlash`
+→ `showFlash`, called from `fetchBoard` after `runAlerts`). `reachingMatters()`
+collects our matters with `0≤gap≤2` (skipping mentioning/over/done), one per court
+(closest). The overlay **divides into one panel per reaching court** (`#flashHost.nN`
+grid, capped 6); each panel shows, big and bold: **COURT n**, the distance
+(`ON NOW`/`NEXT`/`N AWAY`), **ON** = item now on, **OURS** = our item. It blinks
+red↔navy (`@keyframes flashpulse`), auto-clears after **3 s** (or tap) back to the
+board. De-duped per court+item (`_flash.set`) so it fires once per approach and
+re-arms when the matter recedes past 2; independent of the notification bell and
+skipped when `document.hidden`. Live-verified in the demo (two-court split =
+Court 5/6 NEXT, and a single-court "2 AWAY" with ON/OURS). `board-sw` `v12→v13`.
+
 ## Display-board alerts (board.html, Jul 2026 — Phase 1, no backend)
 
 So nobody has to stare at the board. A **bell toggle** in the header
