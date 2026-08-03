@@ -163,6 +163,18 @@ select.mini{appearance:none}
 .sh-btn.warn2{background:var(--soon-bg);border-color:#e6d29a;color:#7a4f0d}
 .po-row{display:flex;gap:7px;margin-top:8px}
 .po-row select,.po-row input{flex:1;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:14px;color:var(--ink)}
+/* Track-a-matter form */
+.am-form{display:flex;flex-direction:column;gap:11px;margin-top:4px}
+.am-row{display:flex;gap:10px}
+.am-fld{flex:1;display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+.am-fld input{font:inherit;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink);
+  padding:11px 13px;border-radius:11px;border:1px solid var(--line);background:var(--panel2);font-size:15px}
+.am-fld input:focus{outline:none;border-color:var(--accent);background:var(--panel);box-shadow:0 0 0 3px rgba(47,85,150,.13)}
+.am-err{color:var(--now);font-size:12.5px;min-height:16px}
+.am-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.am-ci{font-family:'IBM Plex Mono';font-weight:700;font-size:13px;color:var(--accent);flex:none}
+.am-t{flex:1;min-width:0;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.am-del{flex:none;border:none;background:none;color:var(--now);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 2px}
 .sh-x{position:sticky;float:right;top:0;background:transparent;border:none;font-size:20px;color:var(--mut);padding:2px}
 /* senior-here ribbon across the top of a court island (never covers the number) */
 .senpin{display:flex;align-items:center;justify-content:center;gap:4px;align-self:stretch;
@@ -344,6 +356,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
   <header class="top">
     <div class="ttl"><span id="hdrName">Chambers of Shyam Divan</span><small id="hdrSub">Senior Advocate · Supreme Court of India</small></div>
     <div class="spacer"></div>
+    <button class="iconbtn" id="btnAdd" title="Track a matter — add your case by court & item"><i class="ti ti-plus"></i></button>
     <button class="iconbtn" id="btnNotify" title="Alerts — get pinged when a matter is reaching"><i class="ti ti-bell"></i></button>
     <button class="iconbtn" id="btnRefresh" title="Refresh"><i class="ti ti-refresh"></i></button>
     <button class="iconbtn" id="btnOut" title="Sign out"><i class="ti ti-logout"></i></button>
@@ -1047,7 +1060,18 @@ let curTab="board", userDocUnsub=null, unsub=[], pollId=null, tickId=null, pollO
 let lastSeenChat=(()=>{ try{ return parseInt(localStorage.getItem("boardChatSeen")||"0",10)||0; }catch(e){ return 0; } })();
 
 const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
-const myMatters = () => (daysheet?.entries||[]).filter(e=>e.courtNo);
+// Matters to track = the chamber day sheet PLUS this user's own matters (added by
+// court+item in "Track a matter"), private to them. Dedup a personal matter that
+// duplicates a day-sheet entry (same court+item) — the day-sheet one wins (richer).
+let myOwn=[];
+const myMatters = () => {
+  const ds=(daysheet?.entries||[]).filter(e=>e.courtNo);
+  const key=e=>String(e.courtNo)+"|"+String(e.itemNo);
+  const seen=new Set(ds.map(key));
+  const own=(myOwn||[]).filter(m=>m.court&&m.item).map(m=>({courtNo:String(m.court), itemNo:String(m.item),
+    caseTitle:m.title||"", juniorUids:me?[me.uid]:[], _own:m.id}));
+  return [...ds, ...own.filter(o=>!seen.has(key(o)))];
+};
 // The SC has 17 courtrooms; anything above is the Registrar / administrative list.
 // The display board tracks the courtrooms only (owner: no registrar under the
 // court headings) — registrar matters still appear in "Our list".
@@ -1390,6 +1414,46 @@ function totalsFor(court){
   return out;
 }
 function closeModal(){ $("modalRoot").innerHTML=""; }
+// "Track a matter": a user adds their own case by court + item. Stored privately in
+// usermatters/{uid} and merged into myMatters(), so it tracks live against the board
+// exactly like a chamber matter (position, rail, flash, and — once enabled — push).
+function addMatterForm(){
+  const own=(myOwn||[]).slice();
+  $("modalRoot").innerHTML=`<div class="ovl" data-close><div class="sheet"><button class="sh-x" data-close>&times;</button>
+    <div class="sheet-grab"></div>
+    <h2>Track a matter</h2>
+    <div class="sh-sub">Add your case by court &amp; item — it's tracked live against the board, and stays private to you.</div>
+    <div class="am-form">
+      <div class="am-row">
+        <label class="am-fld">Court<input id="am_court" inputmode="numeric" autocomplete="off" placeholder="e.g. 5"></label>
+        <label class="am-fld">Item<input id="am_item" inputmode="numeric" autocomplete="off" placeholder="e.g. 32"></label>
+      </div>
+      <label class="am-fld">Label <span style="color:var(--mut);font-weight:400">(optional)</span><input id="am_title" autocomplete="off" placeholder="e.g. Sharma v. State"></label>
+      <div class="am-err" id="am_err"></div>
+      <button class="sh-btn navy" id="am_save">Add matter</button>
+    </div>
+    ${own.length?`<div class="sh-sec">My matters (${own.length})</div>${own.map(m=>`<div class="am-item">
+      <span class="am-ci">Ct ${esc(m.court)} · #${esc(m.item)}</span>
+      <span class="am-t">${esc(m.title||"")}</span>
+      <button class="am-del" data-del="${esc(m.id)}">Remove</button></div>`).join("")}`:''}
+  </div></div>`;
+  const save=async()=>{
+    const court=($("am_court").value||"").trim(), item=($("am_item").value||"").trim();
+    if(!/^\d{1,3}$/.test(court)){ $("am_err").textContent="Enter a court number (1–17)."; return; }
+    if(!item){ $("am_err").textContent="Enter your item number."; return; }
+    const id="m"+Date.now().toString(36);
+    const matters=[...(myOwn||[]).filter(m=>!(String(m.court)===court&&String(m.item)===item)),
+                   {id, court, item, title:($("am_title").value||"").trim()}];
+    try{ await db.set("usermatters/"+me.uid,{matters,updatedAt:db.now()},true); addMatterForm(); }
+    catch(e){ $("am_err").textContent="Could not save — "+(e.message||e); }
+  };
+  $("am_save").onclick=save;
+  $("am_item").onkeydown=e=>{ if(e.key==="Enter") save(); };
+  $("modalRoot").querySelectorAll("[data-del]").forEach(x=>x.onclick=async()=>{
+    const matters=(myOwn||[]).filter(m=>m.id!==x.dataset.del);
+    try{ await db.set("usermatters/"+me.uid,{matters,updatedAt:db.now()},true); addMatterForm(); }catch(e){}
+  });
+}
 function openCourtModal(court,_refetched){
   court=String(court);
   const bc=boardByCourt()[court];
@@ -1489,6 +1553,7 @@ function startWatchers(){
   unsub.push(db.watchDoc("config/live", d=>{ live=d||{}; delete live.id; scheduleRender(); }));
   unsub.push(db.watchCollection("messages",rows=>{ messages={}; rows.forEach(m=>messages[m.id]=m); updateChatBadge(); if(curTab==="chat") paintChatList(); purgeOldChat(); }));
   unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; scheduleRender(); }));
+  if(me?.uid) unsub.push(db.watchDoc("usermatters/"+me.uid, d=>{ myOwn=(d&&d.matters)||[]; scheduleRender(); }));
   loadCourtUpdates();
   startPolling();
 }
@@ -1526,6 +1591,7 @@ $("modalRoot").addEventListener("click",async ev=>{
   const pc=t.closest("[data-poclear]");
   if(pc){ const [ct,it]=pc.dataset.poclear.split("|"); await clearPO(ct,it); openMatterModal(ct,it); return; }
 });
+$("btnAdd").onclick=addMatterForm;
 $("btnRefresh").onclick=hardRefresh;
 $("btnNotify").onclick=toggleNotify;
 $("btnOut").onclick=()=>auth.signOut();
