@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#141a22">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -274,15 +274,17 @@ body.kb-open nav.botnav{display:none}
 /* Full-screen APPROACH FLASH — a matter ≤2 away. Splits into one panel per reaching
    court; big bold Court / item-on / our-item / distance; blinks, auto-clears in 3s. */
 #flashHost{position:fixed;inset:0;z-index:60;display:grid;gap:6px;padding:6px;
-  background:var(--navy);animation:flashpulse .7s steps(1,end) infinite;cursor:pointer}
+  background:#b5831f;animation:flashpulse 1.1s ease-in-out infinite;cursor:pointer}
 #flashHost.n1{grid-template-columns:1fr}
 #flashHost.n2,#flashHost.n3,#flashHost.n4{grid-template-columns:1fr 1fr}
 #flashHost.n5,#flashHost.n6{grid-template-columns:1fr 1fr 1fr}
-@keyframes flashpulse{0%{background:#b3122a}50%{background:#101418}}
+/* Polite-but-urgent: a warm AMBER that gently breathes to a deep amber (traffic-
+   amber "get ready", not alarm red). */
+@keyframes flashpulse{0%,100%{background:#c68a24}50%{background:#8a6112}}
 .flash-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vmin;
-  background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.15);border-radius:16px;color:#fff;text-align:center;padding:12px;min-height:0}
+  background:rgba(20,16,8,.20);border:2px solid rgba(255,255,255,.22);border-radius:16px;color:#fff;text-align:center;padding:12px;min-height:0}
 .flash-ct{font-family:Fraunces,serif;font-weight:800;font-size:clamp(30px,13vw,72px);line-height:.95;letter-spacing:.5px}
-.flash-dist{font-weight:800;font-size:clamp(24px,10vw,54px);color:#ffd34d;letter-spacing:.5px}
+.flash-dist{font-weight:800;font-size:clamp(24px,10vw,54px);color:#fff8e8;letter-spacing:.5px}
 .flash-rows{display:flex;flex-direction:column;gap:4px;font-size:clamp(16px,5.5vw,30px);font-weight:800}
 .flash-rows>div{display:flex;gap:10px;justify-content:center;align-items:baseline}
 .fl-k{color:#aeb8c2;font-weight:600;font-size:.7em}
@@ -1003,7 +1005,8 @@ if(DEMO){
    ============================================================ */
 let me=null, users={}, daysheet=null, live={}, messages={};
 let board=[], boardAt=0, boardErr=null, paceHist={}, _primaryCourt=null, courtUpdates=null;
-let curTab="board", lastSeenChat=0, userDocUnsub=null, unsub=[], pollId=null, tickId=null, pollOn=false;
+let curTab="board", userDocUnsub=null, unsub=[], pollId=null, tickId=null, pollOn=false;
+let lastSeenChat=(()=>{ try{ return parseInt(localStorage.getItem("boardChatSeen")||"0",10)||0; }catch(e){ return 0; } })();
 
 const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.court]) m[c.court]=c; }); return m; };
 const myMatters = () => (daysheet?.entries||[]).filter(e=>e.courtNo);
@@ -1284,6 +1287,16 @@ function paintChatList(){
   const nearBottom = cl.scrollHeight-cl.scrollTop-cl.clientHeight < 80;
   cl.innerHTML=chatListHtml();
   if(nearBottom) cl.scrollTop=cl.scrollHeight;
+  if(curTab==="chat") markChatSeen();          // reading the chat clears/holds the badge
+}
+// Persisted "seen" watermark so the unread badge survives a refresh — otherwise every
+// reload reset it to 0 and re-flagged today's already-read messages as new.
+function markChatSeen(){
+  const msgs=todayMsgs();
+  const newest=msgs.length?tsMs(msgs[msgs.length-1].at):0;
+  lastSeenChat=Math.max(lastSeenChat, newest, Date.now());
+  try{ localStorage.setItem("boardChatSeen", String(lastSeenChat)); }catch(e){}
+  updateChatBadge();
 }
 // Keyboard-aware sizing: pin #chatWrap to the visual viewport so the composer stays
 // just above the on-screen keyboard and only the message list scrolls (the box never
@@ -1299,6 +1312,10 @@ function fitChat(){
   const wrap=$("chatWrap");
   if(curTab!=="chat" || !wrap || !window.visualViewport){ document.body.classList.remove("chat-vv","kb-open"); return; }
   const vv=window.visualViewport;
+  // Ignore PINCH-ZOOM (scale ≠ 1): only the keyboard should resize the box. A pinch
+  // changes vv.height too, and reacting to it made the chat grow/shrink — messaging
+  // apps keep the box fixed, so we simply don't re-fit while zoomed.
+  if(vv.scale && Math.abs(vv.scale-1) > 0.01) return;
   const headH=document.querySelector("header.top")?.getBoundingClientRect().height||0;
   const kbOpen=(window.innerHeight - vv.height) > 120;                 // keyboard is up
   const navH=kbOpen?0:(document.querySelector("nav.botnav")?.getBoundingClientRect().height||0);
@@ -1322,7 +1339,7 @@ function renderChat(){
   $("chatIn").addEventListener("blur",()=>setTimeout(fitChat,200));
   bindVV(); fitChat();
   $("chatIn").focus();
-  lastSeenChat=Date.now(); updateChatBadge(); purgeOldChat();
+  markChatSeen(); purgeOldChat();
 }
 async function sendChat(){
   const inp=$("chatIn"); const t=(inp.value||"").trim(); if(!t) return; inp.value=""; inp.focus();

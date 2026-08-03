@@ -231,6 +231,19 @@ board. De-duped per court+item (`_flash.set`) so it fires once per approach and
 re-arms when the matter recedes past 2; independent of the notification bell and
 skipped when `document.hidden`. Live-verified in the demo (two-court split =
 Court 5/6 NEXT, and a single-court "2 AWAY" with ON/OURS). `board-sw` `v12→v13`.
+**Colour (owner Jul 2026): polite-but-urgent AMBER, not alarm red** — pulses
+`#c68a24↔#8a6112` (`flashpulse`, 1.1s ease-in-out breathe), white/cream text; the
+red version read as an emergency. On-brand with the chamber gold.
+
+**Chat tweaks (owner Jul 2026):** (a) **No pinch-resize** — the viewport meta now
+sets `maximum-scale=1, user-scalable=no` (messaging-app behaviour) AND `fitChat`
+early-returns when `visualViewport.scale ≠ 1`, so a pinch never grows/shrinks the
+fixed chat box; only the keyboard resizes it. (b) **Unread badge survives refresh**
+— `lastSeenChat` is now persisted to `localStorage.boardChatSeen` (init from it on
+load) and advanced by `markChatSeen()` (called from `renderChat` and `paintChatList`
+while on the chat tab) to the newest seen message's ts. Previously it reset to 0 each
+reload, so every refresh re-flagged already-read messages as new. Live-verified:
+badge clears on open, stays cleared across a reload (`boardChatSeen` persisted).
 
 ## Display-board alerts (board.html, Jul 2026 — Phase 1, no backend)
 
