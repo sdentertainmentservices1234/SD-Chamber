@@ -278,12 +278,13 @@ body.kb-open nav.botnav{display:none}
   background:rgba(20,16,8,.20);border:2px solid rgba(255,255,255,.22);border-radius:16px;color:#fff;text-align:center;padding:12px;min-height:0}
 .flash-ct{font-family:Fraunces,serif;font-weight:800;font-size:clamp(30px,13vw,72px);line-height:.95;letter-spacing:.5px}
 .flash-dist{font-weight:800;font-size:clamp(24px,10vw,54px);color:#fff8e8;letter-spacing:.5px}
-.flash-rows{display:flex;flex-direction:column;gap:4px;font-size:clamp(16px,5.5vw,30px);font-weight:800}
+.flash-rows{display:flex;flex-direction:column;gap:6px;font-size:clamp(22px,7.5vw,44px);font-weight:800}
 .flash-rows>div{display:flex;gap:10px;justify-content:center;align-items:baseline}
-.fl-k{color:#aeb8c2;font-weight:600;font-size:.7em}
+.fl-k{color:#aeb8c2;font-weight:700;font-size:.5em;letter-spacing:.3px}
 .fl-v{color:#fff;font-family:var(--mono);font-weight:800}
 .flash-cell.multi .flash-ct{font-size:clamp(24px,9vw,52px)}
 .flash-cell.multi .flash-dist{font-size:clamp(18px,7vw,38px)}
+.flash-cell.multi .flash-rows{font-size:clamp(18px,6vw,36px)}
 
 .empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
@@ -901,7 +902,7 @@ function showFlash(items){
   host.innerHTML=items.slice(0,6).map(r=>`<div class="flash-cell${multi}">
     <div class="flash-ct">COURT ${esc(r.court)}</div>
     <div class="flash-dist">${esc(_distLabel(r.gap))}</div>
-    <div class="flash-rows"><div><span class="fl-k">ON</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
+    <div class="flash-rows"><div><span class="fl-k">ONGOING</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
       <div><span class="fl-k">OURS</span><span class="fl-v">${esc(r.item)}</span></div></div>
   </div>`).join("");
 }
