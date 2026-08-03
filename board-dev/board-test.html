@@ -447,6 +447,19 @@ function proximity(seq,current,ours){
   if(curPos<0||ourPos<0) return {gap:null,of:seq.length,ourPos,curPos};
   return {gap:ourPos-curPos,of:seq.length,ourPos,curPos};
 }
+// Position of `item` in the court's FULL expected call order: the declared sequence
+// first (in its given order), then every OTHER item in ascending number ("…then the
+// rest of the matters"). So with a sequence "1-17, 21, 30, …", after 17 the court
+// takes 21 — items 18/19/20 are NOT over, they wait for "the rest". Returns an index;
+// the gap between two items is the difference of their indices. (No sequence → the
+// caller falls back to a plain numeric distance.)
+function orderPos(seq, item){
+  item=Math.floor(parseFloat(item)); if(isNaN(item)) return null;
+  const i=seq.indexOf(item); if(i>=0) return i;             // an explicit-sequence item keeps its slot
+  const seqSet=new Set(seq); let before=0;
+  for(let n=1;n<item;n++){ if(!seqSet.has(n)) before++; }   // non-sequence items numerically below it
+  return seq.length + before;                               // the "rest", after the whole sequence
+}
 /* ---- Passover marks: shared live via config/live.po (any colleague marks;
    auto-cleared when the date turns). Board-declared passovers merge in. ---- */
 const poKey=(court,item)=>String(court)+"_"+String(item);
@@ -457,7 +470,10 @@ async function setPO(court,item,mode,after){
   await db.set("config/live",{po:{date:todayISO(),marks}},true);
 }
 async function clearPO(court,item){
-  const marks={...poMarks()}; delete marks[poKey(court,item)];
+  // Tombstone (null), NOT delete: prod Firestore set(...,{merge:true}) DEEP-merges the
+  // marks map, so a removed key would persist. Writing null clears it (poFor reads it
+  // as falsy) and works in both the demo and Firestore.
+  const marks={...poMarks()}; marks[poKey(court,item)]=null;
   await db.set("config/live",{po:{date:todayISO(),marks}},true);
 }
 /* ---- Matter OVER marks (attended / did-not-attend) — shared live via
@@ -472,7 +488,10 @@ async function setDone(court,item,v){
   if(poFor(court,item)) await clearPO(court,item);   // it's over now, not deferred
 }
 async function clearDone(court,item){
-  const marks={...doneMarks()}; delete marks[poKey(court,item)];
+  // Tombstone (null), NOT delete — see clearPO: prod Firestore merge won't drop a
+  // removed nested key, so cancelling "over" would silently do nothing (strike-through
+  // stays, court untracked). Writing null clears it; doneOf reads null as "not over".
+  const marks={...doneMarks()}; marks[poKey(court,item)]=null;
   await db.set("config/live",{done:{date:todayISO(),marks}},true);
 }
 /* Board-observed passovers. The board flashes "Pass Over" on an item only while
@@ -701,9 +720,11 @@ function classify(e, bc){
     // else: the Regular list is running — fall through to normal proximity within it.
   }
   let gap=null, approx=false;
-  const p=proximity(seq,bc.item,ours);
-  if(p && p.gap!=null) gap=p.gap;
-  else { const c=parseFloat(bc.item); if(!isNaN(c)){ gap=Math.floor(oursNum)-Math.floor(c); approx=true; } }
+  // Distance in the court's true call order (sequence, then the rest) — NOT raw item
+  // numbers, so a sequence like "1-17, 21, 30…" doesn't wrongly show 18/19/20 as over.
+  if(seq.length){ const op=orderPos(seq,ours), cp=orderPos(seq,bc.item);
+    if(op!=null && cp!=null) gap=op-cp; }
+  if(gap==null){ const c=parseFloat(bc.item); if(!isNaN(c)){ gap=Math.floor(oursNum)-Math.floor(c); approx=true; } }
   // Discount matters already finished out of turn (the court's list marks them
   // OVER): they sit between the item now on and ours but won't be called again, so
   // our real distance is that much shorter.

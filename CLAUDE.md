@@ -165,6 +165,27 @@ after the existing `overAhead` discount; the detail label gains "· N passed ove
 ahead" / "· N recalled first". jsc-verified 8 cases (deferred-to-end, recalled-
 before-us via passIdx, behind-us-recalled-ahead, our-item-already-passed, none).
 
+**Sequence-order "N away" (owner fix Jul 2026):** the gap is now the distance in the
+court's TRUE call order, not raw item numbers. `orderPos(seq,item)` returns an item's
+index in the full expected order = the declared sequence in its given order, THEN
+every other item ascending ("…then the rest of the matters"). So for "1-17, 21, 30,
+52-54, passover, rest", when the board reaches 21 items 18/19/20 are NOT shown over —
+they wait in the rest (18 = 5 away: 30,52,53,54,then 18). `classify` uses
+`orderPos(ours)−orderPos(cur)` whenever a sequence is declared, and only falls back to
+numeric subtraction when there is NO sequence. The OLD bug: `proximity` returned
+gap=null for any item not literally in the sequence list, so classify hit the numeric
+fallback and reported a "rest" item as over. jsc-verified on the owner's exact example
+(cur21→ours18/19/20 = 5/6/7 away; both-in-rest; already-passed).
+
+**Cancelling "over"/PO now actually clears it (owner fix Jul 2026):** `clearDone` /
+`clearPO` wrote the marks map back with `db.set(...,{merge:true})` after `delete`-ing
+the key — but prod Firestore DEEP-merges nested maps, so a removed key PERSISTS: the
+strike-through stayed and the court stayed untracked. Fixed by writing a **null
+tombstone** for the key instead of deleting (`doneOf`/`poFor` already read null as
+absent); clears correctly under both the demo shallow-merge and Firestore deep-merge.
+Simulated-deep-merge test reproduces the bug with the old delete and confirms the null
+fix. board-sw cache `sdboard-v11→v12`.
+
 ## Display-board chat — fresh every day (board.html, Jul 2026)
 
 Owner: "Every day should be a fresh chat window, no past messages; old chats
