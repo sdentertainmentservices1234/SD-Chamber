@@ -228,9 +228,23 @@ grid, capped 6); each panel shows, big and bold: **COURT n**, the distance
 (`ON NOW`/`NEXT`/`N AWAY`), **ON** = item now on, **OURS** = our item. It blinks
 red↔navy (`@keyframes flashpulse`), auto-clears after **3 s** (or tap) back to the
 board. De-duped per court+item (`_flash.set`) so it fires once per approach and
-re-arms when the matter recedes past 2; independent of the notification bell and
 skipped when `document.hidden`. Live-verified in the demo (two-court split =
 Court 5/6 NEXT, and a single-court "2 AWAY" with ON/OURS). `board-sw` `v12→v13`.
+**PERSISTENT (owner Jul 2026):** no more 3s auto-dismiss — the flash stays until the
+screen is TOUCHED or the case is OVER (leaves the ≤2 set: called / marked over /
+receded). `runFlash` re-renders the current reaching set live each poll; a tap adds
+the shown court+item to `_flash.dismissed` (re-armed when they leave the ≤2 set), and
+the flash hides when nothing is actively reaching.
+
+**Route rail replaces the directive balloon (owner Jul 2026):** the old "where do I
+go now" card (`.directive`/`renderRoute`) is removed. `#paneTop` now holds a
+**`.route-rail`** (`renderRail`) — a horizontal strip of small court "stops" in the
+order to visit them: our actionable matters, soonest-to-reach first (`reachMinsFor`,
+sequence-aware gap + live pace), one stop per court (closest matter). Each stop shows
+Court, distance (NOW/NEXT/N away/PO/WATCH), and `our <item> · on <cur> · ~Nm [est]`;
+between stops a chevron with the **walk time** (`walkMin`, court distance). Tap a stop
+→ `openCourtModal`. Live-verified (stops ordered Ct6/5 NEXT → Ct3 PO → Ct2 far →
+Ct1 watch, 1m connectors). Senior location still shows as the grid `senpin`.
 **Colour (owner Jul 2026): polite-but-urgent AMBER, not alarm red** — pulses
 `#c68a24↔#8a6112` (`flashpulse`, 1.1s ease-in-out breathe), white/cream text; the
 red version read as an emergency. On-brand with the chamber gold.

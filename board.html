@@ -86,42 +86,35 @@ header.top{display:flex;align-items:center;gap:10px;
 .iconbtn.spin i{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* board-tab header strip: nearest directive + senior */
+/* board-tab header strip: the ROUTE RAIL — your stops in order */
 #paneTop{flex:none;padding:9px 12px 0}
-/* directive balloon — the senior's "where do I go now" card */
-.directive{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--accent);
-  border-radius:14px;padding:11px 13px 12px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s}
-.directive:active{transform:scale(.99)}
-.directive.go{border-left-color:var(--now);background:var(--now-bg)}
-.directive.soon{border-left-color:var(--soon);background:var(--soon-bg)}
-.directive.clear{border-left-color:var(--later);background:var(--later-bg)}
-.dir-top{display:flex;align-items:center;gap:11px}
-.dir-pill{flex:none;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-  padding:4px 10px;border-radius:20px;background:var(--accent);color:#fff;white-space:nowrap}
-.directive.go .dir-pill{background:var(--now);animation:pulsepill 1.25s ease-in-out infinite}
-.directive.soon .dir-pill{background:var(--soon)}
-.directive.clear .dir-pill{background:var(--later)}
 @keyframes pulsepill{0%,100%{opacity:1}50%{opacity:.5}}
-.dir-dest{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.05}
-.dir-lead{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
-.dir-ct{font-family:Fraunces,serif;font-weight:600;font-size:21px;color:var(--ink);margin-top:2px}
-.dir-ct b{font-family:'IBM Plex Mono';font-weight:800}
-.directive.go .dir-ct b{color:var(--now)}
-.dir-eta{flex:none;text-align:center;background:rgba(0,0,0,.055);border-radius:11px;padding:5px 12px;min-width:58px}
-.dir-eta b{display:block;font-family:'IBM Plex Mono';font-size:19px;font-weight:800;line-height:1.05;color:var(--ink)}
-.dir-eta span{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
-.directive.go .dir-eta{background:rgba(210,58,52,.14)} .directive.go .dir-eta b{color:var(--now)}
-.dir-sub{font-size:12.5px;color:var(--ink);margin-top:8px;line-height:1.3}
-.dir-sub b{font-weight:700}
-.dir-sen{margin-top:8px;display:inline-flex;align-items:center;gap:6px;
-  background:var(--navy);color:#fff;border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:600}
-.dir-sen i{font-size:14px}
-.dir-sen.inferred{background:transparent;color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--navy)}
-.dir-sen.hidden,.dir-then.hidden,.dir-eta.hidden{display:none}
-.dir-then{font-size:12px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);
-  display:flex;align-items:flex-start;gap:7px;color:var(--mut);line-height:1.35}
-.dir-then i{font-size:15px;flex:none;margin-top:1px;color:var(--accent)}
-.dir-then b{color:var(--ink)}
+/* Route rail: a horizontal strip of small court "stops" in the order to visit them —
+   soonest-to-reach first (proximity uses our item + the court's sequence + live data),
+   with the walk time between each shown on the connector. Replaces the old directive
+   balloon. Scrolls sideways when there are many. */
+.route-rail{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:2px 0 4px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+.route-rail::-webkit-scrollbar{display:none}
+.rail-stop{flex:none;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:82px;
+  background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:8px 11px;cursor:pointer;
+  transition:transform .1s}
+.rail-stop:active{transform:scale(.97)}
+.rail-stop.go{border-color:var(--now);background:var(--now-bg)}
+.rail-stop.soon{border-color:#e2c07a;background:var(--soon-bg)}
+.rail-ct{font-family:Fraunces,serif;font-weight:600;font-size:15px;color:var(--ink);line-height:1}
+.rail-ct b{font-family:'IBM Plex Mono';font-weight:800}
+.rail-stop.go .rail-ct b{color:var(--now)}
+.rail-dist{font-size:12.5px;font-weight:800;letter-spacing:.2px;color:var(--mut)}
+.rail-stop.go .rail-dist{color:var(--now)}
+.rail-stop.soon .rail-dist{color:#8a6112}
+.rail-sub{font-size:10px;color:var(--mut);white-space:nowrap}
+.rail-stop.go .rail-dist{animation:pulsepill 1.25s ease-in-out infinite}
+.rail-arrow{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--mut);padding:0 4px;min-width:26px}
+.rail-arrow i{font-size:15px;line-height:1}
+.rail-arrow .w{font-size:8.5px;font-weight:700;margin-top:1px}
+.rail-empty{font-size:12.5px;color:var(--mut);padding:6px 2px}
 
 .seniorbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px;
   background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:8px 11px}
@@ -344,16 +337,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 
   <div id="paneTop">
     <div class="statusrow"><span class="freshdot off" id="freshDot"></span><span id="statusTxt">connecting…</span></div>
-    <div class="directive" id="directive">
-      <div class="dir-top">
-        <span class="dir-pill" id="dirPill">—</span>
-        <div class="dir-dest"><span class="dir-lead" id="dirLead">&nbsp;</span><span class="dir-ct" id="dirCt">—</span></div>
-        <div class="dir-eta hidden" id="dirEta"><b id="dirEtaN"></b><span id="dirEtaU">min</span></div>
-      </div>
-      <div class="dir-sub" id="dirSub"></div>
-      <div class="dir-sen hidden" id="dirSen"></div>
-      <div class="dir-then hidden" id="dirThen"></div>
-    </div>
+    <div class="route-rail" id="routeRail"></div>
   </div>
 
   <main id="main"></main>
@@ -881,12 +865,12 @@ function fireCourtAlert(e,k,lvl){
   const toUids=(e.juniorUids||[]).filter(Boolean); if(toUids.length) relayPush({kind:"court", toUids, court:String(e.courtNo),
     item:String(e.itemNo), level:lvl, date:todayISO(), title, body, urgent:head, tag:"court-"+e.courtNo});
 }
-/* Full-screen approach flash: any of our matters ≤2 away triggers a big blinking
-   overlay (one panel per reaching court) — Court, item on, our item, distance — for
-   3 seconds, then it clears back to the board. Independent of the notification bell
-   (it's an on-screen visual). De-duped per court+item so it fires once per approach
-   and re-arms when the matter recedes past 2. */
-let _flash={date:"",set:new Set()}, _flashTimer=null;
+/* Full-screen approach flash: any of our matters ≤2 away shows a big blinking overlay
+   (one panel per reaching court) — Court, item on, our item, distance. It PERSISTS —
+   staying until the screen is TOUCHED or the case is OVER (leaves the ≤2 set: called,
+   marked over, or receded). It re-renders live each poll to track the current item.
+   A tap dismisses the shown matters until they go over and a fresh one approaches. */
+let _flash={date:"",dismissed:new Set()};
 function reachingMatters(){
   const bc=boardByCourt(); const seen={};
   for(const e of courtMatters()){
@@ -900,30 +884,29 @@ function reachingMatters(){
 }
 const _distLabel=g=>g<=0?"ON NOW":g===1?"NEXT":g+" AWAY";
 function runFlash(){
-  if(document.hidden) return;
-  if(_flash.date!==todayISO()) _flash={date:todayISO(),set:new Set()};
+  if(document.hidden){ return; }
+  if(_flash.date!==todayISO()) _flash={date:todayISO(),dismissed:new Set()};
   const reaching=reachingMatters();
   const keys=new Set(reaching.map(r=>r.court+"|"+r.item));
-  for(const key of [..._flash.set]) if(!keys.has(key)) _flash.set.delete(key);   // re-arm receded matters
-  if(!reaching.some(r=>!_flash.set.has(r.court+"|"+r.item))) return;              // nothing NEW crossed in
-  reaching.forEach(r=>_flash.set.add(r.court+"|"+r.item));
-  showFlash(reaching);
+  for(const k of [..._flash.dismissed]) if(!keys.has(k)) _flash.dismissed.delete(k); // over/receded → re-arm
+  const active=reaching.filter(r=>!_flash.dismissed.has(r.court+"|"+r.item));         // not tapped-away
+  if(active.length) showFlash(active); else hideFlash();                              // gone when the case is over
 }
 function showFlash(items){
-  hideFlash();
+  let host=$("flashHost");
+  if(!host){ host=document.createElement("div"); host.id="flashHost"; host.onclick=dismissFlash; document.body.appendChild(host); }
   const n=Math.min(items.length,6), multi=n>1?" multi":"";
-  const host=document.createElement("div"); host.id="flashHost"; host.className="n"+n;
+  host.className="n"+n;
+  host._items=items.slice(0,6);
   host.innerHTML=items.slice(0,6).map(r=>`<div class="flash-cell${multi}">
     <div class="flash-ct">COURT ${esc(r.court)}</div>
     <div class="flash-dist">${esc(_distLabel(r.gap))}</div>
     <div class="flash-rows"><div><span class="fl-k">ON</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
       <div><span class="fl-k">OURS</span><span class="fl-v">${esc(r.item)}</span></div></div>
   </div>`).join("");
-  host.onclick=hideFlash;
-  document.body.appendChild(host);
-  _flashTimer=setTimeout(hideFlash,3000);
 }
-function hideFlash(){ if(_flashTimer){clearTimeout(_flashTimer);_flashTimer=null;} const h=$("flashHost"); if(h) h.remove(); }
+function dismissFlash(){ const h=$("flashHost"); if(h&&h._items) for(const r of h._items) _flash.dismissed.add(r.court+"|"+r.item); hideFlash(); }
+function hideFlash(){ const h=$("flashHost"); if(h) h.remove(); }
 async function pushNotify(title,body,tag,urgent){
   const opts={body,tag,renotify:true,icon:"icon-192.png",badge:"icon-192.png",
     vibrate:urgent?[250,120,250,120,250]:[160,90,160],requireInteraction:!!urgent};
@@ -1128,76 +1111,43 @@ function seniorState(){
   return {court:null, mode:"none"};
 }
 
-// Directive balloon: where to head NOW, when our item there is likely to reach,
-// where the Senior currently is, and what to do next — enough for him to decide.
-function renderRoute(){
-  const dir=$("directive"), pill=$("dirPill"), lead=$("dirLead"), ct=$("dirCt"),
-        eta=$("dirEta"), etaN=$("dirEtaN"), etaU=$("dirEtaU"),
-        sub=$("dirSub"), senEl=$("dirSen"), then=$("dirThen");
-  if(!dir) return;
-  const rest=()=>{ eta.classList.add("hidden"); senEl.classList.add("hidden"); then.classList.add("hidden"); };
-  if(!board.length){
-    dir.className="directive"; pill.textContent="…"; lead.textContent="";
-    ct.textContent = boardErr && boardErr!=="relay-unset" ? "Board offline" : "Reading the board…";
-    sub.textContent=""; rest(); return;
-  }
+// Route rail: our stops in the order to visit them. Each of our actionable matters
+// becomes a small island — soonest-to-reach first (reachMinsFor, which uses the
+// sequence-aware gap + live pace), one per court (closest matter). Between stops we
+// show the walk time (court distance). Tapping a stop opens that court.
+function renderRail(){
+  const rail=$("routeRail"); if(!rail) return;
+  if(!board.length){ _primaryCourt=null;
+    rail.innerHTML=`<div class="rail-empty">${boardErr&&boardErr!=="relay-unset"?"Board offline":"Reading the board…"}</div>`; return; }
   const bc=boardByCourt();
-  // our actionable matters, soonest first (by estimated minutes to our item)
   const cands=courtMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
-    .filter(x=>["now","soon","later"].includes(x.k.tier))
+    .filter(x=>["now","soon","later"].includes(x.k.tier) && !x.k.done && !x.k.over)
     .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMinsFor(x.e.courtNo,x.k), meas:paceMeasured(x.e.courtNo)}))
-    .sort((a,b)=>((a.mins==null?999:a.mins)-(b.mins==null?999:b.mins)));
-  if(!cands.length){
-    dir.className="directive clear"; pill.textContent="Clear"; lead.textContent="Nothing imminent";
-    ct.innerHTML="All quiet"; sub.textContent="No chamber matter is close right now."; rest(); return;
-  }
-  const primary=cands[0]; _primaryCourt=primary.court;
-  const isNow = primary.k.tier==="now" && !primary.k.ment;
-  const tier = isNow ? "go" : (primary.k.tier==="soon" ? "soon" : "");
-  dir.className="directive"+(tier?" "+tier:"");
-  pill.textContent = isNow ? "Go now" : (primary.k.tier==="soon" ? "Soon" : "Ahead");
-  lead.textContent = isNow ? "Head to" : "Get ready for";
-  ct.innerHTML = `Court <b>${esc(primary.court)}</b>`;
-
-  // ETA — when our item there is likely to reach
-  const tmin = primary.mins==null ? null : Math.max(0,Math.round(primary.mins));
-  if(isNow || tmin===0){ etaN.textContent="on"; etaU.textContent="now"; eta.classList.remove("hidden"); }
-  else if(tmin!=null){ etaN.textContent="~"+tmin; etaU.textContent="min"; eta.classList.remove("hidden"); }
-  else eta.classList.add("hidden");
-
-  // what's on there vs our item
-  const cur=bc[primary.court]?.item;
-  sub.innerHTML = (cur?`Item <b>${esc(cur)}</b> on · `:"") + `our item <b>${esc(primary.e.itemNo)}</b>`
-    + (primary.k.po ? ` · <b style="color:#8a5a12">passed over</b>`
-        : (!isNow && primary.k.gap!=null ? ` · ${primary.k.gap} item${primary.k.gap===1?"":"s"} away` : ""))
-    + (tmin!=null && tmin>0 && !primary.meas ? ` <span style="opacity:.6">(est)</span>` : "");
-
-  // where the Senior is now (relative to where he should go)
-  const ss=seniorState();
-  if(ss.court){
-    const here=String(ss.court)===String(primary.court);
-    const w=here?0:Math.max(1,Math.round(walkMin(ss.court,primary.court)));
-    const q = ss.mode==="confirmed" ? "" : ss.mode==="inferred" ? " · likely" : " · last seen";
-    senEl.className="dir-sen"+(ss.mode==="confirmed"?"":" inferred");
-    senEl.innerHTML = here
-      ? `<i class="ti ti-user-check"></i> Senior is here${q}`
-      : `<i class="ti ti-user-check"></i> Senior in Court ${esc(ss.court)} · ~${w} min walk${q}`;
-    senEl.classList.remove("hidden");
-  } else senEl.classList.add("hidden");
-
-  // what next — the following matter, and whether to catch both or split up
-  const nextC=cands.slice(1).find(c=>String(c.court)!==String(primary.court));
-  if(nextC){
-    const w=walkMin(primary.court,nextC.court);
-    const nm=nextC.mins==null?null:Math.max(0,Math.round(nextC.mins));
-    const near=w<=NEAR_MIN;
-    const clash = nm!=null && tmin!=null && Math.abs(nm-tmin)<=3 && !near;
-    const advice = near ? "next door, <b>take both</b>"
-      : clash ? "far & reaching together, <b>send someone</b>"
-      : "after this one";
-    then.innerHTML=`<i class="ti ti-arrow-right"></i><span>Then <b>Court ${esc(nextC.court)}</b>${nm!=null?` · ~${nm} min`:""} — ${advice}</span>`;
-    then.classList.remove("hidden");
-  } else then.classList.add("hidden");
+    .sort((a,b)=>((a.mins==null?9999:a.mins)-(b.mins==null?9999:b.mins)) || ((a.k.gap??999)-(b.k.gap??999)));
+  // one stop per court (its closest matter), preserving the soonest-first order
+  const seen=new Set(), stops=[];
+  for(const c of cands){ const key=String(c.court); if(seen.has(key)) continue; seen.add(key); stops.push(c); }
+  if(!stops.length){ _primaryCourt=null;
+    rail.innerHTML=`<div class="rail-empty">All quiet — no chamber matter is close right now.</div>`; return; }
+  _primaryCourt=stops[0].court;
+  const distLab=k=> k.ment ? "WATCH" : (k.gap===0||k.short==="NOW") ? "NOW" : k.gap===1 ? "NEXT"
+                 : k.po ? "PO"+(k.gap!=null?" "+k.gap:"") : (k.gap!=null ? k.gap+" away" : (k.short||"—"));
+  let html="";
+  stops.forEach((s,i)=>{
+    const isNow=s.k.tier==="now"&&!s.k.ment;
+    const tier=isNow?"go":(s.k.tier==="soon"?"soon":"later");
+    const tmin=s.mins==null?null:Math.max(0,Math.round(s.mins));
+    const eta = (isNow||tmin===0) ? "on now" : (tmin!=null ? "~"+tmin+"m"+(s.meas?"":" est") : "");
+    const cur=bc[s.court]?.item;
+    if(i>0){ const w=Math.max(1,Math.round(walkMin(stops[i-1].court, s.court)));
+      html+=`<div class="rail-arrow"><i class="ti ti-chevron-right"></i><span class="w">${w}m</span></div>`; }
+    html+=`<button class="rail-stop ${tier}" data-court="${esc(s.court)}">
+      <div class="rail-ct">Ct <b>${esc(s.court)}</b></div>
+      <div class="rail-dist">${esc(distLab(s.k))}</div>
+      <div class="rail-sub">our ${esc(s.e.itemNo)}${cur?` · on ${esc(cur)}`:""}${eta?` · ${eta}`:""}</div>
+    </button>`;
+  });
+  rail.innerHTML=html;
 }
 
 // one court tile: full island when we have matters there, mini otherwise
@@ -1226,7 +1176,7 @@ function boardCell(c, senCourt, senMode){
     <div class="cell-ours"><span class="oi">${items}</span><br>${esc(ks[0].k.short||ks[0].k.label)}</div></div>`;
 }
 function renderBoard(){
-  paintFresh(); renderRoute();
+  paintFresh(); renderRail();
   if(curTab!=="board") return;
   let h="";
   if(boardErr && boardErr!=="relay-unset") h+=`<div class="notice"><b>Can't reach the board</b> — retrying every 15 seconds.</div>`;
@@ -1546,7 +1496,7 @@ $("main").addEventListener("click",ev=>{
   const c=ev.target.closest("[data-court]");
   if(c) openCourtModal(c.dataset.court);
 });
-$("directive").onclick=()=>{ if(_primaryCourt) openCourtModal(_primaryCourt); };
+$("routeRail").addEventListener("click",ev=>{ const c=ev.target.closest("[data-court]"); if(c) openCourtModal(c.dataset.court); });
 $("modalRoot").addEventListener("click",async ev=>{
   const t=ev.target;
   if(t.classList.contains("ovl") || t.closest("button[data-close]")){ closeModal(); return; }
