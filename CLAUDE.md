@@ -245,6 +245,35 @@ while on the chat tab) to the newest seen message's ts. Previously it reset to 0
 reload, so every refresh re-flagged already-read messages as new. Live-verified:
 badge clears on open, stays cleared across a reload (`boardChatSeen` persisted).
 
+## Display-board CLOSED-PHONE PUSH (board.html + worker, Jul 2026 — see PUSH-SETUP.md)
+
+Web Push (VAPID / aes128gcm) via the existing Cloudflare board worker — pops on a
+phone even when the app is closed, for **chat** messages and **court ≤4 away**. NOT
+Firebase; reuses `board-dev/worker.js`. **Inert until `VAPID_PUBLIC` is set in
+board.html AND the worker has the KV binding `SUBS` + secrets `VAPID_PUBLIC/PRIVATE/
+SUBJECT`** (setup steps in `PUSH-SETUP.md`). iOS 16.4+ requires the app be **installed
+to the Home Screen** — no Safari-tab push.
+- **Client (board.html):** the 🔔 bell → `syncPushSub()` subscribes via
+  `pushManager.subscribe(applicationServerKey=VAPID_PUBLIC)` and POSTs the sub to the
+  worker `/push-subscribe` (keyed by uid); bell-off → `dropPushSub()`. `relayPush()`
+  POSTs `/push-send`. `sendChat` relays `{kind:"chat"}`; `fireCourtAlert` relays
+  `{kind:"court", toUids:e.juniorUids, level, …}`. All no-op if `VAPID_PUBLIC===""`.
+  `board-sw.js` gained a `push` handler (`sdboard-v15`).
+- **Worker (`board-dev/worker.js`):** `export default {fetch(req,env)}` now also
+  handles POST `/push-subscribe|/push-unsubscribe|/push-send`. Subs live in KV
+  (`SUBS`, key `sub:<uid>:<hash>`); `/push-send` de-dups per event
+  (`dd:court:… | dd:chat:<id>`, 600s TTL) so many open instances = one push, resolves
+  recipients (court→toUids, chat→all subs minus sender), and sends Web Push
+  (`vapidAuth` ES256 JWT + `encryptPayload` ECDH/HKDF/AES-128-GCM per RFC 8291); 404/
+  410 prunes the sub.
+- **Model = RELAY, not autonomous:** court pushes need SOME open board (bell on) to
+  detect the crossing — keep the war-room display open during court hours; chat fires
+  from the sender's open device. Fully-autonomous (worker cron polling the board, no
+  open instance) is a future upgrade needing the proximity engine ported into the
+  worker. **UNVERIFIED end-to-end** — the crypto/delivery can't be tested without a
+  real installed PWA + deployed worker + VAPID keys; syntax-checked + demo loads clean
+  (inert). Confirm on a device, iterate.
+
 ## Display-board alerts (board.html, Jul 2026 — Phase 1, no backend)
 
 So nobody has to stare at the board. A **bell toggle** in the header

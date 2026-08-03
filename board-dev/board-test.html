@@ -375,6 +375,10 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 const DEMO = true;
 const BOARD_PROXY = "https://sd-board.sdentertainmentservices.workers.dev";
 const BOARD_SAMPLE = "./get_board_sample_2026-07-13.html";
+// Push (closed-phone notifications). PASTE the VAPID *public* key you generate for
+// the worker here (see CAUSELIST-SETUP / push steps). Empty = push disabled (the app
+// still does in-app alerts while open). The matching PRIVATE key stays a worker secret.
+const VAPID_PUBLIC = "";
 
 const CHAMBER = {
   seniorName: "Shyam Divan",
@@ -871,7 +875,11 @@ function fireCourtAlert(e,k,lvl){
   const body=head
     ? `Your item ${e.itemNo} is ${(k.short==="NOW"||k.gap===0)?"ON now":"next"}.`+(cur?` (item ${cur} on)`:"")
     : `Item ${e.itemNo} approaching`+(mins!=null&&mins>=1?` · ~${Math.round(mins)} min`:(k.gap!=null?` · ${k.gap} away`:""))+`.`;
-  pushNotify(title,body,"court-"+e.courtNo,head);
+  pushNotify(title,body,"court-"+e.courtNo,head);                 // this (open) device
+  // ...and push the matter's assigned colleague(s) via the worker, so a CLOSED phone
+  // pops too. Any open instance may fire this; the worker de-dups per court+item+level.
+  const toUids=(e.juniorUids||[]).filter(Boolean); if(toUids.length) relayPush({kind:"court", toUids, court:String(e.courtNo),
+    item:String(e.itemNo), level:lvl, date:todayISO(), title, body, urgent:head, tag:"court-"+e.courtNo});
 }
 /* Full-screen approach flash: any of our matters ≤2 away triggers a big blinking
    overlay (one panel per reaching court) — Court, item on, our item, distance — for
@@ -939,8 +947,41 @@ async function toggleNotify(){
   if(Notification.permission!=="granted"){ alert("Turn on notifications for this site in your phone/browser settings, then tap the bell again."); updateNotifyBtn(); return; }
   notifyOn=!notifyOn; try{ localStorage.setItem("boardNotify",notifyOn?"1":"0"); }catch(e){}
   updateNotifyBtn();
-  if(notifyOn){ acquireWake(); pushNotify("Alerts on ⚖️","We'll ping you the moment a chamber matter is reaching — keep this open.","alerts-test",false); runAlerts(); }
-  else releaseWake();
+  if(notifyOn){ acquireWake(); syncPushSub(); pushNotify("Alerts on ⚖️","We'll ping you the moment a chamber matter is reaching — even with the app closed.","alerts-test",false); runAlerts(); }
+  else { releaseWake(); dropPushSub(); }
+}
+/* ---- CLOSED-PHONE PUSH (Web Push via the chamber's Cloudflare worker) ----
+   The bell subscribes this device (installed PWA) to push and registers the
+   subscription with the worker, keyed by uid. The worker then delivers a
+   notification even when the app is closed: on a new chat message, and when one of
+   this colleague's matters is ≤4 away. VAPID_PUBLIC must be set + the app installed
+   to the Home Screen (mandatory on iOS 16.4+). No-ops safely if unset/unsupported. */
+function _b64ToU8(s){ s=s.replace(/-/g,"+").replace(/_/g,"/"); s+="=".repeat((4-s.length%4)%4);
+  const bin=atob(s), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return u; }
+async function syncPushSub(){
+  try{
+    if(!VAPID_PUBLIC || !notifyOn || !me?.uid) return;
+    if(!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if(Notification.permission!=="granted") return;
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:_b64ToU8(VAPID_PUBLIC)});
+    await fetch(BOARD_PROXY+"/push-subscribe",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({uid:me.uid, name:me.name||"", sub:sub.toJSON()})}).catch(()=>{});
+  }catch(e){}
+}
+async function dropPushSub(){
+  try{ const reg=await navigator.serviceWorker?.ready; const sub=await reg?.pushManager.getSubscription();
+    if(sub){ await fetch(BOARD_PROXY+"/push-unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({uid:me?.uid, endpoint:sub.endpoint})}).catch(()=>{}); await sub.unsubscribe().catch(()=>{}); }
+  }catch(e){}
+}
+// Ask the worker to fan a notification out to OTHER phones (closed included). De-dup
+// is the worker's job (many open instances may call this for the same event).
+function relayPush(payload){
+  if(!VAPID_PUBLIC) return;
+  try{ fetch(BOARD_PROXY+"/push-send",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)}).catch(()=>{}); }catch(e){}
 }
 
 /* ============================================================
@@ -1343,7 +1384,10 @@ function renderChat(){
 }
 async function sendChat(){
   const inp=$("chatIn"); const t=(inp.value||"").trim(); if(!t) return; inp.value=""; inp.focus();
-  await db.add("messages",{by:me.uid,name:me.name||"",text:t.slice(0,1000),at:db.now(),day:todayISO()});
+  const id=await db.add("messages",{by:me.uid,name:me.name||"",text:t.slice(0,1000),at:db.now(),day:todayISO()});
+  // fan a push out to the OTHER members' phones (closed included)
+  relayPush({kind:"chat", id:String(id||Date.now()), fromUid:me.uid,
+    title:(me.name||"Chamber").split(" ")[0]+" · chat", body:t.slice(0,140)});
 }
 function updateChatBadge(){
   const unseen=todayMsgs().filter(m=>tsMs(m.at)>lastSeenChat && m.by!==me?.uid).length;
@@ -1537,9 +1581,9 @@ $("lgReset").onclick=async()=>{
 };
 function initNotify(){
   try{ notifyOn = localStorage.getItem("boardNotify")==="1" && ("Notification" in window) && Notification.permission==="granted"; }catch(e){ notifyOn=false; }
-  updateNotifyBtn(); if(notifyOn) acquireWake();
+  updateNotifyBtn(); if(notifyOn){ acquireWake(); syncPushSub(); }
 }
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && !DEMO) fetchBoard(); if(!document.hidden && notifyOn) acquireWake(); });
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && !DEMO) fetchBoard(); if(!document.hidden && notifyOn){ acquireWake(); syncPushSub(); } });
 
 auth.onChange(boot);
 $("lgName").textContent = CHAMBER.seniorName ? CHAMBER.seniorName.split(" ")[0]+"'s Chamber — Display Board" : "Chamber Display Board";
