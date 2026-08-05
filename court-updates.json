@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-05T05:38:39.088629Z",
+  "generated_at": "2026-08-05T11:40:19.542565Z",
   "parser_version": 8,
   "window": [
     "2026-08-05",
@@ -7742,6 +7742,7 @@
     "2026-08-06": {
       "lists_found": [
         "Miscellaneous (main)",
+        "Chamber (main)",
         "Registrar (main)",
         "Curative & Review (main)"
       ],
@@ -11064,6 +11065,178 @@
               }
             },
             "main": 30,
+            "supp": 0
+          }
+        },
+        "Chamber": {
+          "13": {
+            "coram": "HON'BLE MR. JUSTICE SHREE CHANDRASHEKHAR",
+            "total": "35",
+            "fresh": "",
+            "items": {
+              "1701": "Diary No. 28089-2026 THE STATE OF KARNATAKA REP BY POLICE VERSUS H RAGHAVENDRA RAO",
+              "1702": "Diary No. 12998-2026 MAMTA GOLA @ MAMTA DAKSH AND ANR. VERSUS SACHIN KUMAR DAKSH",
+              "1703": "T.P.(Crl.) No. MADDIMADUGU ARUNA VERSUS MADDIMADUGU VARA PRASAD AND ORS.",
+              "1704": "SLP(C) No. 12502/1993 MAHARANA MAHENDRA SINGH JI VERSUS MAHARAJA ARVIND SINGHJI . AND ORS.",
+              "1705": "C.A. No. 15095/2017 SUSHIL KUMAR ARORA . AND ORS. VERSUS STATE OF M.P.. AND ORS. MRINAL GOPAL ELKER [R-1],",
+              "1706": "C.A. No. 1719/2016 BHUWANI SINGH VERSUS CHIMAN SINGH (DEAD) THR. LRS. AND ORS.",
+              "1707": "C.A. No. 12063/2016 ANOKHI BAI AND ORS. VERSUS TEHSILDAR TAHSIL MAHESHWAR AND ORS.",
+              "1708": "SLP(C) No. PUNJAB STATE AND ORS. VERSUS ASHOK KUMAR",
+              "1709": "SLP(C) No. 10083/2018 AMARJEET SINGH VERSUS KULWINDER KAUR AND ANR.",
+              "1710": "T.P.(Crl.) No. 295/2024 HARMINDER SINGH WALIA AND ANR. VERSUS SATPAL BABBAR",
+              "1711": "SLP(Crl) No. THE STATE OF UTTAR PRADESH VERSUS VINOD KUMAR CHOPRA",
+              "1712": "T.P.(Crl.) No. 425/2025 JACULIN JESSEY KANAGARAJ JOSEPH AND ANR. VERSUS AVANSE FINANCIAL SERVICES LTD. AND ORS.",
+              "1713": "T.P.(Crl.) No. SHIVANI SHARMA VERSUS SHAKUNATLA DIXIT (MOTHER IN LAW) AND ORS.",
+              "1714": "SLP(C) No. 22477/2025 KUMARI GEETA BARAI AND ORS. VERSUS OM PRAKASH AGRAWALA AND ORS.",
+              "1715": "SLP(Crl) No. SHAM SINGH AND ANR. VERSUS STATE OF PUNJAB AND ANR.",
+              "1716": "Diary No. 44114-2025 HARSHAL VERSUS THE SCHEDULED TRIBES CASTE CERTIFICATE",
+              "1717": "Diary No. 44276-2025 P. LIAKATH ALI KHAN VERSUS K. SIRAJUDDIN KHAN KHATAK AND ORS.",
+              "1718": "SLP(C) No. 22905/2025 VIJAY SHRIDHAR GHARE VERSUS ASHOK NARAYAN SHINDE AND ORS.",
+              "1719": "SLP(C) No. 24618/2025 NEETU PATEL VERSUS ARVIND KURMI",
+              "1720": "SLP(C) No. 26888/2025 GHANA KANTA KATAKI VERSUS ARUNA BORAH",
+              "1721": "SLP(C) No. ANIL VERSUS SUBRAHMANYAN (DEAD) AND ORS.",
+              "1722": "SLP(C) No. 4994/2026 SANDHYA DEVI VERSUS RAJAN KUMAR",
+              "1723": "SLP(C) No. 1456/2026 HARISH KUMAWAT VERSUS ARCHANA",
+              "1724": "Diary No. 62615-2025 PHOOL SINGH VERSUS KARTIK MALHOTRA AND ORS.",
+              "1725": "SLP(C) No. 35843/2025 SANGITA RAY @ SANGITA DEVI VERSUS RAJIV RANJAN @ BABLU AND ANR.",
+              "1726": "SLP(C) No. 35930/2025 PREETI KHARE VERSUS RAVINDRA VERMA",
+              "1727": "SLP(C) No. 646/2026 RAHUL KARMAKAR AND ORS. VERSUS THE STATE OF CHHATTISGARH AND ORS.",
+              "1728": "SLP(C) No. 811/2026 JEYACHITHRA RAJANPHILIP AND ORS. VERSUS THANGAM ALIAS ANGAMUTHU ALIAS ALLIMUTHU",
+              "1729": "SLP(C) No. 7559/2026 ANIL KUMAR SHARMA VERSUS ADITYA VASHISHTH AND ORS.",
+              "1730": "T.P.(C) No. 3342/2024 KAMNA VERSUS VISHAL PARMESHWARI",
+              "1731": "T.P.(C) No. 3507/2024 KAJAL GEHANI VERSUS MAYANK KUMAR PHOOLWANI",
+              "1732": "SLP(C) No. 34560/2025 THE SPECIAL LAND ACQUISITION OFFICER AND VERSUS G. RAJSHEKHAR REDDY",
+              "1733": "SLP(C) No. ARUNTHATHI (DEAD) AND ORS. VERSUS NESAMMA AND ORS.",
+              "1734": "C.A. No. 1992/2014 M/S PUNJ SONS PVT. LTD. VERSUS RAVINDER PRAKASH PUNJ (DEAD) AND ORS.",
+              "1735": "C.A. No. 2759/2014 COMMISSIONER OF CUSTOMS (IMPORT) MUMBAI VERSUS M/S PNP POLYTEX PVT LTD"
+            },
+            "advocates": {
+              "1701": {
+                "pet": "VIKRAM HEGDE"
+              },
+              "1702": {
+                "pet": "ALPANA SHARMA"
+              },
+              "1703": {
+                "pet": "HIMANSHU SHEKHAR",
+                "resp": "BHUWAN RAJ"
+              },
+              "1704": {
+                "pet": "M. K. GARG",
+                "resp": "SUSHIL KUMAR JAIN"
+              },
+              "1705": {
+                "pet": "RANI CHHABRA",
+                "resp": "MRINAL GOPAL ELKER"
+              },
+              "1706": {
+                "pet": "PRATIBHA JAIN",
+                "resp": "VIKRANT SINGH BAIS"
+              },
+              "1707": {
+                "pet": "PRAMIT SAXENA",
+                "resp": "SUNNY CHOUDHARY"
+              },
+              "1708": {
+                "pet": "NUPUR KUMAR",
+                "resp": "SHILPA SINGH , RAVI PANWAR"
+              },
+              "1709": {
+                "pet": "ADITI GUPTA"
+              },
+              "1710": {
+                "pet": "AMIT KUMAR SINGH"
+              },
+              "1711": {
+                "pet": "MUKESH KUMAR MARORIA"
+              },
+              "1712": {
+                "pet": "RAJESH KUMAR",
+                "resp": "KARUNAKAR MAHALIK"
+              },
+              "1713": {
+                "pet": "VIDULA MEHROTRA"
+              },
+              "1714": {
+                "pet": "DHANANJAY BHASKAR RAY",
+                "resp": "PALASH SINGHAI"
+              },
+              "1715": {
+                "pet": "VEER PRATAAP SINGH",
+                "resp": "BAANI KHANNA"
+              },
+              "1716": {
+                "pet": "RAMESHWAR PRASAD",
+                "resp": "AADITYA ANIRUDDHA"
+              },
+              "1717": {
+                "pet": "RAO VISHWAJA",
+                "resp": "RAO VISHWAJA"
+              },
+              "1718": {
+                "pet": "PRESHIT VILAS SURSHE",
+                "resp": "SHIVAJI M. JADHAV"
+              },
+              "1719": {
+                "pet": "PRAVIR CHOUDHARY"
+              },
+              "1720": {
+                "pet": "LINTO K.B"
+              },
+              "1721": {
+                "pet": "SUVIDUTT M.S",
+                "resp": "ABID ALI BEERAN P"
+              },
+              "1722": {
+                "pet": "MANJEET KIRPAL"
+              },
+              "1723": {
+                "pet": "RISHI MATOLIYA"
+              },
+              "1724": {
+                "pet": "TUSHAR GARG"
+              },
+              "1725": {
+                "pet": "KARAN VERMA",
+                "resp": "SUBHRO SANYAL"
+              },
+              "1726": {
+                "pet": "SATISH KUMAR"
+              },
+              "1727": {
+                "pet": "RISHI KAPOOR",
+                "resp": "SAMEER SHRIVASTAVA"
+              },
+              "1728": {
+                "pet": "SABARISH SUBRAMANIAN",
+                "resp": "R. SHASE"
+              },
+              "1729": {
+                "pet": "SUMITRA KUMARI",
+                "resp": "PAREKH & CO"
+              },
+              "1730": {
+                "pet": "ANKUR YADAV"
+              },
+              "1731": {
+                "pet": "DISHA JHAM"
+              },
+              "1732": {
+                "pet": "HETU ARORA SETHI"
+              },
+              "1733": {
+                "pet": "SUMIT SRIVAASTAVA",
+                "resp": "P. SOMA SUNDARAM"
+              },
+              "1734": {
+                "pet": "VIKAS MEHTA"
+              },
+              "1735": {
+                "pet": "GURMEET SINGH MAKKER",
+                "resp": "CHARANYA LAKSHMIKUMARAN"
+              }
+            },
+            "main": 35,
             "supp": 0
           }
         },
@@ -20548,6 +20721,7 @@
     },
     "2026-08-06": {
       "M_J_1": 935797,
+      "M_C_1": 517690,
       "M_R_1": 533830,
       "M_CC_1": 524021
     },
