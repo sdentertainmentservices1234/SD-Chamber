@@ -337,6 +337,29 @@ body.kb-open nav.botnav{display:none}
 .fl-k{color:rgba(255,255,255,.72);font-weight:700;letter-spacing:1.3px;text-transform:uppercase}
 .fl-v{color:#fff;font-family:var(--mono);font-weight:800;line-height:1}
 
+/* BRIEFING FEATURE */
+.bwrap{padding:2px 2px 20px}
+.bsec-h{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);margin:6px 2px 8px}
+.bcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:9px;box-shadow:0 1px 2px rgba(13,16,20,.04)}
+.bcard.bhi{border-color:#b9c6d6;box-shadow:0 6px 18px rgba(20,40,70,.08)}
+.brow{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.blab{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);font-weight:700;flex:none}
+.bval{font-size:14px;font-weight:600;color:var(--ink)}
+.bsub,.bnote{font-size:12.5px;color:var(--mut);margin-top:4px;line-height:1.4}
+.bttl{font-size:12.5px;color:var(--mut);margin-top:2px}
+.bdesig{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--accent);font-weight:700;margin-left:4px}
+.bchip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;flex:none}
+.bempty{text-align:center;color:var(--mut);font-size:13px;padding:16px 12px;border:1px dashed var(--line);border-radius:12px;margin-bottom:9px}
+.bmsgs{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.bmsg{flex:1 1 46%;padding:10px 8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:12.5px;font-weight:600}
+.bmsg:active{transform:translateY(1px)}
+.bmsg.ok{background:linear-gradient(180deg,#2f8a54,#1e5d37);color:#fff;border-color:transparent}
+.bmsg.no{background:#fff;color:#8a2a20;border-color:#e6c9c4}
+.bmsg.small{flex:0 0 auto;padding:6px 12px}
+#bNew{margin-bottom:12px}
+.btoast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);background:#12171e;color:#fff;
+  padding:10px 16px;border-radius:22px;font-size:13px;font-weight:600;z-index:70;box-shadow:0 8px 24px rgba(0,0,0,.28);opacity:1;transition:opacity .3s}
+.btoast.out{opacity:0}
 .empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
 
@@ -404,6 +427,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
     <button data-tab="board" class="on"><i class="ti ti-layout-grid"></i>Board</button>
     <button data-tab="list"><i class="ti ti-list-details"></i>Our list</button>
     <button data-tab="chat"><i class="ti ti-messages"></i>Chat<span class="badge hidden" id="chatBadge">0</span></button>
+    <button data-tab="brief" id="tabBrief" class="hidden"><i class="ti ti-broadcast"></i>Briefing<span class="badge hidden" id="briefBadge">0</span></button>
   </nav>
 </div>
 
@@ -427,6 +451,12 @@ const VAPID_PUBLIC = "";
 // pulls it (worker ?seq) and plans the route from it the moment it's up, instead
 // of waiting for a court to begin. Set false to fully regress to live-only order.
 const SEQ_LINE = true;
+
+// BRIEFING (regressible): an Advocate-on-Record briefing this senior can, with the
+// chamber's approval, TRACK the senior's board position for their matter and send
+// quick messages to the team ("my matter is reaching", "bench is calling you").
+// One isolated block (search "BRIEFING FEATURE"); set false to hide it entirely.
+const BRIEFING = true;
 
 const CHAMBER = {
   seniorName: "Shyam Divan",
@@ -1186,6 +1216,7 @@ const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.c
 // court+item in "Track a matter"), private to them. Dedup a personal matter that
 // duplicates a day-sheet entry (same court+item) — the day-sheet one wins (richer).
 let myOwn=[];
+let briefLinks=[];               // BRIEFING FEATURE — AoR↔chamber tracking links
 const myMatters = () => {
   const ds=(daysheet?.entries||[]).filter(e=>e.courtNo);
   const key=e=>String(e.courtNo)+"|"+String(e.itemNo);
@@ -1511,6 +1542,7 @@ function render(){
   if(curTab==="board") renderBoard();
   else if(curTab==="list") renderList();
   else if(curTab==="chat") renderChat();
+  else if(curTab==="brief") renderBrief();
   $("paneTop").classList.toggle("hidden", curTab!=="board");
 }
 let _rafR=null;                       // coalesce the boot burst of watcher callbacks into one paint
@@ -1654,6 +1686,123 @@ function openMatterModal(court,item){
 }
 
 /* ============================================================
+   BRIEFING FEATURE (regressible — const BRIEFING)
+   An AoR briefing this senior asks the chamber for permission to TRACK the
+   senior's board position for their matter, and can ping the team with one tap
+   ("my matter is reaching", "bench is calling you"). Demo-tested end-to-end.
+   Cross-chamber security hardening (rules so an outside AoR sees ONLY the
+   senior's location + their own matter, never the chamber) is the pre-live step.
+   Data: brieflinks/{id} {aorUid,aorName,aorDesig,court,item,date,title,note,status,at}
+   ============================================================ */
+const canApproveBrief = () => ["admin","clerk","pa","senior"].includes(me?.role);
+const myBriefLinks    = () => briefLinks.filter(l=>l.aorUid===me?.uid);
+const pendingBriefs   = () => briefLinks.filter(l=>l.status==="pending");
+function updateBriefBadge(){
+  const b=$("briefBadge"); if(!b) return;
+  const cnt = canApproveBrief() ? pendingBriefs().length : 0;   // chamber's action queue
+  if(cnt>0 && curTab!=="brief"){ b.textContent=cnt; b.classList.remove("hidden"); } else b.classList.add("hidden");
+}
+function briefStatusChip(s){
+  const map={pending:["#8a6a12","#f6eccf","Awaiting approval"],approved:["#1e5d37","#dceee2","Approved · tracking"],
+    declined:["#8a2a20","#f6dcd8","Declined"],revoked:["#555","#e7e9eb","Revoked"]};
+  const [c,bg,t]=map[s]||map.pending; return `<span class="bchip" style="color:${c};background:${bg}">${t}</span>`;
+}
+function briefPanel(l){                                          // live tracking panel for an APPROVED link
+  const bc=boardByCourt()[String(l.court)];
+  const k=classify({courtNo:String(l.court),itemNo:String(l.item),listType:l.listType||""}, bc);
+  const ss=seniorState(), sc=ss.court, mode=ss.mode;
+  const senTxt = sc ? (mode==="confirmed"?`confirmed in Court ${esc(sc)}`:`likely in Court ${esc(sc)}`) : "location not set yet";
+  return `<div class="brow" style="margin-top:8px"><span class="blab">Senior</span><span class="bval">${esc(CHAMBER.seniorName)} — ${senTxt}</span></div>
+    <div class="brow" style="margin-top:6px"><span class="blab">Your matter</span><span class="bval">Ct ${esc(l.court)} · item ${esc(l.item)} — ${esc(k.short||"—")}</span></div>
+    <div class="bmsgs">
+      <button class="bmsg" data-bmsg="${esc(l.id)}|reaching">My matter is reaching</button>
+      <button class="bmsg" data-bmsg="${esc(l.id)}|bench">Bench is calling you</button>
+      <button class="bmsg" data-bmsg="${esc(l.id)}|meet">Can we meet?</button>
+      <button class="bmsg" data-bmsg="${esc(l.id)}|late">Running late — hold</button>
+    </div>`;
+}
+function renderBrief(){
+  if(!BRIEFING){ $("main").innerHTML=""; return; }
+  updateBriefBadge();
+  const mine=myBriefLinks(), canA=canApproveBrief();
+  let h=`<div class="bwrap">`;
+  h+=`<div class="bsec-h">Track a senior you're briefing</div>`;
+  h+=`<button class="sh-btn navy" id="bNew"><i class="ti ti-plus"></i> Request to track the senior</button>`;
+  if(mine.length) h+=mine.map(l=>`<div class="bcard${l.status==="approved"?" bhi":""}">
+      <div class="brow"><span class="bval">${esc(CHAMBER.seniorName)} · Ct ${esc(l.court)} item ${esc(l.item)}</span>${briefStatusChip(l.status)}</div>
+      ${l.title?`<div class="bttl">${esc(l.title)}</div>`:''}
+      ${l.status==="approved"?briefPanel(l):(l.status==="pending"?`<div class="bsub">Waiting for the chamber to approve.</div>`:'')}
+    </div>`).join("");
+  else h+=`<div class="bempty">No tracking requests yet — request access to see where the senior is while your matter reaches, and ping his team.</div>`;
+  if(canA){
+    const pend=pendingBriefs(), appr=briefLinks.filter(l=>l.status==="approved");
+    h+=`<div class="bsec-h" style="margin-top:20px">Requests to the chamber</div>`;
+    h+= pend.length ? pend.map(l=>`<div class="bcard">
+        <div class="brow"><span class="bval">${esc(l.aorName)}<span class="bdesig">${esc(l.aorDesig||"Advocate")}</span></span>${briefStatusChip(l.status)}</div>
+        <div class="bsub">wants to track you for <b>Ct ${esc(l.court)} · item ${esc(l.item)}</b>${l.title?` — ${esc(l.title)}`:''}${l.note?`<br>“${esc(l.note)}”`:''}</div>
+        <div class="bmsgs"><button class="bmsg ok" data-bdec="${esc(l.id)}|approved">Approve</button><button class="bmsg no" data-bdec="${esc(l.id)}|declined">Decline</button></div>
+      </div>`).join("") : `<div class="bempty">No pending requests.</div>`;
+    if(appr.length){ h+=`<div class="bsec-h" style="margin-top:16px">Currently tracking you</div>`;
+      h+=appr.map(l=>`<div class="bcard"><div class="brow"><span class="bval">${esc(l.aorName)} — Ct ${esc(l.court)} item ${esc(l.item)}</span>
+        <button class="bmsg no small" data-bdec="${esc(l.id)}|revoked">Revoke</button></div></div>`).join(""); }
+  }
+  h+=`</div>`;
+  $("main").innerHTML=h;
+  const nb=$("bNew"); if(nb) nb.onclick=briefRequestForm;
+}
+function briefRequestForm(){
+  const own=(myOwn||[]).slice();
+  $("modalRoot").innerHTML=`<div class="ovl" data-close><div class="sheet"><button class="sh-x" data-close>&times;</button>
+    <div class="sheet-grab"></div>
+    <h2>Request to track the senior</h2>
+    <div class="sh-sub">Ask ${esc(CHAMBER.seniorName)}'s chamber to let you see his board position for your matter. They approve before anything is shared.</div>
+    <div class="am-form">
+      <div class="am-row">
+        <label class="am-fld">Court<input id="bq_court" inputmode="numeric" autocomplete="off" placeholder="e.g. 6"></label>
+        <label class="am-fld">Item<input id="bq_item" inputmode="numeric" autocomplete="off" placeholder="e.g. 4"></label>
+      </div>
+      <label class="am-fld">Your matter <span style="color:var(--mut);font-weight:400">(optional)</span><input id="bq_title" autocomplete="off" placeholder="e.g. Mahabanoo v. Kalikund"></label>
+      <label class="am-fld">Note to the chamber <span style="color:var(--mut);font-weight:400">(optional)</span><input id="bq_note" autocomplete="off" placeholder="e.g. briefing on the SLP tomorrow"></label>
+      <div class="am-err" id="bq_err"></div>
+      <button class="sh-btn navy" id="bq_save">Send request</button>
+    </div>
+    ${own.length?`<div class="sh-sec">Your matters</div>${own.map(m=>`<div class="am-item" data-bqpick="${esc(m.court)}|${esc(m.item)}|${esc(m.title||"")}">
+      <span class="am-ci">Ct ${esc(m.court)} · #${esc(m.item)}</span><span class="am-t">${esc(m.title||"")}</span></div>`).join("")}`:''}
+  </div></div>`;
+  $("modalRoot").querySelectorAll("[data-bqpick]").forEach(x=>x.onclick=()=>{
+    const [c,i,t]=x.dataset.bqpick.split("|"); $("bq_court").value=c; $("bq_item").value=i; $("bq_title").value=t; });
+  $("bq_save").onclick=async()=>{
+    const court=($("bq_court").value||"").trim(), item=($("bq_item").value||"").trim();
+    if(!/^\d{1,3}$/.test(court)){ $("bq_err").textContent="Enter a court number (1–17)."; return; }
+    if(!item){ $("bq_err").textContent="Enter your item number."; return; }
+    try{ await db.add("brieflinks",{aorUid:me.uid, aorName:me.name||"Advocate", aorDesig:me.designation||"Advocate",
+        court, item, date:todayISO(), title:($("bq_title").value||"").trim(), note:($("bq_note").value||"").trim(),
+        status:"pending", at:db.now()}); closeModal(); curTab="brief";
+      document.querySelectorAll("nav.botnav button").forEach(x=>x.classList.toggle("on",x.dataset.tab==="brief")); render(); }
+    catch(e){ $("bq_err").textContent="Could not send — "+(e.message||e); }
+  };
+}
+async function decideBrief(id,status){ try{ await db.update("brieflinks/"+id,{status,decidedBy:me.uid,decidedAt:db.now()}); }catch(e){} }
+async function sendBriefMsg(id,kind){
+  const l=briefLinks.find(x=>x.id===id); if(!l) return;
+  const who=(me.name||"An advocate")+(me.designation?` (${me.designation})`:"");
+  const map={ reaching:`📣 ${who}: my matter Ct ${l.court} · item ${l.item} is reaching — please come.`,
+    bench:`⚖️ ${who}: the bench is calling you in Court ${l.court}.`,
+    meet:`🤝 ${who}: can we meet? Where are you?`,
+    late:`⏳ ${who}: running late for Ct ${l.court} · item ${l.item} — please hold.` };
+  const text=map[kind]||map.meet;
+  try{ const mid=await db.add("messages",{by:me.uid, name:me.name||"Advocate", text, at:db.now(), brief:true});
+    relayPush({kind:"chat", id:String(mid||Date.now()), fromUid:me.uid, title:"Briefing", body:text, tag:"brief"});
+    toastBrief("Sent to the chamber"); }catch(e){}
+}
+function toastBrief(t){ const el=document.createElement("div"); el.className="btoast"; el.textContent=t;
+  document.body.appendChild(el); setTimeout(()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),300); },1600); }
+if(BRIEFING) document.addEventListener("click",ev=>{
+  const dec=ev.target.closest("[data-bdec]"); if(dec){ const [id,st]=dec.dataset.bdec.split("|"); decideBrief(id,st); return; }
+  const msg=ev.target.closest("[data-bmsg]"); if(msg){ const [id,kind]=msg.dataset.bmsg.split("|"); sendBriefMsg(id,kind); return; }
+});
+
+/* ============================================================
    ACTIONS + AUTH + BOOT
    ============================================================ */
 async function setSeniorCourt(court){
@@ -1662,6 +1811,7 @@ async function setSeniorCourt(court){
 }
 function boot(user){
   unsub.forEach(u=>u&&u()); unsub=[]; if(userDocUnsub){userDocUnsub();userDocUnsub=null;}
+  bootStarted=false;   // a new session (user switch / re-login) must re-establish the live-data watchers
   if(!user){ me=null; $("app").classList.add("hidden"); $("login").classList.remove("hidden"); stopPolling(); return; }
   const uid=user.uid;
   userDocUnsub=db.watchDoc("users/"+uid, u=>{
@@ -1678,6 +1828,7 @@ function startWatchers(){
   unsub.push(db.watchCollection("messages",rows=>{ messages={}; rows.forEach(m=>messages[m.id]=m); updateChatBadge(); if(curTab==="chat") paintChatList(); purgeOldChat(); }));
   unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; scheduleRender(); }));
   if(me?.uid) unsub.push(db.watchDoc("usermatters/"+me.uid, d=>{ myOwn=(d&&d.matters)||[]; scheduleRender(); }));
+  if(BRIEFING) unsub.push(db.watchCollection("brieflinks",rows=>{ briefLinks=rows||[]; updateBriefBadge(); if(curTab==="brief") renderBrief(); }));
   loadCourtUpdates();
   startPolling();
 }
@@ -1685,7 +1836,7 @@ function gateUI(){
   const approved = me && ["admin","senior","clerk","pa","junior"].includes(me.role);
   $("login").classList.toggle("hidden", !!approved);
   $("app").classList.toggle("hidden", !approved);
-  if(approved){ render(); initNotify(); }
+  if(approved){ if(BRIEFING) $("tabBrief").classList.remove("hidden"); render(); initNotify(); }
   else if(me){ $("lgErr").textContent = me.role==="pending" ? "Your account isn't approved yet. Ask Adith to add you." : ""; }
 }
 
@@ -1693,7 +1844,7 @@ function gateUI(){
 document.querySelectorAll("nav.botnav button").forEach(b=>b.onclick=()=>{
   curTab=b.dataset.tab;
   document.querySelectorAll("nav.botnav button").forEach(x=>x.classList.toggle("on",x===b));
-  render(); fitChat();
+  render(); fitChat(); if(BRIEFING) updateBriefBadge();
 });
 $("main").addEventListener("click",ev=>{
   const c=ev.target.closest("[data-court]");
@@ -1749,15 +1900,17 @@ $("hdrSub").textContent  = CHAMBER.seniorName ? CHAMBER.seniorName+" · "+CHAMBE
 function seedDemo(db){
   const n=db.now;
   const people=[
-    ["u_senior","Shyam Divan","senior","sd@chamber.in"],
-    ["u_admin","Adith Deshmukh","admin","adithdeshmukh@gmail.com"],
-    ["u_clerk","Staff","clerk","clerk@chamber.in"],
-    ["u_yash","Yashvardhan S.","junior","yash@chamber.in"],
-    ["u_shaishir","Shaishir","junior","shaishir@chamber.in"],
-    ["u_anshula","Anshula L.","junior","anshula@chamber.in"],
-    ["u_rishit","Rishit V.","junior","rishit@chamber.in"],
+    ["u_senior","Shyam Divan","senior","sd@chamber.in","Senior Advocate"],
+    ["u_admin","Adith Deshmukh","admin","adithdeshmukh@gmail.com","Advocate-on-Record"],
+    ["u_clerk","Staff","clerk","clerk@chamber.in","Clerk"],
+    ["u_yash","Yashvardhan S.","junior","yash@chamber.in","Advocate"],
+    ["u_shaishir","Shaishir","junior","shaishir@chamber.in","Advocate"],
+    ["u_anshula","Anshula L.","junior","anshula@chamber.in","Advocate"],
+    ["u_rishit","Rishit V.","junior","rishit@chamber.in","Advocate"],
+    // an EXTERNAL AoR (briefing the senior) — for testing the Briefing feature
+    ["u_aor","Rohan Mehta","junior","rohan@ext.in","Advocate-on-Record"],
   ];
-  people.forEach(([uid,name,role,email])=>db.set("users/"+uid,{name,email,role,active:true}));
+  people.forEach(([uid,name,role,email,designation])=>db.set("users/"+uid,{name,email,role,designation,active:true}));
 
   const D=todayISO();
   // Items chosen to hit each tier against the saved board sample (2026-07-13):
@@ -1788,6 +1941,15 @@ function seedDemo(db){
 
   db.set("messages/m1",{by:"u_yash",name:"Yashvardhan S.",text:"Court 6 is moving slowly, still on item 3.",at:{_t:Date.now()-9*60000}});
   db.set("messages/m2",{by:"u_anshula",name:"Anshula L.",text:"I'm outside Court 3, will signal when our item is called.",at:{_t:Date.now()-4*60000}});
+
+  // BRIEFING FEATURE demo: one APPROVED link (Rohan, an AoR, tracking the senior for
+  // his Ct6/item4 matter) and one PENDING request (Priya) for the chamber to approve.
+  db.set("brieflinks/bl_a",{aorUid:"u_aor",aorName:"Rohan Mehta",aorDesig:"Advocate-on-Record",
+    court:"6",item:"4",date:D,title:"Mahabanoo v. Kalikund Developers",note:"Briefing on the SLP",
+    status:"approved",at:{_t:Date.now()-30*60000},decidedBy:"u_clerk"});
+  db.set("brieflinks/bl_b",{aorUid:"u_aor2",aorName:"Priya Nair",aorDesig:"Advocate",
+    court:"3",item:"6",date:D,title:"Nair v. State of Maharashtra",note:"Reaching after lunch",
+    status:"pending",at:{_t:Date.now()-6*60000}});
 }
 </script>
 </body>

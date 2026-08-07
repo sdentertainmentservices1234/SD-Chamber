@@ -13,15 +13,17 @@ html = open("board.html").read()
 SEED = '''function seedDemo(db){
   const n=db.now;
   const people=[
-    ["u_senior","Shyam Divan","senior","sd@chamber.in"],
-    ["u_admin","Adith Deshmukh","admin","adithdeshmukh@gmail.com"],
-    ["u_clerk","Staff","clerk","clerk@chamber.in"],
-    ["u_yash","Yashvardhan S.","junior","yash@chamber.in"],
-    ["u_shaishir","Shaishir","junior","shaishir@chamber.in"],
-    ["u_anshula","Anshula L.","junior","anshula@chamber.in"],
-    ["u_rishit","Rishit V.","junior","rishit@chamber.in"],
+    ["u_senior","Shyam Divan","senior","sd@chamber.in","Senior Advocate"],
+    ["u_admin","Adith Deshmukh","admin","adithdeshmukh@gmail.com","Advocate-on-Record"],
+    ["u_clerk","Staff","clerk","clerk@chamber.in","Clerk"],
+    ["u_yash","Yashvardhan S.","junior","yash@chamber.in","Advocate"],
+    ["u_shaishir","Shaishir","junior","shaishir@chamber.in","Advocate"],
+    ["u_anshula","Anshula L.","junior","anshula@chamber.in","Advocate"],
+    ["u_rishit","Rishit V.","junior","rishit@chamber.in","Advocate"],
+    // an EXTERNAL AoR (briefing the senior) — for testing the Briefing feature
+    ["u_aor","Rohan Mehta","junior","rohan@ext.in","Advocate-on-Record"],
   ];
-  people.forEach(([uid,name,role,email])=>db.set("users/"+uid,{name,email,role,active:true}));
+  people.forEach(([uid,name,role,email,designation])=>db.set("users/"+uid,{name,email,role,designation,active:true}));
 
   const D=todayISO();
   // Items chosen to hit each tier against the saved board sample (2026-07-13):
@@ -52,6 +54,15 @@ SEED = '''function seedDemo(db){
 
   db.set("messages/m1",{by:"u_yash",name:"Yashvardhan S.",text:"Court 6 is moving slowly, still on item 3.",at:{_t:Date.now()-9*60000}});
   db.set("messages/m2",{by:"u_anshula",name:"Anshula L.",text:"I'm outside Court 3, will signal when our item is called.",at:{_t:Date.now()-4*60000}});
+
+  // BRIEFING FEATURE demo: one APPROVED link (Rohan, an AoR, tracking the senior for
+  // his Ct6/item4 matter) and one PENDING request (Priya) for the chamber to approve.
+  db.set("brieflinks/bl_a",{aorUid:"u_aor",aorName:"Rohan Mehta",aorDesig:"Advocate-on-Record",
+    court:"6",item:"4",date:D,title:"Mahabanoo v. Kalikund Developers",note:"Briefing on the SLP",
+    status:"approved",at:{_t:Date.now()-30*60000},decidedBy:"u_clerk"});
+  db.set("brieflinks/bl_b",{aorUid:"u_aor2",aorName:"Priya Nair",aorDesig:"Advocate",
+    court:"3",item:"6",date:D,title:"Nair v. State of Maharashtra",note:"Reaching after lunch",
+    status:"pending",at:{_t:Date.now()-6*60000}});
 }'''
 
 # swap the empty stub for the real seed
