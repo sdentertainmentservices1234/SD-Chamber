@@ -97,27 +97,23 @@ header.top{display:flex;align-items:center;gap:10px;
    soonest-to-reach first (proximity uses our item + the court's sequence + live data),
    with the walk time between each shown on the connector. Replaces the old directive
    balloon. Scrolls sideways when there are many. */
-.route-rail{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:2px 0 4px;
-  -webkit-overflow-scrolling:touch;scrollbar-width:none}
-.route-rail::-webkit-scrollbar{display:none}
-.rail-stop{flex:none;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:82px;
-  background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:8px 11px;cursor:pointer;
-  transition:transform .1s}
-.rail-stop:active{transform:scale(.97)}
-.rail-stop.go{border-color:var(--now);background:var(--now-bg)}
-.rail-stop.soon{border-color:#e2c07a;background:var(--soon-bg)}
-.rail-ct{font-family:Fraunces,serif;font-weight:600;font-size:15px;color:var(--ink);line-height:1}
+/* WRAPS into 2–3 rows so every stop fits on one screen — no sideways scroll. Small,
+   colour-coded by distance band (red ≤2 · amber 3–4 · green 5–7 · neutral beyond). */
+.route-rail{display:flex;flex-wrap:wrap;gap:5px;padding:2px 0 4px}
+.rail-stop{flex:0 1 auto;display:flex;align-items:baseline;gap:5px;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 9px;cursor:pointer;
+  transition:transform .1s;line-height:1.1}
+.rail-stop:active{transform:scale(.96)}
+.rail-stop.red{border-color:var(--now);background:var(--now-bg)}
+.rail-stop.amber{border-color:#e2c07a;background:var(--soon-bg)}
+.rail-stop.green{border-color:#a9d0b7;background:var(--later-bg)}
+.rail-ct{font-family:Fraunces,serif;font-weight:600;font-size:13.5px;color:var(--ink)}
 .rail-ct b{font-family:'IBM Plex Mono';font-weight:800}
-.rail-stop.go .rail-ct b{color:var(--now)}
-.rail-dist{font-size:12.5px;font-weight:800;letter-spacing:.2px;color:var(--mut)}
-.rail-stop.go .rail-dist{color:var(--now)}
-.rail-stop.soon .rail-dist{color:#8a6112}
-.rail-sub{font-size:10px;color:var(--mut);white-space:nowrap}
-.rail-stop.go .rail-dist{animation:pulsepill 1.25s ease-in-out infinite}
-.rail-arrow{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  color:var(--mut);padding:0 4px;min-width:26px}
-.rail-arrow i{font-size:15px;line-height:1}
-.rail-arrow .w{font-size:8.5px;font-weight:700;margin-top:1px}
+.rail-dist{font-size:11px;font-weight:800;letter-spacing:.2px;color:var(--mut);white-space:nowrap}
+.rail-stop.red .rail-ct b,.rail-stop.red .rail-dist{color:var(--now)}
+.rail-stop.amber .rail-dist{color:#8a6112}
+.rail-stop.green .rail-ct b,.rail-stop.green .rail-dist{color:#2f7048}
+.rail-stop.red .rail-dist{animation:pulsepill 1.25s ease-in-out infinite}
 .rail-empty{font-size:12.5px;color:var(--mut);padding:6px 2px}
 
 .seniorbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px;
@@ -291,31 +287,30 @@ body.kb-open nav.botnav{display:none}
    bands: 5–7 GREEN · 3–4 AMBER · 0–2 RED. Different courts can be in different bands at
    once, so the backdrop is NEUTRAL dark and each court is its own band-COLOURED island.
    Momentary (auto-clears ~2.8s). Islands gently pulse to read as a "flash". */
-#flashHost{position:fixed;inset:0;z-index:60;display:grid;gap:16px;padding:20px;place-items:center;
-  background:rgba(11,15,20,.93);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);cursor:pointer;animation:flashin .22s ease-out}
+/* Islands stack in a VERTICAL SEQUENCE, most-urgent first: RED on top, then AMBER,
+   then GREEN (courts are pre-sorted by distance). Bigger cards; scrolls if very many. */
+#flashHost{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;gap:16px;
+  padding:24px 18px;overflow-y:auto;
+  background:rgba(11,15,20,.94);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);cursor:pointer;animation:flashin .22s ease-out}
 @keyframes flashin{from{opacity:0}to{opacity:1}}
-#flashHost.n1{grid-template-columns:1fr}
-#flashHost.n2,#flashHost.n3,#flashHost.n4{grid-template-columns:1fr 1fr}
-#flashHost.n5,#flashHost.n6{grid-template-columns:1fr 1fr 1fr}
-.flash-cell{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2.4vh,20px);
-  border-radius:26px;box-shadow:0 26px 70px rgba(0,0,0,.5);color:#fff;text-align:center;
-  padding:clamp(22px,4.5vh,44px) clamp(18px,5vw,34px);animation:flashpulse 1s ease-in-out infinite}
+.flash-cell{width:100%;max-width:600px;flex:none;display:flex;flex-direction:column;align-items:center;gap:clamp(12px,2.2vh,22px);
+  border-radius:30px;box-shadow:0 26px 70px rgba(0,0,0,.5);color:#fff;text-align:center;
+  padding:clamp(26px,4vh,48px) clamp(22px,6vw,40px);animation:flashpulse 1s ease-in-out infinite}
 @keyframes flashpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.15)}}
 /* the three distance bands */
 .flash-cell.b-green{background:linear-gradient(180deg,#2f8a54,#1f6038);border:1px solid rgba(255,255,255,.16)}
 .flash-cell.b-amber{background:linear-gradient(180deg,#c2901f,#8a6212);border:1px solid rgba(255,255,255,.16)}
 .flash-cell.b-red{background:linear-gradient(180deg,#cf4034,#a8241b);border:1px solid rgba(255,255,255,.18)}
-.flash-ct{font-family:Fraunces,serif;font-weight:600;font-size:clamp(30px,11vw,64px);line-height:.95;letter-spacing:.4px}
+.flash-ct{font-family:Fraunces,serif;font-weight:600;font-size:clamp(38px,13vw,80px);line-height:.95;letter-spacing:.4px}
 .flash-ct b{color:#fff}
-.flash-dist{font-weight:800;font-size:clamp(18px,6.5vw,38px);letter-spacing:1.5px;color:#161a1f;text-transform:uppercase;
-  background:rgba(255,255,255,.94);border-radius:40px;padding:6px 22px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
-.flash-rows{display:flex;flex-direction:column;gap:clamp(6px,1.4vh,12px);width:100%}
-.flash-rows>div{display:flex;gap:14px;justify-content:center;align-items:baseline}
-.fl-k{color:rgba(255,255,255,.7);font-weight:700;font-size:clamp(11px,2.6vw,15px);letter-spacing:1.4px;text-transform:uppercase}
-.fl-v{color:#fff;font-family:var(--mono);font-weight:800;font-size:clamp(30px,9vw,52px);line-height:1}
-.flash-cell.multi{max-width:340px}
-.flash-cell.multi .flash-ct{font-size:clamp(24px,8vw,48px)}
-.flash-cell.multi .fl-v{font-size:clamp(24px,7vw,42px)}
+.flash-dist{font-weight:800;font-size:clamp(22px,7vw,46px);letter-spacing:1.5px;color:#161a1f;text-transform:uppercase;
+  background:rgba(255,255,255,.94);border-radius:44px;padding:8px 28px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.flash-on{font-weight:800;font-size:clamp(26px,8.5vw,52px);letter-spacing:.5px;text-transform:uppercase;color:#fff}
+.flash-on b{font-family:var(--mono)}
+.flash-rows{display:flex;flex-direction:column;gap:clamp(7px,1.4vh,14px);width:100%}
+.flash-rows>div{display:flex;gap:16px;justify-content:center;align-items:baseline}
+.fl-k{color:rgba(255,255,255,.72);font-weight:700;font-size:clamp(12px,2.8vw,17px);letter-spacing:1.4px;text-transform:uppercase}
+.fl-v{color:#fff;font-family:var(--mono);font-weight:800;font-size:clamp(34px,10vw,60px);line-height:1}
 
 .empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
@@ -956,14 +951,16 @@ function showFlash(items){
   if(_flashTimer){ clearTimeout(_flashTimer); _flashTimer=null; }
   let host=$("flashHost");
   if(!host){ host=document.createElement("div"); host.id="flashHost"; host.onclick=hideFlash; document.body.appendChild(host); }
-  const n=Math.min(items.length,6), multi=n>1?" multi":"";
-  host.className="n"+n;
-  host.innerHTML=items.slice(0,6).map(r=>`<div class="flash-cell b-${flashBand(r.gap)}${multi}">
-    <div class="flash-ct">Court <b>${esc(r.court)}</b></div>
-    <div class="flash-dist">${esc(_distLabel(r.gap))}</div>
-    <div class="flash-rows"><div><span class="fl-k">Ongoing</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
-      <div><span class="fl-k">Ours</span><span class="fl-v">${esc(r.item)}</span></div></div>
-  </div>`).join("");
+  host.className="";
+  host.innerHTML=items.slice(0,8).map(r=>{
+    // when OUR matter is the one on, just say "our N is on" — not the item-on / ours split
+    const body = r.gap<=0
+      ? `<div class="flash-on">Our <b>${esc(r.item)}</b> is on</div>`
+      : `<div class="flash-dist">${esc(_distLabel(r.gap))}</div>
+         <div class="flash-rows"><div><span class="fl-k">Ongoing</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
+           <div><span class="fl-k">Ours</span><span class="fl-v">${esc(r.item)}</span></div></div>`;
+    return `<div class="flash-cell b-${flashBand(r.gap)}"><div class="flash-ct">Court <b>${esc(r.court)}</b></div>${body}</div>`;
+  }).join("");
   _flashTimer=setTimeout(hideFlash, 2800);                                        // momentary
 }
 function hideFlash(){ if(_flashTimer){clearTimeout(_flashTimer);_flashTimer=null;} const h=$("flashHost"); if(h) h.remove(); }
@@ -1182,10 +1179,9 @@ function seniorState(){
   return {court:null, mode:"none"};
 }
 
-// Route rail: our stops in the order to visit them. Each of our actionable matters
-// becomes a small island — soonest-to-reach first (reachMinsFor, which uses the
-// sequence-aware gap + live pace), one per court (closest matter). Between stops we
-// show the walk time (court distance). Tapping a stop opens that court.
+// Route rail: our stops in the order to reach them (soonest first), one small chip per
+// court, colour-coded by distance band (red ≤2 · amber 3–4 · green 5–7 · neutral
+// beyond). Wraps into rows so all fit on one screen. On-now reads "our N on".
 function renderRail(){
   const rail=$("routeRail"); if(!rail) return;
   if(!board.length){ _primaryCourt=null;
@@ -1193,32 +1189,23 @@ function renderRail(){
   const bc=boardByCourt();
   const cands=courtMatters().map(e=>({e,k:classify(e,bc[e.courtNo])}))
     .filter(x=>["now","soon","later"].includes(x.k.tier) && !x.k.done && !x.k.over)
-    .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMinsFor(x.e.courtNo,x.k), meas:paceMeasured(x.e.courtNo)}))
+    .map(x=>({court:x.e.courtNo, e:x.e, k:x.k, mins:reachMinsFor(x.e.courtNo,x.k)}))
     .sort((a,b)=>((a.mins==null?9999:a.mins)-(b.mins==null?9999:b.mins)) || ((a.k.gap??999)-(b.k.gap??999)));
-  // one stop per court (its closest matter), preserving the soonest-first order
   const seen=new Set(), stops=[];
   for(const c of cands){ const key=String(c.court); if(seen.has(key)) continue; seen.add(key); stops.push(c); }
   if(!stops.length){ _primaryCourt=null;
     rail.innerHTML=`<div class="rail-empty">All quiet — no chamber matter is close right now.</div>`; return; }
   _primaryCourt=stops[0].court;
+  const band=g=> g==null?"far" : g<=2?"red" : g<=4?"amber" : g<=7?"green" : "far";
   const distLab=k=> k.ment ? "WATCH" : (k.gap===0||k.short==="NOW") ? "NOW" : k.gap===1 ? "NEXT"
                  : (k.gap!=null ? k.gap+" away" : (k.short||"—"));
-  let html="";
-  stops.forEach((s,i)=>{
-    const isNow=s.k.tier==="now"&&!s.k.ment;
-    const tier=isNow?"go":(s.k.tier==="soon"?"soon":"later");
-    const tmin=s.mins==null?null:Math.max(0,Math.round(s.mins));
-    const eta = (isNow||tmin===0) ? "on now" : (tmin!=null ? "~"+tmin+"m"+(s.meas?"":" est") : "");
-    const cur=bc[s.court]?.item;
-    if(i>0){ const w=Math.max(1,Math.round(walkMin(stops[i-1].court, s.court)));
-      html+=`<div class="rail-arrow"><i class="ti ti-chevron-right"></i><span class="w">${w}m</span></div>`; }
-    html+=`<button class="rail-stop ${tier}" data-court="${esc(s.court)}">
-      <div class="rail-ct">Ct <b>${esc(s.court)}</b></div>
-      <div class="rail-dist">${esc(distLab(s.k))}</div>
-      <div class="rail-sub">our ${esc(s.e.itemNo)}${cur?` · on ${esc(cur)}`:""}${eta?` · ${eta}`:""}</div>
-    </button>`;
-  });
-  rail.innerHTML=html;
+  rail.innerHTML=stops.map(s=>{
+    const isNow=(s.k.gap===0||s.k.short==="NOW")&&!s.k.ment;
+    // when OUR matter is the one on, just say "our N is on" — not which item is on / ours
+    return isNow
+      ? `<button class="rail-stop red" data-court="${esc(s.court)}"><span class="rail-ct">our <b>${esc(s.e.itemNo)}</b> is on</span></button>`
+      : `<button class="rail-stop ${band(s.k.ment?null:s.k.gap)}" data-court="${esc(s.court)}"><span class="rail-ct">Ct <b>${esc(s.court)}</b></span><span class="rail-dist">${esc(distLab(s.k))}</span></button>`;
+  }).join("");
 }
 
 // one court tile: full island when we have matters there, mini otherwise
