@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-07T00:52:16.349064Z",
+  "generated_at": "2026-08-07T06:52:13.401171Z",
   "parser_version": 8,
   "window": [
     "2026-08-07",
@@ -2838,7 +2838,7 @@
           },
           "8": {
             "coram": "HON'BLE MR. JUSTICE SANJAY KAROL HON'BLE MR. JUSTICE AUGUSTINE GEORGE MASIH",
-            "total": "61",
+            "total": "62",
             "fresh": "",
             "items": {
               "1": "SLP(Crl) No. UNION OF INDIA AND ANR. VERSUS ABID PERVEZ @ AZAD PERVEZ",
@@ -2902,6 +2902,7 @@
               "55.1": "Connected NIRDOSH KUMAR S/O RADHESHYAM CHAURASIA VERSUS M/S SAREE ENTERPRISES AND ANR.",
               "56": "SLP(C) No. 12432/2026 SHANKAR LAL KESHARI VERSUS S K SAMANTA AND COOPERATIVE LIMITED AND",
               "57": "SLP(C) No. 19405/2026 MAHANT RAMESHWAR DAS VERSUS GHANSHYAM DAS AND ORS.",
+              "1501": "SLP(C) No. 26326/2024 S. SANGEETHA AND ORS. VERSUS TMT. P. PONNI",
               "58": "SLP(Crl) No. AMIT KUMAR VERSUS THE STATE OF BIHAR",
               "59": "SLP(C) No. 8248/2026 KUNAL SHINGLA VERSUS MEGHA SHINGLA",
               "60": "SLP(C) No. THE ORIENTAL INSURANCE CO. LIMITED VERSUS RADHESHYAM AND ORS. NEELAM SINGH [R-1],",
@@ -3115,6 +3116,10 @@
               "57": {
                 "pet": "MRINMOI CHATTERJEE"
               },
+              "1501": {
+                "pet": "K. K. MANI",
+                "resp": "VIJAY KUMAR"
+              },
               "58": {
                 "pet": "RAVI P. WADHWANI"
               },
@@ -3130,7 +3135,7 @@
               }
             },
             "main": 57,
-            "supp": 4
+            "supp": 5
           },
           "9": {
             "coram": "HON'BLE MR. JUSTICE SANJAY KUMAR HON'BLE MR. JUSTICE SANJEEV SACHDEVA",
@@ -14967,7 +14972,7 @@
   "sources": {
     "2026-08-07": {
       "M_J_1": 925229,
-      "M_J_2": 573957,
+      "M_J_2": 575929,
       "M_C_1": 643372,
       "M_C_2": 507232,
       "M_S_1": 532205,
