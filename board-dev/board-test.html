@@ -215,7 +215,9 @@ main{flex:1;min-height:0;overflow-y:auto;padding:10px 12px calc(64px + env(safe-
 .cell.idle .cell-item{color:var(--idle);font-weight:600}
 .cell.idle .cell-ct{background:var(--idle)}
 /* mini tile — no chamber matter in this court */
-.cell.mini{flex:1 1 calc(20% - 6px);max-width:calc(20% - 6px);min-height:0;padding:6px 2px 7px}
+/* 5-up: each = (100% − 4×8px gap)/5 = 20% − 6.4px. The old −6px overflowed by ~2px,
+   dropping to 4-up and leaving a vacant right column — use 6.5px so all 5 fit. */
+.cell.mini{flex:1 1 calc(20% - 6.5px);max-width:calc(20% - 6.5px);min-height:0;padding:6px 2px 7px}
 .cell.mini .cell-ct{font-size:12px;padding:2px 9px}
 .cell.mini .cell-ct .ctn{font-size:13px}
 .cell.mini .cell-item{font-size:16px;margin-top:2px}
@@ -706,14 +708,31 @@ function classify(e, bc){
     if(nowMinsIST()>MENT_END) return {tier:"passed",label:"mentioning — over",short:"over",ment:true};
     return {tier:"soon",label:"mentioning — watch",short:"watch",gap:0,ment:true};
   }
-  // The board's reserved item series tell us the court's PHASE, not a queue
-  // position: the 800s are mentioning matters, the 1500s are judgement
-  // pronouncements. While the court is in one of these there's no "N away" — our
-  // matter simply waits for the phase to finish.
+  // Reserved item series tell us the court's PHASE, not a queue position:
+  //   800s  = mentioning · 1500s = judgement pronouncement
+  //   1600s = Single Judge matters · 1700s = Chamber Judge matters
+  // Single-Judge / Chamber lists are taken up AFTER the Miscellaneous + Regular board
+  // is over, or when a Division Bench isn't sitting.
   const curBoardNum=parseInt(bc.item,10);
-  if(curBoardNum>=800 && curBoardNum<900) return {tier:"soon",label:"mentioning is on",short:"mentioning",ment:true};
-  if(curBoardNum>=1500 && curBoardNum<1600) return {tier:"soon",label:"pronouncement is on",short:"pronouncement"};
   const oursNum=parseFloat(ours);
+  // If OUR matter is itself a Single-Judge (1600s) or Chamber (1700s) matter, track
+  // it WITHIN that series once the court reaches it (sequential 1600x / 1700x).
+  const oursSingle=oursNum>=1600&&oursNum<1700, oursChamber=oursNum>=1700&&oursNum<1800;
+  if(oursSingle||oursChamber){
+    const inPhase=(oursSingle&&curBoardNum>=1600&&curBoardNum<1700)||(oursChamber&&curBoardNum>=1700&&curBoardNum<1800);
+    if(inPhase){ const g=Math.floor(oursNum)-Math.floor(curBoardNum);
+      if(g<0)  return {tier:"passed",label:"matter is over",short:"over",gap:g};
+      if(g<=1) return {tier:"now", label:g===0?"ITEM ON NOW":"NEXT — get in",short:g===0?"NOW":"NEXT",gap:g};
+      if(g<=4) return {tier:"soon",label:"~"+g+" items away",short:g+" away",gap:g};
+      return       {tier:"later",label:g+" items away",short:g+" away",gap:g};
+    }
+    return {tier:"later",label:(oursSingle?"Single Judge":"Chamber Judge")+" list — after the board",short:"after board",reg:true};
+  }
+  // NORMAL (Misc/Regular) matter while the court is in one of the reserved phases:
+  if(curBoardNum>=800 && curBoardNum<900)   return {tier:"soon",label:"mentioning is on",short:"mentioning",ment:true};
+  if(curBoardNum>=1500 && curBoardNum<1600) return {tier:"soon",label:"pronouncement is on",short:"pronouncement"};
+  if(curBoardNum>=1600 && curBoardNum<1700) return {tier:"soon",label:"Single Judge matters on",short:"single judge"};
+  if(curBoardNum>=1700 && curBoardNum<1800) return {tier:"soon",label:"Chamber Judge matters on",short:"chamber"};
   // Authoritative remark from the court's full cause list, where the bench keeps
   // it current: OVER = our matter is finished (short-circuits everything else).
   if(isOver(e.courtNo,ours)) return {tier:"passed",label:"matter is over",short:"over",over:true};
@@ -736,10 +755,14 @@ function classify(e, bc){
       const tp=(passIdx!=null && passIdx>curPos) ? passIdx : seq.length-1;
       gap=Math.max(0,tp-curPos);
     }
-    if(gap==null) return {tier:"later",label:"passed over — recall time unclear",short:"PO",po:true};
-    if(gap<=1) return {tier:"now",label:"PASSED OVER — recall imminent",short:"PO now",gap,po:true};
-    if(gap<=4) return {tier:"soon",label:"passed over — recall ~"+gap+" items",short:"PO "+gap,gap,po:true};
-    return {tier:"later",label:"passed over — recall in ~"+gap+" items",short:"PO "+gap,gap,po:true};
+    // Owner: don't show "PO 2/3" — a passed-over matter is recalled at the sequence's
+    // passover point, so show how far THAT is, as a normal distance ("N away"). The
+    // detail label still notes it's a recall.
+    if(gap==null) return {tier:"later",label:"passed over — awaiting recall",short:"recall",po:true};
+    if(gap<=0) return {tier:"now", label:"recall — item on now",short:"NOW",gap,po:true};
+    if(gap===1) return {tier:"now", label:"recall — next",short:"NEXT",gap,po:true};
+    if(gap<=4) return {tier:"soon",label:"~"+gap+" items away · recall",short:gap+" away",gap,po:true};
+    return {tier:"later",label:gap+" items away · recall",short:gap+" away",gap,po:true};
   }
   // Regular-list matter: reached only after the whole Miscellaneous list is done.
   if(/^reg/i.test((e.listType||"").trim())){
@@ -1169,7 +1192,7 @@ function renderRail(){
     rail.innerHTML=`<div class="rail-empty">All quiet — no chamber matter is close right now.</div>`; return; }
   _primaryCourt=stops[0].court;
   const distLab=k=> k.ment ? "WATCH" : (k.gap===0||k.short==="NOW") ? "NOW" : k.gap===1 ? "NEXT"
-                 : k.po ? "PO"+(k.gap!=null?" "+k.gap:"") : (k.gap!=null ? k.gap+" away" : (k.short||"—"));
+                 : (k.gap!=null ? k.gap+" away" : (k.short||"—"));
   let html="";
   stops.forEach((s,i)=>{
     const isNow=s.k.tier==="now"&&!s.k.ment;
