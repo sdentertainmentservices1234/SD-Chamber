@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SD Court App">
-<title>SD Court App</title>
+<title>Chamber Display Board</title>
 <link rel="manifest" href="board-manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
@@ -70,13 +70,21 @@ button{font-family:inherit;cursor:pointer}
   max-width:760px;width:100%;margin-inline:auto;background:var(--bg);overflow:hidden}
 @media(min-width:761px){ body{background:#d3d8dd} #app{border-inline:1px solid var(--line)} }
 
-header.top{display:flex;align-items:center;gap:10px;
-  padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;
+header.top{display:flex;align-items:center;gap:8px;
+  padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 12px;
   background:linear-gradient(180deg,#1a222c,#12171e);color:#fff;flex:none;
   border-bottom:1px solid rgba(176,148,86,.4);box-shadow:0 2px 10px rgba(9,12,16,.18)}
-.top .ttl{font-family:Fraunces,serif;font-weight:600;font-size:17px;letter-spacing:.2px;line-height:1.05}
-.top .ttl small{display:block;font-family:Inter;color:#9fb0c0;font-size:10px;font-weight:500;letter-spacing:.4px;text-transform:uppercase;margin-top:1px}
-.top .spacer{flex:1}
+.top .brand{display:flex;align-items:center;gap:9px;min-width:0}
+.top .seal.sm{width:32px;height:32px;margin:0;border-width:1.5px;font-size:12.5px;flex:none;
+  box-shadow:0 2px 8px rgba(0,0,0,.28)}
+.top .ttl{display:flex;flex-direction:column;min-width:0}
+.top .ttl-main{font-family:Fraunces,serif;font-weight:600;font-size:15.5px;letter-spacing:.1px;line-height:1.1;
+  color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .ttl small{font-family:Inter;color:#9fb0c0;font-size:9.5px;font-weight:500;letter-spacing:.4px;
+  text-transform:uppercase;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .spacer{flex:1;min-width:4px}
+.top .acts{display:flex;align-items:center;gap:0;flex:none}
+.top .acts .iconbtn{font-size:17px;padding:4px}
 .freshpill{font-size:11px;color:#aeb9c4;display:flex;align-items:center;gap:5px;white-space:nowrap}
 .freshdot{width:7px;height:7px;border-radius:50%;background:#4bbd6b;box-shadow:0 0 0 0 rgba(75,189,107,.6);animation:pulse 2s infinite}
 .freshdot.stale{background:var(--soon);animation:none}
@@ -288,8 +296,8 @@ body.kb-open nav.botnav{display:none}
 /* APPROACH FLASH — fires when a matter is ≤7 away and again each item closer. Bands:
    5–7 GREEN · 3–4 AMBER · 0–2 RED. TWO modes:
    • ONE court reaching → the WHOLE SCREEN washes in that court's band colour, info on top.
-   • SEVERAL courts → neutral dark backdrop with a small frosted ISLAND per court, each
-     carrying its band colour (pill + ring), red-first. Momentary (~2.8s). */
+   • SEVERAL courts → a LIGHT backdrop with a small ISLAND per court, each island itself
+     washed in its band colour, red-first. Momentary (~2.8s). */
 #flashHost{position:fixed;inset:0;z-index:60;cursor:pointer;animation:flashin .22s ease-out;
   display:grid;gap:14px;padding:20px;place-items:center;overflow-y:auto}
 @keyframes flashin{from{opacity:0}to{opacity:1}}
@@ -304,21 +312,17 @@ body.kb-open nav.botnav{display:none}
 #flashHost.single .flash-dist{font-size:clamp(22px,7vw,46px);padding:8px 28px;background:rgba(255,255,255,.95);color:#161a1f}
 #flashHost.single .flash-on{font-size:clamp(30px,9vw,56px)}
 #flashHost.single .fl-k{font-size:clamp(12px,2.8vw,16px)} #flashHost.single .fl-v{font-size:clamp(34px,10vw,58px)}
-/* --- SEVERAL courts: dark backdrop + small frosted islands --- */
-#flashHost.multi{background:rgba(11,15,20,.94);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+/* --- SEVERAL courts: LIGHT backdrop + islands each washed in their band colour --- */
+#flashHost.multi{background:rgba(244,246,249,.9);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 #flashHost.multi.n2,#flashHost.multi.n3,#flashHost.multi.n4{grid-template-columns:1fr 1fr}
 #flashHost.multi.n5,#flashHost.multi.n6{grid-template-columns:1fr 1fr 1fr}
-#flashHost.multi .flash-cell{background:rgba(14,19,27,.82);-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);
-  border:1px solid rgba(255,255,255,.14);border-radius:22px;box-shadow:0 20px 54px rgba(0,0,0,.42);max-width:340px;
+#flashHost.multi .flash-cell{border-radius:22px;max-width:340px;color:#fff;
   padding:clamp(16px,3vh,30px) clamp(14px,4.5vw,26px);animation:flashpulse 1.1s ease-in-out infinite}
-#flashHost.multi .flash-cell.b-green{box-shadow:0 20px 54px rgba(0,0,0,.42),0 0 0 2px rgba(70,170,100,.75)}
-#flashHost.multi .flash-cell.b-amber{box-shadow:0 20px 54px rgba(0,0,0,.42),0 0 0 2px rgba(210,158,45,.8)}
-#flashHost.multi .flash-cell.b-red{box-shadow:0 20px 54px rgba(0,0,0,.42),0 0 0 2px rgba(214,72,60,.85)}
+#flashHost.multi .flash-cell.b-green{background:linear-gradient(160deg,#33935a,#1e5d37);box-shadow:0 16px 40px rgba(30,93,55,.34)}
+#flashHost.multi .flash-cell.b-amber{background:linear-gradient(160deg,#ca9827,#876010);box-shadow:0 16px 40px rgba(135,96,16,.32)}
+#flashHost.multi .flash-cell.b-red{background:linear-gradient(160deg,#d1453a,#a5231a);box-shadow:0 16px 40px rgba(165,35,26,.34)}
 #flashHost.multi .flash-ct{font-size:clamp(24px,7.5vw,44px)}
-#flashHost.multi .flash-dist{font-size:clamp(15px,4.6vw,26px);padding:5px 18px}
-#flashHost.multi .flash-cell.b-green .flash-dist{background:linear-gradient(#5ec284,#2f8a54);color:#06210f}
-#flashHost.multi .flash-cell.b-amber .flash-dist{background:linear-gradient(#e7b545,#bd8a1f);color:#2a1d02}
-#flashHost.multi .flash-cell.b-red .flash-dist{background:linear-gradient(#e35a4e,#cf4034);color:#fff}
+#flashHost.multi .flash-dist{font-size:clamp(15px,4.6vw,26px);padding:5px 18px;background:rgba(255,255,255,.95);color:#161a1f}
 #flashHost.multi .flash-on{font-size:clamp(19px,5.5vw,32px)}
 #flashHost.multi .fl-k{font-size:clamp(10px,2.3vw,13px)} #flashHost.multi .fl-v{font-size:clamp(24px,6.5vw,40px)}
 /* shared island bits */
@@ -376,12 +380,17 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 <!-- APP -->
 <div id="app" class="hidden">
   <header class="top">
-    <div class="ttl"><span id="hdrName">Chambers of Shyam Divan</span><small id="hdrSub">Senior Advocate · Supreme Court of India</small></div>
+    <div class="brand">
+      <span class="seal sm">SD</span>
+      <span class="ttl"><span class="ttl-main">Chamber Display Board</span><small id="hdrSub">Supreme Court of India</small></span>
+    </div>
     <div class="spacer"></div>
-    <button class="iconbtn" id="btnAdd" title="Track a matter — add your case by court & item"><i class="ti ti-plus"></i></button>
-    <button class="iconbtn" id="btnNotify" title="Alerts — get pinged when a matter is reaching"><i class="ti ti-bell"></i></button>
-    <button class="iconbtn" id="btnRefresh" title="Refresh"><i class="ti ti-refresh"></i></button>
-    <button class="iconbtn" id="btnOut" title="Sign out"><i class="ti ti-logout"></i></button>
+    <div class="acts">
+      <button class="iconbtn" id="btnAdd" title="Track a matter — add your case by court & item"><i class="ti ti-plus"></i></button>
+      <button class="iconbtn" id="btnNotify" title="Alerts — get pinged when a matter is reaching"><i class="ti ti-bell"></i></button>
+      <button class="iconbtn" id="btnRefresh" title="Refresh"><i class="ti ti-refresh"></i></button>
+      <button class="iconbtn" id="btnOut" title="Sign out"><i class="ti ti-logout"></i></button>
+    </div>
   </header>
 
   <div id="paneTop">
@@ -412,6 +421,12 @@ const BOARD_SAMPLE = "./get_board_sample_2026-07-13.html";
 // the worker here (see CAUSELIST-SETUP / push steps). Empty = push disabled (the app
 // still does in-app alerts while open). The matching PRIVATE key stays a worker secret.
 const VAPID_PUBLIC = "";
+
+// The OLD SC display board publishes a court-wise SEQUENCE line (a scrolling
+// marquee) from ~9:30am — BEFORE courts start calling matters. When on, the app
+// pulls it (worker ?seq) and plans the route from it the moment it's up, instead
+// of waiting for a court to begin. Set false to fully regress to live-only order.
+const SEQ_LINE = true;
 
 const CHAMBER = {
   seniorName: "Shyam Divan",
@@ -484,7 +499,9 @@ function parseBoard(html){
 // "PASS OVER IF ANY" / "fresh passover then" marker) as an index in that order.
 function seqInfo(text){
   if(!text) return {seq:[],passIdx:null};
-  const toks=text.toUpperCase().replace(/[^0-9A-Z. ]/g," ").split(/\s+/).filter(Boolean);
+  // A hyphen/dash between two numbers ("1-15", "20 – 25") is a range, same as "TO".
+  const norm=String(text).replace(/(\d)\s*[-–—]\s*(\d)/g,"$1 TO $2");
+  const toks=norm.toUpperCase().replace(/[^0-9A-Z. ]/g," ").split(/\s+/).filter(Boolean);
   const out=[], seen=new Set(); let passIdx=null;
   const push=n=>{ if(!seen.has(n)){seen.add(n);out.push(n);} };
   for(let i=0;i<toks.length;i++){
@@ -500,6 +517,43 @@ function seqInfo(text){
   return {seq:out, passIdx};
 }
 const expandSequence = text => seqInfo(text).seq;
+/* ---- The old board's SEQUENCE marquee (one line, ALL courts) ----
+   The worker (?seq) hands us the raw marquee text. It reads court-by-court, e.g.
+   "COURT NO.1 :- 1 TO 6, 9, 12 …  COURT NO.2 :- 1-15 …". We split it on each
+   "COURT [NO.] <n>" anchor and keep the text after it as that court's sequence,
+   which seqInfo() then expands exactly like a per-row sequence. Tolerant of the
+   usual spellings (COURT / COURT NO. / COURT NO / COURT NUMBER). Returns a
+   { "<court>": "<raw sequence text>" } map; empty when the marquee is blank. */
+let seqByCourt = {}, seqLineText = "", seqLineAt = 0;
+function parseSequenceLine(text){
+  const out={};
+  if(!text) return out;
+  const T=" "+String(text).toUpperCase().replace(/\s+/g," ")+" ";
+  const re=/COURT\s*(?:NO\.?|NUMBER|ROOM)?\s*(\d{1,2})\b/g;
+  const anchors=[]; let m;
+  while((m=re.exec(T))) anchors.push({court:String(parseInt(m[1],10)), afterNum:re.lastIndex});
+  for(let i=0;i<anchors.length;i++){
+    const a=anchors[i];
+    // slice from just after this court's number up to where the next "COURT n" begins
+    const nextStart = (i+1<anchors.length) ? T.lastIndexOf("COURT", anchors[i+1].afterNum) : T.length;
+    let seg=T.slice(a.afterNum, nextStart).trim();
+    seg=seg.replace(/^[:\-–.\s]+/,"");                    // drop a leading ":-", "-", "." etc.
+    if(seg && seqInfo(seg).seq.length) out[a.court]=seg;   // keep only if it yields real items
+  }
+  return out;
+}
+// Position in the day's published order BEFORE the court starts: how many matters
+// are ahead of ours in the declared sequence (0 = ours is first up). null when the
+// court has no published sequence, or ours isn't in it.
+function preStartGap(seqTxt, ours){
+  const {seq}=seqInfo(seqTxt); if(!seq.length) return null;
+  const op=orderPos(seq, ours); return op==null ? null : op;
+}
+function preStartResult(g){
+  const short = g===0 ? "up next" : g+" ahead";
+  const lab   = g===0 ? "opens · you're up first" : "opens · ~"+g+" ahead in the sequence";
+  return {tier: g<=4?"soon":"later", label:lab, short, gap:g, preStart:true};
+}
 // NOTE: the sequence text never enumerates which items are passed over — a phrase
 // like "…ITEM 85 PASS OVER THEN ITEM 12…" only marks WHERE passed-over matters are
 // recalled (after item 85). Which items are actually passed over comes from the
@@ -723,7 +777,16 @@ function classify(e, bc){
   if(dn) return {tier:"passed", label:dn.v==="att"?"over — attended":"over — not attended",
                  short:dn.v==="att"?"over ✓":"over ✗", over:true, done:true};
   if(!bc) return {tier:"unknown",label:"court not on the board",short:"—"};
-  if(/not in session/i.test(bc.status||"")) return {tier:"idle",label:"court not sitting",short:"not sitting"};
+  // The day's published sequence for this court: the board row's own SEQUENCE title
+  // if it ever carries one, else the old board's marquee line (seqByCourt).
+  const seqTxt = (bc.sequence && bc.sequence.trim()) ? bc.sequence : (seqByCourt[String(e.courtNo)]||"");
+  if(/not in session/i.test(bc.status||"")){
+    // Court hasn't started, but if its sequence is already published we still know
+    // where we sit in the day's order — plan the route from it, don't wait.
+    const pg=preStartGap(seqTxt, ours);
+    if(pg!=null) return preStartResult(pg);
+    return {tier:"idle",label:"court not sitting",short:"not sitting"};
+  }
   if(isMentioning(ours)){
     if(nowMinsIST()>MENT_END) return {tier:"passed",label:"mentioning — over",short:"over",ment:true};
     return {tier:"soon",label:"mentioning — watch",short:"watch",gap:0,ment:true};
@@ -756,7 +819,7 @@ function classify(e, bc){
   // Authoritative remark from the court's full cause list, where the bench keeps
   // it current: OVER = our matter is finished (short-circuits everything else).
   if(isOver(e.courtNo,ours)) return {tier:"passed",label:"matter is over",short:"over",over:true};
-  const {seq,passIdx}=seqInfo(bc.sequence);
+  const {seq,passIdx}=seqInfo(seqTxt);
   const curPos = seq.length ? seq.indexOf(parseInt(bc.item,10)) : -1;
   // Passed over? — the court's remark column (authoritative), a colleague's mark,
   // or observed live on the board. NOT inferred from the sequence text: "…ITEM 85
@@ -821,6 +884,9 @@ function classify(e, bc){
   let poNote="";
   if(gap!=null){ const pa=poAdjust(e.courtNo,bc.item,ours,seq,passIdx);
     if(pa){ gap=Math.max(0,gap+pa); poNote = pa<0 ? " · "+(-pa)+" passed over ahead" : " · "+pa+" recalled first"; } }
+  // Court is up but no current item resolved yet (blank / about to open): if the
+  // day's sequence is published, position from it rather than giving up.
+  if(gap==null){ const pg=preStartGap(seqTxt, ours); if(pg!=null) return preStartResult(pg); }
   if(gap==null) return {tier:"unknown",label:"position unclear",short:"—"};
   if(gap<0) return {tier:"passed",label:"matter is over",short:"over",gap,approx};
   if(gap<=1) return {tier:"now",label:gap===0?"ITEM ON NOW":"NEXT — get in",short:gap===0?"NOW":"NEXT",gap,approx,poNote};
@@ -938,7 +1004,7 @@ function fireCourtAlert(e,k,lvl){
 /* Approach flash (owner Jul 2026 rework). Any of our matters ≤7 away flashes, and
    flashes AGAIN each time it gets one item closer (7→6→5…). Colour by distance:
    5–7 GREEN · 3–4 AMBER · 0–2 RED. Different courts can be in different bands at once,
-   so each court is its OWN coloured island on a neutral dark backdrop. The flash is
+   so each court is its OWN coloured island on a light backdrop. The flash is
    momentary (auto-clears back to the board after ~2.8s); "on now" flashes once and
    then stays quiet unless another court moves. Fires for ALL courts. */
 let _flashSt={date:"", gaps:{}}, _flashTimer=null;
@@ -949,6 +1015,7 @@ function inRangeMatters(){
   for(const e of courtMatters()){
     const k=classify(e,bc[e.courtNo]);
     if(!k||k.ment||k.done||k.over||k.gap==null) continue;
+    if(k.preStart) continue;                                        // court hasn't started — no live flash yet
     if(k.gap<0||k.gap>7) continue;                                  // within seven
     const c=String(e.courtNo);
     if(!seen[c]||k.gap<seen[c].gap) seen[c]={court:e.courtNo,item:e.itemNo,cur:bc[e.courtNo]?.item,gap:k.gap};
@@ -1148,9 +1215,24 @@ async function fetchBoard(){
     if(parsed.courts.length){ board=parsed.courts; boardAt=Date.now(); boardErr=null; recordPace(); recordBoardPO(); noteItemHi(); refreshRemarks(); }
     else boardErr="empty";
   }catch(e){ boardErr=String(e&&e.message||e); }
+  fetchSeqLine();                 // published court-wise sequence (throttled inside)
   runAlerts();
   runFlash();
   renderBoard();
+}
+// Pull the old board's published SEQUENCE marquee (worker ?seq) and parse it into
+// per-court order. Throttled to ~60s — it changes far more slowly than the board.
+// Non-fatal: any failure just leaves the last-known sequence (or none) in place, so
+// the app falls back to pure live ordering exactly as before.
+async function fetchSeqLine(){
+  if(!SEQ_LINE || !BOARD_PROXY || BOARD_SAMPLE) return;
+  if(Date.now()-seqLineAt < 60000) return;
+  seqLineAt=Date.now();
+  try{
+    const j=await (await fetch(BOARD_PROXY+"?seq",{cache:"no-store"})).json();
+    const txt=(j&&typeof j.seq==="string")?j.seq:"";
+    if(txt!==seqLineText){ seqLineText=txt; seqByCourt=parseSequenceLine(txt); }
+  }catch(e){ /* keep whatever we had */ }
 }
 // Adaptive polling — we track the SC board as tightly as it moves. When one of
 // our matters is at/near its turn we poll every 6s; otherwise every 12s to stay
@@ -1267,12 +1349,7 @@ function renderBoard(){
   if(boardErr && boardErr!=="relay-unset") h+=`<div class="notice"><b>Can't reach the board</b> — retrying every 15 seconds.</div>`;
   if(!board.length){ $("main").innerHTML=h+`<div class="empty">Loading the display board…</div>`; return; }
   const ourCourts=new Set(courtMatters().map(e=>String(e.courtNo)));
-  if(ourCourts.size) h+=`<div class="legend">
-    <span><i style="background:var(--now)"></i>at our item</span>
-    <span><i style="background:var(--soon)"></i>approaching</span>
-    <span><i style="background:var(--later)"></i>later</span>
-    <span><i style="background:var(--passed)"></i>over</span>
-  </div>`;
+  // (colour-code legend removed — red/amber/green are self-evident now)
   // Only the 17 courtrooms — never the Registrar / administrative list (courts
   // >17), even if we have a matter there (owner: no registrar under the court
   // headings; those still show in "Our list"). Our courts render first at full
@@ -1663,9 +1740,8 @@ function initNotify(){
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && !DEMO) fetchBoard(); if(!document.hidden && notifyOn){ acquireWake(); syncPushSub(); } });
 
 auth.onChange(boot);
-$("lgName").textContent = CHAMBER.seniorName ? CHAMBER.seniorName.split(" ")[0]+"'s Chamber — Display Board" : "Chamber Display Board";
-$("hdrName").textContent = "Chambers of "+CHAMBER.seniorName;
-$("hdrSub").textContent  = CHAMBER.designation+" · "+CHAMBER.court;
+$("lgName").textContent = "Chamber Display Board";
+$("hdrSub").textContent  = CHAMBER.seniorName ? CHAMBER.seniorName+" · "+CHAMBER.court : CHAMBER.court;
 
 /* ============================================================
    DEMO SEED (only used when DEMO=true; injected by make-board-test.py)

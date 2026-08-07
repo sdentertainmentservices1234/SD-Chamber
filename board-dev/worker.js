@@ -16,8 +16,11 @@
 
 const HOST = "https://wdb.sci.gov.in";
 const SRC  = HOST + "/get_board.php";                    // ?ctype=c (regular) | v (video)
+const SEQ_SRC = HOST + "/display_original.php";          // the OLD board page; its <marquee> carries
+                                                         // the day's court-wise SEQUENCE line (from ~9:30am)
 const EDGE_TTL  = 6;                                     // board: 6s (see note below)
 const RMK_TTL   = 25;                                    // remarks change slowly; cache longer
+const SEQ_TTL   = 45;                                    // the sequence line changes slowly; cache longer
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
@@ -62,6 +65,20 @@ function parseRemarks(html) {
   return { court: cm ? cm[1] : null, items };
 }
 
+// The OLD display board publishes a court-wise SEQUENCE line in a scrolling
+// <marquee> (inside <div id="marquee">…</div>), from ~9:30am — BEFORE the courts
+// actually start calling matters. Pull that text out verbatim; the app parses it
+// into per-court order so the route can be planned the moment it's up. Returns ""
+// when the marquee is empty (nights / holidays / before it's published).
+function parseSeqLine(html) {
+  const strip = s => s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&").replace(/&#039;|&apos;/g, "'").replace(/\s+/g, " ").trim();
+  // Prefer the dedicated container; fall back to the <marquee> element itself.
+  let m = html.match(/<div[^>]*id="marquee"[^>]*>([\s\S]*?)<\/div>/i);
+  if (!m) m = html.match(/<marquee[^>]*>([\s\S]*?)<\/marquee>/i);
+  return m ? strip(m[1]) : "";
+}
+
 async function upstream(url) {
   return fetch(url, {
     headers: {
@@ -104,6 +121,25 @@ export default {
       const body = await resp.text();
       const json = JSON.stringify(parseRemarks(body));
       const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": `public, max-age=${RMK_TTL}` };
+      await cache.put(key, new Response(json, { headers }));
+      return new Response(json, { headers: { ...CORS, ...headers, "X-Board-Cache": "miss" } });
+    }
+
+    // ---- court-wise SEQUENCE line (old board's marquee), parsed to {seq:"…"} ----
+    if (u.searchParams.get("seq") != null) {
+      const cache = caches.default;
+      const key = new Request("https://cache/seqline", { method: "GET" });
+      let hit = await cache.match(key);
+      if (hit) {
+        const h = new Headers(hit.headers); Object.entries(CORS).forEach(([k, v]) => h.set(k, v));
+        h.set("X-Board-Cache", "hit");
+        return new Response(hit.body, { status: 200, headers: h });
+      }
+      let resp;
+      try { resp = await upstream(SEQ_SRC); }
+      catch (e) { return new Response(JSON.stringify({ error: "upstream " + e }), { status: 502, headers: JSONH }); }
+      const json = JSON.stringify({ seq: parseSeqLine(await resp.text()) });
+      const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": `public, max-age=${SEQ_TTL}` };
       await cache.put(key, new Response(json, { headers }));
       return new Response(json, { headers: { ...CORS, ...headers, "X-Board-Cache": "miss" } });
     }
