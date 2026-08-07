@@ -99,7 +99,9 @@ header.top{display:flex;align-items:center;gap:10px;
    balloon. Scrolls sideways when there are many. */
 /* WRAPS into 2–3 rows so every stop fits on one screen — no sideways scroll. Small,
    colour-coded by distance band (red ≤2 · amber 3–4 · green 5–7 · neutral beyond). */
-.route-rail{display:flex;flex-wrap:wrap;gap:5px;padding:2px 0 4px}
+.route-rail{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0 4px}
+.rail-arrow{display:inline-flex;align-items:center;color:var(--mut);flex:none}
+.rail-arrow i{font-size:15px;line-height:1}
 .rail-stop{flex:0 1 auto;display:flex;align-items:baseline;gap:5px;
   background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 9px;cursor:pointer;
   transition:transform .1s;line-height:1.1}
@@ -283,34 +285,53 @@ body.chat-vv #chatWrap{position:fixed;left:50%;transform:translateX(-50%);width:
   top:var(--chat-top,0);height:var(--chat-h,100%);padding:8px 12px;box-sizing:border-box;background:var(--bg);z-index:25}
 body.kb-open nav.botnav{display:none}
 
-/* APPROACH FLASH — fires when a matter is ≤7 away and again each item closer. Distance
-   bands: 5–7 GREEN · 3–4 AMBER · 0–2 RED. Different courts can be in different bands at
-   once, so the backdrop is NEUTRAL dark and each court is its own band-COLOURED island.
-   Momentary (auto-clears ~2.8s). Islands gently pulse to read as a "flash". */
-/* Islands stack in a VERTICAL SEQUENCE, most-urgent first: RED on top, then AMBER,
-   then GREEN (courts are pre-sorted by distance). Bigger cards; scrolls if very many. */
-#flashHost{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;gap:16px;
-  padding:24px 18px;overflow-y:auto;
-  background:rgba(11,15,20,.94);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);cursor:pointer;animation:flashin .22s ease-out}
+/* APPROACH FLASH — fires when a matter is ≤7 away and again each item closer. Bands:
+   5–7 GREEN · 3–4 AMBER · 0–2 RED. TWO modes:
+   • ONE court reaching → the WHOLE SCREEN washes in that court's band colour, info on top.
+   • SEVERAL courts → neutral dark backdrop with a small frosted ISLAND per court, each
+     carrying its band colour (pill + ring), red-first. Momentary (~2.8s). */
+#flashHost{position:fixed;inset:0;z-index:60;cursor:pointer;animation:flashin .22s ease-out;
+  display:grid;gap:14px;padding:20px;place-items:center;overflow-y:auto}
 @keyframes flashin{from{opacity:0}to{opacity:1}}
-.flash-cell{width:100%;max-width:600px;flex:none;display:flex;flex-direction:column;align-items:center;gap:clamp(12px,2.2vh,22px);
-  border-radius:30px;box-shadow:0 26px 70px rgba(0,0,0,.5);color:#fff;text-align:center;
-  padding:clamp(26px,4vh,48px) clamp(22px,6vw,40px);animation:flashpulse 1s ease-in-out infinite}
-@keyframes flashpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.15)}}
-/* the three distance bands */
-.flash-cell.b-green{background:linear-gradient(180deg,#2f8a54,#1f6038);border:1px solid rgba(255,255,255,.16)}
-.flash-cell.b-amber{background:linear-gradient(180deg,#c2901f,#8a6212);border:1px solid rgba(255,255,255,.16)}
-.flash-cell.b-red{background:linear-gradient(180deg,#cf4034,#a8241b);border:1px solid rgba(255,255,255,.18)}
-.flash-ct{font-family:Fraunces,serif;font-weight:600;font-size:clamp(38px,13vw,80px);line-height:.95;letter-spacing:.4px}
+@keyframes flashpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.13)}}
+/* --- SINGLE court: full-screen colour wash --- */
+#flashHost.single{animation:flashin .22s ease-out, flashpulse 1.1s ease-in-out infinite}
+#flashHost.single.b-green{background:linear-gradient(160deg,#33935a,#1e5d37)}
+#flashHost.single.b-amber{background:linear-gradient(160deg,#ca9827,#876010)}
+#flashHost.single.b-red{background:linear-gradient(160deg,#d1453a,#a5231a)}
+#flashHost.single .flash-cell{max-width:600px}
+#flashHost.single .flash-ct{font-size:clamp(40px,13vw,84px)}
+#flashHost.single .flash-dist{font-size:clamp(22px,7vw,46px);padding:8px 28px;background:rgba(255,255,255,.95);color:#161a1f}
+#flashHost.single .flash-on{font-size:clamp(30px,9vw,56px)}
+#flashHost.single .fl-k{font-size:clamp(12px,2.8vw,16px)} #flashHost.single .fl-v{font-size:clamp(34px,10vw,58px)}
+/* --- SEVERAL courts: dark backdrop + small frosted islands --- */
+#flashHost.multi{background:rgba(11,15,20,.94);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+#flashHost.multi.n2,#flashHost.multi.n3,#flashHost.multi.n4{grid-template-columns:1fr 1fr}
+#flashHost.multi.n5,#flashHost.multi.n6{grid-template-columns:1fr 1fr 1fr}
+#flashHost.multi .flash-cell{background:rgba(14,19,27,.82);-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);
+  border:1px solid rgba(255,255,255,.14);border-radius:22px;box-shadow:0 20px 54px rgba(0,0,0,.42);max-width:340px;
+  padding:clamp(16px,3vh,30px) clamp(14px,4.5vw,26px);animation:flashpulse 1.1s ease-in-out infinite}
+#flashHost.multi .flash-cell.b-green{box-shadow:0 20px 54px rgba(0,0,0,.42),0 0 0 2px rgba(70,170,100,.75)}
+#flashHost.multi .flash-cell.b-amber{box-shadow:0 20px 54px rgba(0,0,0,.42),0 0 0 2px rgba(210,158,45,.8)}
+#flashHost.multi .flash-cell.b-red{box-shadow:0 20px 54px rgba(0,0,0,.42),0 0 0 2px rgba(214,72,60,.85)}
+#flashHost.multi .flash-ct{font-size:clamp(24px,7.5vw,44px)}
+#flashHost.multi .flash-dist{font-size:clamp(15px,4.6vw,26px);padding:5px 18px}
+#flashHost.multi .flash-cell.b-green .flash-dist{background:linear-gradient(#5ec284,#2f8a54);color:#06210f}
+#flashHost.multi .flash-cell.b-amber .flash-dist{background:linear-gradient(#e7b545,#bd8a1f);color:#2a1d02}
+#flashHost.multi .flash-cell.b-red .flash-dist{background:linear-gradient(#e35a4e,#cf4034);color:#fff}
+#flashHost.multi .flash-on{font-size:clamp(19px,5.5vw,32px)}
+#flashHost.multi .fl-k{font-size:clamp(10px,2.3vw,13px)} #flashHost.multi .fl-v{font-size:clamp(24px,6.5vw,40px)}
+/* shared island bits */
+.flash-cell{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(9px,2vh,18px);color:#fff;text-align:center}
+.flash-ct{font-family:Fraunces,serif;font-weight:600;line-height:.95;letter-spacing:.4px}
 .flash-ct b{color:#fff}
-.flash-dist{font-weight:800;font-size:clamp(22px,7vw,46px);letter-spacing:1.5px;color:#161a1f;text-transform:uppercase;
-  background:rgba(255,255,255,.94);border-radius:44px;padding:8px 28px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
-.flash-on{font-weight:800;font-size:clamp(26px,8.5vw,52px);letter-spacing:.5px;text-transform:uppercase;color:#fff}
+.flash-dist{font-weight:800;letter-spacing:1.4px;text-transform:uppercase;border-radius:44px;box-shadow:0 4px 14px rgba(0,0,0,.26)}
+.flash-on{font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff}
 .flash-on b{font-family:var(--mono)}
-.flash-rows{display:flex;flex-direction:column;gap:clamp(7px,1.4vh,14px);width:100%}
-.flash-rows>div{display:flex;gap:16px;justify-content:center;align-items:baseline}
-.fl-k{color:rgba(255,255,255,.72);font-weight:700;font-size:clamp(12px,2.8vw,17px);letter-spacing:1.4px;text-transform:uppercase}
-.fl-v{color:#fff;font-family:var(--mono);font-weight:800;font-size:clamp(34px,10vw,60px);line-height:1}
+.flash-rows{display:flex;flex-direction:column;gap:clamp(6px,1.3vh,12px);width:100%}
+.flash-rows>div{display:flex;gap:14px;justify-content:center;align-items:baseline}
+.fl-k{color:rgba(255,255,255,.72);font-weight:700;letter-spacing:1.3px;text-transform:uppercase}
+.fl-v{color:#fff;font-family:var(--mono);font-weight:800;line-height:1}
 
 .empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
 .notice{background:var(--soon-bg);border:1px solid #e6d29a;color:#8a6410;border-radius:11px;padding:11px 13px;font-size:12.5px;margin-bottom:12px;line-height:1.45}
@@ -951,8 +972,8 @@ function showFlash(items){
   if(_flashTimer){ clearTimeout(_flashTimer); _flashTimer=null; }
   let host=$("flashHost");
   if(!host){ host=document.createElement("div"); host.id="flashHost"; host.onclick=hideFlash; document.body.appendChild(host); }
-  host.className="";
-  host.innerHTML=items.slice(0,8).map(r=>{
+  items=items.slice(0,6);
+  const cell=r=>{
     // when OUR matter is the one on, just say "our N is on" — not the item-on / ours split
     const body = r.gap<=0
       ? `<div class="flash-on">Our <b>${esc(r.item)}</b> is on</div>`
@@ -960,7 +981,11 @@ function showFlash(items){
          <div class="flash-rows"><div><span class="fl-k">Ongoing</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
            <div><span class="fl-k">Ours</span><span class="fl-v">${esc(r.item)}</span></div></div>`;
     return `<div class="flash-cell b-${flashBand(r.gap)}"><div class="flash-ct">Court <b>${esc(r.court)}</b></div>${body}</div>`;
-  }).join("");
+  };
+  // ONE court → full-screen wash of its band colour · SEVERAL → small islands, red-first
+  if(items.length===1) host.className="single b-"+flashBand(items[0].gap);
+  else host.className="multi n"+items.length;
+  host.innerHTML=items.map(cell).join("");
   _flashTimer=setTimeout(hideFlash, 2800);                                        // momentary
 }
 function hideFlash(){ if(_flashTimer){clearTimeout(_flashTimer);_flashTimer=null;} const h=$("flashHost"); if(h) h.remove(); }
@@ -1199,13 +1224,15 @@ function renderRail(){
   const band=g=> g==null?"far" : g<=2?"red" : g<=4?"amber" : g<=7?"green" : "far";
   const distLab=k=> k.ment ? "WATCH" : (k.gap===0||k.short==="NOW") ? "NOW" : k.gap===1 ? "NEXT"
                  : (k.gap!=null ? k.gap+" away" : (k.short||"—"));
-  rail.innerHTML=stops.map(s=>{
+  const chip=s=>{
     const isNow=(s.k.gap===0||s.k.short==="NOW")&&!s.k.ment;
     // when OUR matter is the one on, just say "our N is on" — not which item is on / ours
     return isNow
       ? `<button class="rail-stop red" data-court="${esc(s.court)}"><span class="rail-ct">our <b>${esc(s.e.itemNo)}</b> is on</span></button>`
       : `<button class="rail-stop ${band(s.k.ment?null:s.k.gap)}" data-court="${esc(s.court)}"><span class="rail-ct">Ct <b>${esc(s.court)}</b></span><span class="rail-dist">${esc(distLab(s.k))}</span></button>`;
-  }).join("");
+  };
+  // arrows between chips show the flow (which court to reach first → next → …)
+  rail.innerHTML=stops.map((s,i)=>`${i?'<span class="rail-arrow"><i class="ti ti-chevron-right"></i></span>':''}${chip(s)}`).join("");
 }
 
 // one court tile: full island when we have matters there, mini otherwise
