@@ -287,27 +287,31 @@ body.chat-vv #chatWrap{position:fixed;left:50%;transform:translateX(-50%);width:
   top:var(--chat-top,0);height:var(--chat-h,100%);padding:8px 12px;box-sizing:border-box;background:var(--bg);z-index:25}
 body.kb-open nav.botnav{display:none}
 
-/* Full-screen APPROACH FLASH — a matter ≤2 away. Splits into one panel per reaching
-   court; big bold Court / item-on / our-item / distance; blinks, auto-clears in 3s. */
-/* Full-screen amber wash (polite-but-urgent, gently breathing) with the details
-   on a floating frosted ISLAND — one per reaching court, centred. */
+/* APPROACH FLASH — fires when a matter is ≤7 away and again each item closer. Distance
+   bands: 5–7 GREEN · 3–4 AMBER · 0–2 RED. Different courts can be in different bands at
+   once, so the backdrop is NEUTRAL dark and each court is its own band-COLOURED island.
+   Momentary (auto-clears ~2.8s). Islands gently pulse to read as a "flash". */
 #flashHost{position:fixed;inset:0;z-index:60;display:grid;gap:16px;padding:20px;place-items:center;
-  background:#c1892a;animation:flashpulse 1.7s ease-in-out infinite;cursor:pointer}
+  background:rgba(11,15,20,.93);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);cursor:pointer;animation:flashin .22s ease-out}
+@keyframes flashin{from{opacity:0}to{opacity:1}}
 #flashHost.n1{grid-template-columns:1fr}
 #flashHost.n2,#flashHost.n3,#flashHost.n4{grid-template-columns:1fr 1fr}
 #flashHost.n5,#flashHost.n6{grid-template-columns:1fr 1fr 1fr}
-@keyframes flashpulse{0%,100%{background:#c98d2b}50%{background:#a06d14}}
 .flash-cell{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2.4vh,20px);
-  background:rgba(14,19,27,.80);-webkit-backdrop-filter:blur(9px) saturate(1.2);backdrop-filter:blur(9px) saturate(1.2);
-  border:1px solid rgba(255,255,255,.14);border-radius:26px;box-shadow:0 26px 70px rgba(0,0,0,.4);
-  color:#fff;text-align:center;padding:clamp(22px,4.5vh,44px) clamp(18px,5vw,34px)}
+  border-radius:26px;box-shadow:0 26px 70px rgba(0,0,0,.5);color:#fff;text-align:center;
+  padding:clamp(22px,4.5vh,44px) clamp(18px,5vw,34px);animation:flashpulse 1s ease-in-out infinite}
+@keyframes flashpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.15)}}
+/* the three distance bands */
+.flash-cell.b-green{background:linear-gradient(180deg,#2f8a54,#1f6038);border:1px solid rgba(255,255,255,.16)}
+.flash-cell.b-amber{background:linear-gradient(180deg,#c2901f,#8a6212);border:1px solid rgba(255,255,255,.16)}
+.flash-cell.b-red{background:linear-gradient(180deg,#cf4034,#a8241b);border:1px solid rgba(255,255,255,.18)}
 .flash-ct{font-family:Fraunces,serif;font-weight:600;font-size:clamp(30px,11vw,64px);line-height:.95;letter-spacing:.4px}
-.flash-ct b{color:#ffd98a}
-.flash-dist{font-weight:800;font-size:clamp(18px,6.5vw,38px);letter-spacing:1.5px;color:#0f131b;text-transform:uppercase;
-  background:linear-gradient(#ffe6ac,#f4c766);border-radius:40px;padding:6px 22px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.flash-ct b{color:#fff}
+.flash-dist{font-weight:800;font-size:clamp(18px,6.5vw,38px);letter-spacing:1.5px;color:#161a1f;text-transform:uppercase;
+  background:rgba(255,255,255,.94);border-radius:40px;padding:6px 22px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 .flash-rows{display:flex;flex-direction:column;gap:clamp(6px,1.4vh,12px);width:100%}
 .flash-rows>div{display:flex;gap:14px;justify-content:center;align-items:baseline}
-.fl-k{color:rgba(255,255,255,.55);font-weight:700;font-size:clamp(11px,2.6vw,15px);letter-spacing:1.4px;text-transform:uppercase}
+.fl-k{color:rgba(255,255,255,.7);font-weight:700;font-size:clamp(11px,2.6vw,15px);letter-spacing:1.4px;text-transform:uppercase}
 .fl-v{color:#fff;font-family:var(--mono);font-weight:800;font-size:clamp(30px,9vw,52px);line-height:1}
 .flash-cell.multi{max-width:340px}
 .flash-cell.multi .flash-ct{font-size:clamp(24px,8vw,48px)}
@@ -915,48 +919,54 @@ function fireCourtAlert(e,k,lvl){
   const toUids=(e.juniorUids||[]).filter(Boolean); if(toUids.length) relayPush({kind:"court", toUids, court:String(e.courtNo),
     item:String(e.itemNo), level:lvl, date:todayISO(), title, body, urgent:head, tag:"court-"+e.courtNo});
 }
-/* Full-screen approach flash: any of our matters ≤2 away shows a big blinking overlay
-   (one panel per reaching court) — Court, item on, our item, distance. It PERSISTS —
-   staying until the screen is TOUCHED or the case is OVER (leaves the ≤2 set: called,
-   marked over, or receded). It re-renders live each poll to track the current item.
-   A tap dismisses the shown matters until they go over and a fresh one approaches. */
-let _flash={date:"",dismissed:new Set()};
-function reachingMatters(){
+/* Approach flash (owner Jul 2026 rework). Any of our matters ≤7 away flashes, and
+   flashes AGAIN each time it gets one item closer (7→6→5…). Colour by distance:
+   5–7 GREEN · 3–4 AMBER · 0–2 RED. Different courts can be in different bands at once,
+   so each court is its OWN coloured island on a neutral dark backdrop. The flash is
+   momentary (auto-clears back to the board after ~2.8s); "on now" flashes once and
+   then stays quiet unless another court moves. Fires for ALL courts. */
+let _flashSt={date:"", gaps:{}}, _flashTimer=null;
+const flashBand = g => g<=2 ? "red" : g<=4 ? "amber" : "green";     // 0-2 red · 3-4 amber · 5-7 green
+const _distLabel = g => g<=0 ? "ON NOW" : g===1 ? "NEXT" : g+" AWAY";
+function inRangeMatters(){
   const bc=boardByCourt(); const seen={};
   for(const e of courtMatters()){
     const k=classify(e,bc[e.courtNo]);
     if(!k||k.ment||k.done||k.over||k.gap==null) continue;
-    if(k.gap<0||k.gap>2) continue;
+    if(k.gap<0||k.gap>7) continue;                                  // within seven
     const c=String(e.courtNo);
     if(!seen[c]||k.gap<seen[c].gap) seen[c]={court:e.courtNo,item:e.itemNo,cur:bc[e.courtNo]?.item,gap:k.gap};
   }
   return Object.values(seen).sort((a,b)=>a.gap-b.gap);
 }
-const _distLabel=g=>g<=0?"ON NOW":g===1?"NEXT":g+" AWAY";
 function runFlash(){
-  if(document.hidden){ return; }
-  if(_flash.date!==todayISO()) _flash={date:todayISO(),dismissed:new Set()};
-  const reaching=reachingMatters();
-  const keys=new Set(reaching.map(r=>r.court+"|"+r.item));
-  for(const k of [..._flash.dismissed]) if(!keys.has(k)) _flash.dismissed.delete(k); // over/receded → re-arm
-  const active=reaching.filter(r=>!_flash.dismissed.has(r.court+"|"+r.item));         // not tapped-away
-  if(active.length) showFlash(active); else hideFlash();                              // gone when the case is over
+  if(document.hidden) return;
+  if(_flashSt.date!==todayISO()) _flashSt={date:todayISO(), gaps:{}};
+  const inrange=inRangeMatters();
+  const keys=new Set(inrange.map(r=>r.court+"|"+r.item));
+  for(const key in _flashSt.gaps) if(!keys.has(key)) delete _flashSt.gaps[key];   // left range → re-arm
+  let stepped=false;
+  for(const r of inrange){ const key=r.court+"|"+r.item; const prev=_flashSt.gaps[key];
+    if(prev===undefined || r.gap<prev) stepped=true;                              // entered range OR got closer
+    _flashSt.gaps[key]=r.gap;
+  }
+  if(stepped) showFlash(inrange);                                                 // one flash showing every court in range
 }
 function showFlash(items){
+  if(_flashTimer){ clearTimeout(_flashTimer); _flashTimer=null; }
   let host=$("flashHost");
-  if(!host){ host=document.createElement("div"); host.id="flashHost"; host.onclick=dismissFlash; document.body.appendChild(host); }
+  if(!host){ host=document.createElement("div"); host.id="flashHost"; host.onclick=hideFlash; document.body.appendChild(host); }
   const n=Math.min(items.length,6), multi=n>1?" multi":"";
   host.className="n"+n;
-  host._items=items.slice(0,6);
-  host.innerHTML=items.slice(0,6).map(r=>`<div class="flash-cell${multi}">
+  host.innerHTML=items.slice(0,6).map(r=>`<div class="flash-cell b-${flashBand(r.gap)}${multi}">
     <div class="flash-ct">Court <b>${esc(r.court)}</b></div>
     <div class="flash-dist">${esc(_distLabel(r.gap))}</div>
     <div class="flash-rows"><div><span class="fl-k">Ongoing</span><span class="fl-v">${esc(r.cur||"—")}</span></div>
       <div><span class="fl-k">Ours</span><span class="fl-v">${esc(r.item)}</span></div></div>
   </div>`).join("");
+  _flashTimer=setTimeout(hideFlash, 2800);                                        // momentary
 }
-function dismissFlash(){ const h=$("flashHost"); if(h&&h._items) for(const r of h._items) _flash.dismissed.add(r.court+"|"+r.item); hideFlash(); }
-function hideFlash(){ const h=$("flashHost"); if(h) h.remove(); }
+function hideFlash(){ if(_flashTimer){clearTimeout(_flashTimer);_flashTimer=null;} const h=$("flashHost"); if(h) h.remove(); }
 async function pushNotify(title,body,tag,urgent){
   const opts={body,tag,renotify:true,icon:"icon-192.png",badge:"icon-192.png",
     vibrate:urgent?[250,120,250,120,250]:[160,90,160],requireInteraction:!!urgent};
