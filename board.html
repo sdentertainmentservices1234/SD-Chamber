@@ -338,6 +338,35 @@ body.kb-open nav.botnav{display:none}
 .fl-v{color:#fff;font-family:var(--mono);font-weight:800;line-height:1}
 
 /* BRIEFING FEATURE */
+.board-switch{display:flex;gap:6px;margin:2px 0 8px}
+.board-switch button{flex:1;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  color:var(--mut);font-size:12.5px;font-weight:700;letter-spacing:.2px}
+.board-switch button.on{background:linear-gradient(180deg,#1c242e,#12171e);color:#fff;border-color:transparent}
+.bthread{display:flex;flex-direction:column;gap:7px;margin-top:11px;max-height:46vh;overflow-y:auto;padding:2px}
+.bbub{max-width:82%;padding:8px 11px;border-radius:13px;font-size:13.5px;line-height:1.35;position:relative}
+.bbub .bn{display:block;font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:2px}
+.bbub .bt{display:block;font-size:9.5px;color:var(--mut);text-align:right;margin-top:3px}
+.bbub.them{align-self:flex-start;background:#fff;border:1px solid var(--line)}
+.bbub.me{align-self:flex-end;background:#e7eef7;border:1px solid #cfe0f2}
+.bcompose{display:flex;gap:7px;margin-top:10px;align-items:flex-end}
+.bcompose textarea{flex:1;resize:none;min-height:40px;max-height:110px;padding:9px 12px;border-radius:12px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:14px;font-family:inherit}
+.bsend{flex:none;width:44px;height:44px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center}
+.bquick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.bquick button{padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:12px;font-weight:600}
+.bcard.binbox{cursor:pointer;padding:11px 12px}
+.binbox-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left}
+.binbox-row .bavatar{flex:none;width:38px;height:38px;border-radius:50%;background:var(--navy);color:var(--gold);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-family:Fraunces,serif;font-size:14px}
+.binbox-row .bmeta{flex:1;min-width:0;display:flex;flex-direction:column}
+.binbox-row .bnm{display:block;font-size:14px;font-weight:600;color:var(--ink)}
+.binbox-row .bmatter{display:block;font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.binbox-row .blast{display:block;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.binbox-row .bright{flex:none;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.bprox{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:2px 8px;border-radius:20px}
+.bprox.red{color:#a5231a;background:#f6dcd8} .bprox.amber{color:#8a6410;background:#f6eccf} .bprox.green{color:#1e5d37;background:#dceee2} .bprox.far{color:#555;background:#e7e9eb}
+.bunread{background:var(--now);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px;min-width:18px;text-align:center}
+.bback{display:inline-flex;align-items:center;gap:5px;color:var(--accent);font-weight:600;font-size:13px;margin-bottom:8px;background:none;border:none;padding:4px 0}
 .bwrap{padding:2px 2px 20px}
 .bsec-h{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);margin:6px 2px 8px}
 .bcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:9px;box-shadow:0 1px 2px rgba(13,16,20,.04)}
@@ -418,6 +447,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 
   <div id="paneTop">
     <div class="statusrow"><span class="freshdot off" id="freshDot"></span><span id="statusTxt">connecting…</span></div>
+    <div class="board-switch hidden" id="boardSwitch"></div>
     <div class="route-rail" id="routeRail"></div>
   </div>
 
@@ -1216,7 +1246,10 @@ const boardByCourt = () => { const m={}; board.forEach(c=>{ if(c.court && !m[c.c
 // court+item in "Track a matter"), private to them. Dedup a personal matter that
 // duplicates a day-sheet entry (same court+item) — the day-sheet one wins (richer).
 let myOwn=[];
-let briefLinks=[];               // BRIEFING FEATURE — AoR↔chamber tracking links
+let briefLinks=[], briefMsgs=[]; // BRIEFING FEATURE — AoR↔chamber links + their message threads
+let boardView="mine";            // a briefing AoR can toggle: "mine" (own board) | "senior"
+let briefOpenThread=null;        // team inbox: the thread currently open
+let briefSeen=(()=>{ try{ return JSON.parse(localStorage.getItem("briefSeen")||"{}")||{}; }catch(e){ return {}; } })();
 const myMatters = () => {
   const ds=(daysheet?.entries||[]).filter(e=>e.courtNo);
   const key=e=>String(e.courtNo)+"|"+String(e.itemNo);
@@ -1229,7 +1262,18 @@ const myMatters = () => {
 // The display board tracks the courtrooms only (owner: no registrar under the
 // court headings) — registrar matters still appear in "Our list".
 const isCourtroom = n => { const x=parseInt(n,10); return x>=1 && x<=17; };
-const courtMatters = () => myMatters().filter(e=>isCourtroom(e.courtNo));
+// BRIEFING: a briefing AoR sees TWO boards — their own cases, or (when approved)
+// the senior's whole board. The toggle swaps the tracked matter set at the source,
+// so board + rail + flash + alerts all follow it. Chamber members are unaffected.
+const myApprovedLinks = () => briefLinks.filter(l=>l.aorUid===me?.uid && l.status==="approved");
+const isBriefAoR      = () => BRIEFING && !!me && myApprovedLinks().length>0;
+const ownMattersList  = () => (myOwn||[]).filter(m=>m.court&&m.item).map(m=>({courtNo:String(m.court),itemNo:String(m.item),caseTitle:m.title||"",juniorUids:me?[me.uid]:[],_own:m.id}));
+const seniorMattersList = () => (daysheet?.entries||[]).filter(e=>e.courtNo).map(e=>({courtNo:String(e.courtNo),itemNo:String(e.itemNo),caseTitle:e.caseTitle||"",listType:e.listType||"",juniorUids:e.juniorUids||[],bench:e.bench,counsel:e.counsel,time:e.time}));
+function boardSourceMatters(){
+  if(BRIEFING && isBriefAoR()) return (boardView==="senior") ? seniorMattersList() : ownMattersList();
+  return myMatters();
+}
+const courtMatters = () => boardSourceMatters().filter(e=>isCourtroom(e.courtNo));
 const shortTitle = e => e.caseTitle || ("Court "+e.courtNo+" item "+e.itemNo);
 const isSenior = () => me?.role==="senior";           // the Senior doesn't set/see his own location
 
@@ -1373,7 +1417,17 @@ function boardCell(c, senCourt, senMode){
     <div class="cell-sub">${idle?"not sitting":esc(c.status||"hearing")}</div>
     <div class="cell-ours"><span class="oi">${items}</span><br>${esc(ks[0].k.short||ks[0].k.label)}</div></div>`;
 }
+function renderBoardSwitch(){
+  const el=$("boardSwitch"); if(!el) return;
+  if(!(BRIEFING && isBriefAoR())){ el.classList.add("hidden"); return; }
+  const srName=(CHAMBER.seniorName||"Senior").split(" ")[0];
+  el.classList.remove("hidden");
+  el.innerHTML=`<button data-bv="mine" class="${boardView==="mine"?"on":""}">My board</button>
+    <button data-bv="senior" class="${boardView==="senior"?"on":""}">${esc(srName)}'s board</button>`;
+  el.querySelectorAll("[data-bv]").forEach(b=>b.onclick=()=>{ boardView=b.dataset.bv; renderBoard(); });
+}
 function renderBoard(){
+  renderBoardSwitch();
   paintFresh(); renderRail();
   if(curTab!=="board") return;
   let h="";
@@ -1697,9 +1751,18 @@ function openMatterModal(court,item){
 const canApproveBrief = () => ["admin","clerk","pa","senior"].includes(me?.role);
 const myBriefLinks    = () => briefLinks.filter(l=>l.aorUid===me?.uid);
 const pendingBriefs   = () => briefLinks.filter(l=>l.status==="pending");
+const approvedBriefs  = () => briefLinks.filter(l=>l.status==="approved");
+const QUICK = { reaching:"My matter is reaching — please come.", five:"My matter is about five away.", three:"My matter is about three away.", next:"My matter is next — please come." };
+const threadMsgs   = id => briefMsgs.filter(m=>m.linkId===id).sort((a,b)=>tsMs(a.at)-tsMs(b.at));
+const threadLast   = id => { const m=threadMsgs(id); return m[m.length-1]||null; };
+const threadUnread = id => threadMsgs(id).filter(m=>m.by!==me?.uid && tsMs(m.at)>(briefSeen[id]||0)).length;
+function markThreadSeen(id){ briefSeen[id]=Date.now(); try{ localStorage.setItem("briefSeen",JSON.stringify(briefSeen)); }catch(e){} }
+const linkProx = l => classify({courtNo:String(l.court),itemNo:String(l.item),listType:l.listType||""}, boardByCourt()[String(l.court)]);
+const proxBand = k => { if(!k||k.gap==null) return "far"; const g=k.gap; return g<=2?"red":g<=4?"amber":g<=7?"green":"far"; };
 function updateBriefBadge(){
-  const b=$("briefBadge"); if(!b) return;
-  const cnt = canApproveBrief() ? pendingBriefs().length : 0;   // chamber's action queue
+  const b=$("briefBadge"); if(!b) return; let cnt=0;
+  if(canApproveBrief()) cnt = pendingBriefs().length + approvedBriefs().reduce((n,l)=>n+(threadUnread(l.id)>0?1:0),0);
+  else cnt = myBriefLinks().reduce((n,l)=>n+(threadUnread(l.id)>0?1:0),0);
   if(cnt>0 && curTab!=="brief"){ b.textContent=cnt; b.classList.remove("hidden"); } else b.classList.add("hidden");
 }
 function briefStatusChip(s){
@@ -1707,48 +1770,97 @@ function briefStatusChip(s){
     declined:["#8a2a20","#f6dcd8","Declined"],revoked:["#555","#e7e9eb","Revoked"]};
   const [c,bg,t]=map[s]||map.pending; return `<span class="bchip" style="color:${c};background:${bg}">${t}</span>`;
 }
-function briefPanel(l){                                          // live tracking panel for an APPROVED link
-  const bc=boardByCourt()[String(l.court)];
-  const k=classify({courtNo:String(l.court),itemNo:String(l.item),listType:l.listType||""}, bc);
-  const ss=seniorState(), sc=ss.court, mode=ss.mode;
-  const senTxt = sc ? (mode==="confirmed"?`confirmed in Court ${esc(sc)}`:`likely in Court ${esc(sc)}`) : "location not set yet";
-  return `<div class="brow" style="margin-top:8px"><span class="blab">Senior</span><span class="bval">${esc(CHAMBER.seniorName)} — ${senTxt}</span></div>
-    <div class="brow" style="margin-top:6px"><span class="blab">Your matter</span><span class="bval">Ct ${esc(l.court)} · item ${esc(l.item)} — ${esc(k.short||"—")}</span></div>
-    <div class="bmsgs">
-      <button class="bmsg" data-bmsg="${esc(l.id)}|reaching">My matter is reaching</button>
-      <button class="bmsg" data-bmsg="${esc(l.id)}|bench">Bench is calling you</button>
-      <button class="bmsg" data-bmsg="${esc(l.id)}|meet">Can we meet?</button>
-      <button class="bmsg" data-bmsg="${esc(l.id)}|late">Running late — hold</button>
+function threadHtml(l){
+  const msgs=threadMsgs(l.id);
+  if(!msgs.length) return `<div class="bthread"><div class="bsub" style="text-align:center">No messages yet — start the conversation below.</div></div>`;
+  return `<div class="bthread">`+msgs.map(m=>{ const mine=m.by===me?.uid;
+    return `<div class="bbub ${mine?"me":"them"}">${mine?"":`<span class="bn">${esc(m.name||"")}</span>`}<span>${esc(m.text)}</span><span class="bt">${esc(clockIST(tsMs(m.at)))}</span></div>`;
+  }).join("")+`</div>`;
+}
+function composeHtml(l, aorSide){
+  const quick = aorSide ? [["reaching","Reaching"],["five","5 away"],["three","3 away"],["next","Next"]] : [];
+  return `${quick.length?`<div class="bquick">`+quick.map(([k,lab])=>`<button data-bq="${esc(l.id)}|${k}">${lab}</button>`).join("")+`</div>`:''}
+    <div class="bcompose">
+      <textarea id="bc_${esc(l.id)}" rows="1" placeholder="Message ${aorSide?"the chamber":"the AoR"}…"></textarea>
+      <button class="bsend" data-bsend="${esc(l.id)}"><i class="ti ti-send"></i></button>
     </div>`;
+}
+function wireBriefCommon(){
+  document.querySelectorAll("[data-bsend]").forEach(b=>b.onclick=async()=>{ const id=b.dataset.bsend; const ta=$("bc_"+id); const v=ta?ta.value:""; if(ta) ta.value=""; await sendBriefMsg(id,v); });
+  document.querySelectorAll("[data-bq]").forEach(b=>b.onclick=async()=>{ const [id,k]=b.dataset.bq.split("|"); await sendBriefMsg(id, QUICK[k]||k); });
+  document.querySelectorAll(".bcompose textarea").forEach(ta=>{ ta.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); const id=ta.id.slice(3); const v=ta.value; ta.value=""; sendBriefMsg(id,v); } }; });
+  document.querySelectorAll(".bthread").forEach(t=>{ t.scrollTop=t.scrollHeight; });
 }
 function renderBrief(){
   if(!BRIEFING){ $("main").innerHTML=""; return; }
+  if(briefOpenThread) return renderBriefThread(briefOpenThread);
   updateBriefBadge();
-  const mine=myBriefLinks(), canA=canApproveBrief();
-  let h=`<div class="bwrap">`;
-  h+=`<div class="bsec-h">Track a senior you're briefing</div>`;
-  h+=`<button class="sh-btn navy" id="bNew"><i class="ti ti-plus"></i> Request to track the senior</button>`;
-  if(mine.length) h+=mine.map(l=>`<div class="bcard${l.status==="approved"?" bhi":""}">
+  return canApproveBrief() ? renderBriefInbox() : renderBriefAoR();
+}
+function renderBriefAoR(){
+  const mine=myBriefLinks(), srName=(CHAMBER.seniorName||"Senior").split(" ")[0];
+  let h=`<div class="bwrap"><div class="bsec-h">Track a senior you're briefing</div>`;
+  h+=`<button class="sh-btn navy" id="bNew"><i class="ti ti-plus"></i> Request to track a senior</button>`;
+  if(!mine.length) h+=`<div class="bempty">No requests yet — ask a senior's chamber for access to see his whole board while your matter reaches, and message his team.</div>`;
+  else h+=mine.map(l=>{
+    if(l.status==="approved") return `<div class="bcard bhi">
       <div class="brow"><span class="bval">${esc(CHAMBER.seniorName)} · Ct ${esc(l.court)} item ${esc(l.item)}</span>${briefStatusChip(l.status)}</div>
       ${l.title?`<div class="bttl">${esc(l.title)}</div>`:''}
-      ${l.status==="approved"?briefPanel(l):(l.status==="pending"?`<div class="bsub">Waiting for the chamber to approve.</div>`:'')}
-    </div>`).join("");
-  else h+=`<div class="bempty">No tracking requests yet — request access to see where the senior is while your matter reaches, and ping his team.</div>`;
-  if(canA){
-    const pend=pendingBriefs(), appr=briefLinks.filter(l=>l.status==="approved");
-    h+=`<div class="bsec-h" style="margin-top:20px">Requests to the chamber</div>`;
-    h+= pend.length ? pend.map(l=>`<div class="bcard">
-        <div class="brow"><span class="bval">${esc(l.aorName)}<span class="bdesig">${esc(l.aorDesig||"Advocate")}</span></span>${briefStatusChip(l.status)}</div>
-        <div class="bsub">wants to track you for <b>Ct ${esc(l.court)} · item ${esc(l.item)}</b>${l.title?` — ${esc(l.title)}`:''}${l.note?`<br>“${esc(l.note)}”`:''}</div>
-        <div class="bmsgs"><button class="bmsg ok" data-bdec="${esc(l.id)}|approved">Approve</button><button class="bmsg no" data-bdec="${esc(l.id)}|declined">Decline</button></div>
-      </div>`).join("") : `<div class="bempty">No pending requests.</div>`;
-    if(appr.length){ h+=`<div class="bsec-h" style="margin-top:16px">Currently tracking you</div>`;
-      h+=appr.map(l=>`<div class="bcard"><div class="brow"><span class="bval">${esc(l.aorName)} — Ct ${esc(l.court)} item ${esc(l.item)}</span>
-        <button class="bmsg no small" data-bdec="${esc(l.id)}|revoked">Revoke</button></div></div>`).join(""); }
-  }
-  h+=`</div>`;
-  $("main").innerHTML=h;
+      <button class="sh-btn" style="margin-top:10px" data-viewboard="1"><i class="ti ti-layout-grid"></i> View ${esc(srName)}'s board</button>
+      ${threadHtml(l)}${composeHtml(l,true)}</div>`;
+    return `<div class="bcard"><div class="brow"><span class="bval">${esc(CHAMBER.seniorName)} · Ct ${esc(l.court)} item ${esc(l.item)}</span>${briefStatusChip(l.status)}</div>
+      ${l.title?`<div class="bttl">${esc(l.title)}</div>`:''}${l.status==="pending"?`<div class="bsub">Waiting for the chamber to approve.</div>`:''}</div>`;
+  }).join("");
+  h+=`</div>`; $("main").innerHTML=h;
+  wireBriefCommon();
   const nb=$("bNew"); if(nb) nb.onclick=briefRequestForm;
+  const vb=document.querySelector("[data-viewboard]"); if(vb) vb.onclick=()=>{ boardView="senior"; curTab="board";
+    document.querySelectorAll("nav.botnav button").forEach(x=>x.classList.toggle("on",x.dataset.tab==="board")); render(); };
+  mine.forEach(l=>markThreadSeen(l.id)); updateBriefBadge();
+}
+function renderBriefInbox(){
+  const pend=pendingBriefs(), appr=approvedBriefs();
+  let h=`<div class="bwrap">`;
+  if(pend.length){ h+=`<div class="bsec-h">Requests to approve</div>`;
+    h+=pend.map(l=>`<div class="bcard">
+      <div class="brow"><span class="bval">${esc(l.aorName)}</span>${briefStatusChip(l.status)}</div>
+      <div class="bsub">wants to track the senior for <b>Ct ${esc(l.court)} · item ${esc(l.item)}</b>${l.title?` — ${esc(l.title)}`:''}${l.note?`<br>“${esc(l.note)}”`:''}</div>
+      <div class="bmsgs"><button class="bmsg ok" data-bdec="${esc(l.id)}|approved">Approve</button><button class="bmsg no" data-bdec="${esc(l.id)}|declined">Decline</button></div>
+    </div>`).join(""); }
+  h+=`<div class="bsec-h" style="margin-top:${pend.length?16:2}px">Briefing inbox${appr.length?` · ${appr.length}`:''}</div>`;
+  if(!appr.length) h+=`<div class="bempty">No active briefing conversations.</div>`;
+  else{
+    const rows=appr.map(l=>({l,k:linkProx(l),unread:threadUnread(l.id),last:threadLast(l.id)}))
+      .sort((a,b)=>((a.k.gap??999)-(b.k.gap??999))||(b.unread-a.unread));
+    h+=rows.map(({l,k,unread,last})=>{ const band=proxBand(k);
+      const initials=(l.aorName||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+      const lastTxt=last?`${last.by===me?.uid?"You: ":""}${last.text}`:"No messages yet";
+      return `<div class="bcard binbox" data-open="${esc(l.id)}"><div class="binbox-row">
+        <span class="bavatar">${esc(initials)}</span>
+        <span class="bmeta"><span class="bnm">${esc(l.aorName)}</span><span class="bmatter">Ct ${esc(l.court)} · item ${esc(l.item)}${l.title?` — ${esc(l.title)}`:''}</span><span class="blast">${esc(lastTxt)}</span></span>
+        <span class="bright"><span class="bprox ${band}">${esc(k.short||"—")}</span>${unread?`<span class="bunread">${unread}</span>`:''}</span>
+      </div></div>`;
+    }).join("");
+  }
+  h+=`</div>`; $("main").innerHTML=h;
+  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{ briefOpenThread=b.dataset.open; renderBrief(); });
+}
+function renderBriefThread(id){
+  const l=briefLinks.find(x=>x.id===id);
+  if(!l){ briefOpenThread=null; return renderBrief(); }
+  const k=linkProx(l), band=proxBand(k), ss=seniorState();
+  const senTxt = ss.court ? (ss.mode==="confirmed"?`confirmed in Court ${esc(ss.court)}`:`likely in Court ${esc(ss.court)}`) : "location not set yet";
+  $("main").innerHTML=`<div class="bwrap">
+    <button class="bback" id="bBack"><i class="ti ti-chevron-left"></i> Briefing inbox</button>
+    <div class="bcard bhi">
+      <div class="brow"><span class="bval">${esc(l.aorName)}</span><span class="bprox ${band}">${esc(k.short||"—")}</span></div>
+      <div class="bsub">Their matter: <b>Ct ${esc(l.court)} · item ${esc(l.item)}</b>${l.title?` — ${esc(l.title)}`:''}</div>
+      <div class="bsub">Senior: ${esc(CHAMBER.seniorName)} — ${senTxt}</div>
+      ${threadHtml(l)}${composeHtml(l,false)}
+      <button class="bmsg no small" style="margin-top:10px" data-bdec="${esc(l.id)}|revoked">Revoke access</button>
+    </div></div>`;
+  markThreadSeen(id); updateBriefBadge(); wireBriefCommon();
+  const bk=$("bBack"); if(bk) bk.onclick=()=>{ briefOpenThread=null; renderBrief(); };
 }
 function briefRequestForm(){
   const own=(myOwn||[]).slice();
@@ -1782,24 +1894,21 @@ function briefRequestForm(){
     catch(e){ $("bq_err").textContent="Could not send — "+(e.message||e); }
   };
 }
-async function decideBrief(id,status){ try{ await db.update("brieflinks/"+id,{status,decidedBy:me.uid,decidedAt:db.now()}); }catch(e){} }
-async function sendBriefMsg(id,kind){
-  const l=briefLinks.find(x=>x.id===id); if(!l) return;
-  const who=(me.name||"An advocate")+(me.designation?` (${me.designation})`:"");
-  const map={ reaching:`📣 ${who}: my matter Ct ${l.court} · item ${l.item} is reaching — please come.`,
-    bench:`⚖️ ${who}: the bench is calling you in Court ${l.court}.`,
-    meet:`🤝 ${who}: can we meet? Where are you?`,
-    late:`⏳ ${who}: running late for Ct ${l.court} · item ${l.item} — please hold.` };
-  const text=map[kind]||map.meet;
-  try{ const mid=await db.add("messages",{by:me.uid, name:me.name||"Advocate", text, at:db.now(), brief:true});
-    relayPush({kind:"chat", id:String(mid||Date.now()), fromUid:me.uid, title:"Briefing", body:text, tag:"brief"});
-    toastBrief("Sent to the chamber"); }catch(e){}
+async function decideBrief(id,status){
+  try{ await db.update("brieflinks/"+id,{status,decidedBy:me.uid,decidedAt:db.now()});
+    if(status!=="approved" && briefOpenThread===id) briefOpenThread=null; }catch(e){}
 }
-function toastBrief(t){ const el=document.createElement("div"); el.className="btoast"; el.textContent=t;
-  document.body.appendChild(el); setTimeout(()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),300); },1600); }
+// Messages live in a PER-LINK thread (not the general chamber chat), so eight AoRs
+// stay eight separate conversations. Name only, never designation.
+async function sendBriefMsg(id,text){
+  text=(text||"").trim(); if(!text) return;
+  const l=briefLinks.find(x=>x.id===id); if(!l) return;
+  try{ const mid=await db.add("briefmsgs",{linkId:id, by:me.uid, name:me.name||"Advocate", text, at:db.now()});
+    relayPush({kind:"chat", id:String(mid||Date.now()), fromUid:me.uid, title:"Briefing — "+(me.name||""), body:text, tag:"brief-"+id});
+    markThreadSeen(id); }catch(e){}
+}
 if(BRIEFING) document.addEventListener("click",ev=>{
   const dec=ev.target.closest("[data-bdec]"); if(dec){ const [id,st]=dec.dataset.bdec.split("|"); decideBrief(id,st); return; }
-  const msg=ev.target.closest("[data-bmsg]"); if(msg){ const [id,kind]=msg.dataset.bmsg.split("|"); sendBriefMsg(id,kind); return; }
 });
 
 /* ============================================================
@@ -1812,6 +1921,7 @@ async function setSeniorCourt(court){
 function boot(user){
   unsub.forEach(u=>u&&u()); unsub=[]; if(userDocUnsub){userDocUnsub();userDocUnsub=null;}
   bootStarted=false;   // a new session (user switch / re-login) must re-establish the live-data watchers
+  briefOpenThread=null; boardView="mine";   // reset briefing view state for the new user
   if(!user){ me=null; $("app").classList.add("hidden"); $("login").classList.remove("hidden"); stopPolling(); return; }
   const uid=user.uid;
   userDocUnsub=db.watchDoc("users/"+uid, u=>{
@@ -1828,7 +1938,10 @@ function startWatchers(){
   unsub.push(db.watchCollection("messages",rows=>{ messages={}; rows.forEach(m=>messages[m.id]=m); updateChatBadge(); if(curTab==="chat") paintChatList(); purgeOldChat(); }));
   unsub.push(db.watchDoc("daysheets/"+todayISO(), d=>{ daysheet=d||{entries:[]}; scheduleRender(); }));
   if(me?.uid) unsub.push(db.watchDoc("usermatters/"+me.uid, d=>{ myOwn=(d&&d.matters)||[]; scheduleRender(); }));
-  if(BRIEFING) unsub.push(db.watchCollection("brieflinks",rows=>{ briefLinks=rows||[]; updateBriefBadge(); if(curTab==="brief") renderBrief(); }));
+  if(BRIEFING){
+    unsub.push(db.watchCollection("brieflinks",rows=>{ briefLinks=rows||[]; updateBriefBadge(); scheduleRender(); }));
+    unsub.push(db.watchCollection("briefmsgs",rows=>{ briefMsgs=rows||[]; updateBriefBadge(); if(curTab==="brief") renderBrief(); }));
+  }
   loadCourtUpdates();
   startPolling();
 }

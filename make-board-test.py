@@ -55,14 +55,23 @@ SEED = '''function seedDemo(db){
   db.set("messages/m1",{by:"u_yash",name:"Yashvardhan S.",text:"Court 6 is moving slowly, still on item 3.",at:{_t:Date.now()-9*60000}});
   db.set("messages/m2",{by:"u_anshula",name:"Anshula L.",text:"I'm outside Court 3, will signal when our item is called.",at:{_t:Date.now()-4*60000}});
 
-  // BRIEFING FEATURE demo: one APPROVED link (Rohan, an AoR, tracking the senior for
-  // his Ct6/item4 matter) and one PENDING request (Priya) for the chamber to approve.
+  // BRIEFING FEATURE demo. u_aor ("Rohan") is an external AoR briefing the senior:
+  // his OWN board = his usermatter (Ct4/5); the senior's board = the chamber day sheet.
+  db.set("usermatters/u_aor",{matters:[{id:"mo1",court:"4",item:"5",title:"My SLP v. State of Karnataka"}],updatedAt:n()});
+  // Several AoRs tracking the senior — the team's Briefing inbox (eight-AoR handling):
+  //  bl_a Rohan (Ct6/4), bl_c Meera (Ct1/12), bl_d Arjun (Ct14/3) approved; bl_b Priya pending.
   db.set("brieflinks/bl_a",{aorUid:"u_aor",aorName:"Rohan Mehta",aorDesig:"Advocate-on-Record",
-    court:"6",item:"4",date:D,title:"Mahabanoo v. Kalikund Developers",note:"Briefing on the SLP",
-    status:"approved",at:{_t:Date.now()-30*60000},decidedBy:"u_clerk"});
-  db.set("brieflinks/bl_b",{aorUid:"u_aor2",aorName:"Priya Nair",aorDesig:"Advocate",
-    court:"3",item:"6",date:D,title:"Nair v. State of Maharashtra",note:"Reaching after lunch",
-    status:"pending",at:{_t:Date.now()-6*60000}});
+    court:"6",item:"4",date:D,title:"Mahabanoo v. Kalikund",note:"Briefing on the SLP",status:"approved",at:{_t:Date.now()-30*60000},decidedBy:"u_clerk"});
+  db.set("brieflinks/bl_c",{aorUid:"u_aor2",aorName:"Meera Krishnan",aorDesig:"Advocate",
+    court:"1",item:"12",date:D,title:"Sugandha v. Babasaheb",note:"",status:"approved",at:{_t:Date.now()-50*60000},decidedBy:"u_clerk"});
+  db.set("brieflinks/bl_d",{aorUid:"u_aor3",aorName:"Arjun Rao",aorDesig:"Senior Advocate",
+    court:"14",item:"3",date:D,title:"Rao v. Union of India",note:"",status:"approved",at:{_t:Date.now()-70*60000},decidedBy:"u_clerk"});
+  db.set("brieflinks/bl_b",{aorUid:"u_aor4",aorName:"Priya Nair",aorDesig:"Advocate",
+    court:"3",item:"6",date:D,title:"Nair v. State of Maharashtra",note:"Reaching after lunch",status:"pending",at:{_t:Date.now()-6*60000}});
+  // per-thread messages (name only, no designation)
+  db.set("briefmsgs/bm1",{linkId:"bl_a",by:"u_aor",name:"Rohan Mehta",text:"My matter is next — please come.",at:{_t:Date.now()-6*60000}});
+  db.set("briefmsgs/bm2",{linkId:"bl_a",by:"u_clerk",name:"Staff",text:"He's wrapping up Court 6, will come across.",at:{_t:Date.now()-4*60000}});
+  db.set("briefmsgs/bm3",{linkId:"bl_c",by:"u_aor2",name:"Meera Krishnan",text:"Is he reaching my Court 1 item soon?",at:{_t:Date.now()-8*60000}});
 }'''
 
 # swap the empty stub for the real seed
