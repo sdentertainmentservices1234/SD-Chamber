@@ -20,10 +20,10 @@ SEED = '''function seedDemo(db){
     ["u_shaishir","Shaishir","junior","shaishir@chamber.in","Advocate"],
     ["u_anshula","Anshula L.","junior","anshula@chamber.in","Advocate"],
     ["u_rishit","Rishit V.","junior","rishit@chamber.in","Advocate"],
-    // an EXTERNAL AoR (briefing the senior) — for testing the Briefing feature
-    ["u_aor","Rohan Mehta","junior","rohan@ext.in","Advocate-on-Record"],
+    // a STANDALONE self-registrant (external AoR) — role "user", their own office
+    ["u_aor","Rohan Mehta","user","rohan@ext.in","Advocate-on-Record"],
   ];
-  people.forEach(([uid,name,role,email,designation])=>db.set("users/"+uid,{name,email,role,designation,active:true}));
+  people.forEach(([uid,name,role,email,designation])=>db.set("users/"+uid,{name,email,role,designation,office:name,phone:"9820011234",active:true}));
 
   const D=todayISO();
   // Items chosen to hit each tier against the saved board sample (2026-07-13):

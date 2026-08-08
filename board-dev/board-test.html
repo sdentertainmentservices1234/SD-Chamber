@@ -55,6 +55,11 @@ button{font-family:inherit;cursor:pointer}
 .card input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);
   background:var(--panel2);color:var(--ink);font-size:15px}
 .card input:focus{outline:none;border-color:var(--accent)}
+.card select{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--ink);font-size:15px;appearance:none;-webkit-appearance:none}
+.card select:focus{outline:none;border-color:var(--accent)}
+.lg-alt{text-align:center;font-size:13px;color:var(--mut);margin-top:16px}
+.lg-alt button{background:none;border:none;color:var(--accent);font-weight:600;font-size:13px;padding:0}
 .btn{width:100%;padding:12px;border:none;border-radius:10px;background:var(--accent);color:#fff;
   font-weight:600;font-size:15px;margin-top:18px}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--mut);margin-top:9px}
@@ -417,15 +422,42 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
 <div id="login">
   <div class="card">
     <div class="seal">SD</div>
-    <h1 id="lgName">Chamber Display Board</h1>
-    <div class="sub">Live Supreme Court board · for the chamber</div>
-    <label>Email</label>
-    <input id="lgEmail" type="email" autocomplete="username" placeholder="you@example.com">
-    <label>Password</label>
-    <input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••">
-    <button class="btn" id="lgGo">Sign in</button>
-    <button class="btn ghost" id="lgReset">Forgot password</button>
-    <div class="err" id="lgErr"></div>
+    <h1 id="lgName">Court Display Board</h1>
+    <div class="sub" id="lgSub">Live Supreme Court board</div>
+    <!-- SIGN IN -->
+    <div id="signinForm">
+      <label>Email</label>
+      <input id="lgEmail" type="email" autocomplete="username" placeholder="you@example.com">
+      <label>Password</label>
+      <input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••">
+      <button class="btn" id="lgGo">Sign in</button>
+      <button class="btn ghost" id="lgReset">Forgot password</button>
+      <div class="err" id="lgErr"></div>
+      <div class="lg-alt">New here? <button type="button" id="lgToReg">Create an account</button></div>
+    </div>
+    <!-- CREATE ACCOUNT -->
+    <div id="regForm" class="hidden">
+      <label>Full name</label>
+      <input id="rgName" autocomplete="name" placeholder="e.g. Rohan Mehta">
+      <label>Mobile number</label>
+      <input id="rgPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile">
+      <label>Email</label>
+      <input id="rgEmail" type="email" autocomplete="email" placeholder="you@example.com">
+      <label>Designation</label>
+      <select id="rgDesig">
+        <option value="Advocate">Advocate</option>
+        <option value="Advocate-on-Record">Advocate-on-Record</option>
+        <option value="Senior Advocate">Senior Advocate</option>
+        <option value="Clerk">Clerk</option>
+        <option value="Law Clerk / Intern">Law Clerk / Intern</option>
+        <option value="Office Staff">Office Staff</option>
+      </select>
+      <label>Password</label>
+      <input id="rgPass" type="password" autocomplete="new-password" placeholder="choose a password">
+      <button class="btn" id="rgGo">Create account</button>
+      <button class="btn ghost" id="lgToSignin">Back to sign in</button>
+      <div class="err" id="rgErr"></div>
+    </div>
   </div>
 </div>
 
@@ -1179,7 +1211,7 @@ function relayPush(payload){
 /* ============================================================
    DATA LAYER — Firebase (prod) / in-memory mock (demo)
    ============================================================ */
-let db, auth;
+let db, auth, pendingReg=null;   // pendingReg carries a new registrant's profile to the users-doc create
 if(DEMO){
   const now=()=>({_t:Date.now()}); let idc=1; const gid=()=>"g"+(idc++);
   const store=new Map(); const C=p=>{ if(!store.has(p)) store.set(p,new Map()); return store.get(p); };
@@ -1198,6 +1230,9 @@ if(DEMO){
   let authCb=null,cur={uid:"u_yash"};
   auth={ onChange(cb){authCb=cb;setTimeout(()=>cb(cur),0);}, signIn(){return Promise.resolve();},
     resetPassword(){return Promise.resolve();}, signOut(){cur=null;authCb&&authCb(null);},
+    signUp(email,pass,reg){ const uid="u_reg_"+(idc++);
+      db.set("users/"+uid,{name:reg.name,phone:reg.phone||"",email,designation:reg.designation||"",role:"user",office:reg.name,active:true,createdAt:now()});
+      cur={uid}; setTimeout(()=>authCb&&authCb(cur),0); return Promise.resolve(); },
     setUser(uid){cur={uid};authCb&&authCb(cur);} };
   window.__demoSetUser=uid=>auth.setUser(uid);
   seedDemo(db);
@@ -1220,15 +1255,23 @@ if(DEMO){
   auth={ onChange(cb){ onAuthStateChanged(fa,async user=>{
       if(user){ const uref=doc(fs,"users",user.uid); const snap=await getDoc(uref);
         if(!snap.exists()){
-          let base={name:user.email.split("@")[0],email:user.email,role:"pending",active:true,createdAt:serverTimestamp()};
-          if(emailKey(user.email)===emailKey(CHAMBER.adminEmail)) base.role="admin";
-          try{ const ap=await getDoc(doc(fs,"approvals",emailKey(user.email)));
-            if(ap.exists()){ const a=ap.data(); base={...base,name:a.name||base.name,role:a.role||base.role,phone:a.phone||"",joinedOn:a.joinedOn||null}; }
-          }catch(e){}
+          let base;
+          if(pendingReg){   // a self-registrant creating their own standalone "office"
+            base={name:pendingReg.name, email:user.email, phone:pendingReg.phone||"", designation:pendingReg.designation||"",
+              role:"user", office:pendingReg.name, active:true, createdAt:serverTimestamp()};
+            pendingReg=null;
+          } else {
+            base={name:user.email.split("@")[0],email:user.email,role:"pending",active:true,createdAt:serverTimestamp()};
+            if(emailKey(user.email)===emailKey(CHAMBER.adminEmail)) base.role="admin";
+            try{ const ap=await getDoc(doc(fs,"approvals",emailKey(user.email)));
+              if(ap.exists()){ const a=ap.data(); base={...base,name:a.name||base.name,role:a.role||base.role,phone:a.phone||"",joinedOn:a.joinedOn||null}; }
+            }catch(e){}
+          }
           try{ await setDoc(uref,base); }catch(e){ try{ await setDoc(uref,{name:user.email.split("@")[0],email:user.email,role:"pending",active:true,createdAt:serverTimestamp()}); }catch(_){} }
         }
       } cb(user); }); },
     signIn(email,pass){return signInWithEmailAndPassword(fa,email,pass);},
+    signUp(email,pass,reg){ pendingReg=reg; return createUserWithEmailAndPassword(fa,email,pass); },
     resetPassword(email){return sendPasswordResetEmail(fa,email);},
     signOut(){return signOut(fa);}, setUser(){} };
 }
@@ -1271,7 +1314,8 @@ const ownMattersList  = () => (myOwn||[]).filter(m=>m.court&&m.item).map(m=>({co
 const seniorMattersList = () => (daysheet?.entries||[]).filter(e=>e.courtNo).map(e=>({courtNo:String(e.courtNo),itemNo:String(e.itemNo),caseTitle:e.caseTitle||"",listType:e.listType||"",juniorUids:e.juniorUids||[],bench:e.bench,counsel:e.counsel,time:e.time}));
 function boardSourceMatters(){
   if(BRIEFING && isBriefAoR()) return (boardView==="senior") ? seniorMattersList() : ownMattersList();
-  return myMatters();
+  if(me && me.role==="user") return ownMattersList();   // standalone individual — their own matters only
+  return myMatters();                                    // chamber member — day sheet + own
 }
 const courtMatters = () => boardSourceMatters().filter(e=>isCourtroom(e.courtNo));
 const shortTitle = e => e.caseTitle || ("Court "+e.courtNo+" item "+e.itemNo);
@@ -1439,7 +1483,10 @@ function renderBoard(){
   // >17), even if we have a matter there (owner: no registrar under the court
   // headings; those still show in "Our list"). Our courts render first at full
   // size; the rest shrink to minis — all fit one screen, no scrolling.
-  const ss=seniorState(), senCourt=ss.court, senMode=ss.mode;
+  // the senior-here pin belongs to the chamber; a standalone user only sees it when
+  // they're viewing a senior's board they've been approved to track (not their own).
+  const showSen = !(isStandalone() && boardView!=="senior");
+  const ss=seniorState(), senCourt=showSen?ss.court:null, senMode=ss.mode;
   const shown=[...board].filter(c=>isCourtroom(c.court));
   const byNo=(a,b)=>(parseInt(a.court)||999)-(parseInt(b.court)||999);
   const full=shown.filter(c=>ourCourts.has(String(c.court))).sort(byNo);
@@ -1945,12 +1992,33 @@ function startWatchers(){
   loadCourtUpdates();
   startPolling();
 }
+const isStandalone = () => me && me.role==="user";   // a self-registrant with their own office
 function gateUI(){
-  const approved = me && ["admin","senior","clerk","pa","junior"].includes(me.role);
+  const approved = me && ["admin","senior","clerk","pa","junior","user"].includes(me.role);
   $("login").classList.toggle("hidden", !!approved);
   $("app").classList.toggle("hidden", !approved);
-  if(approved){ if(BRIEFING) $("tabBrief").classList.remove("hidden"); render(); initNotify(); }
-  else if(me){ $("lgErr").textContent = me.role==="pending" ? "Your account isn't approved yet. Ask Adith to add you." : ""; }
+  if(approved){
+    if(BRIEFING) $("tabBrief").classList.remove("hidden");
+    // a standalone individual has no chamber-internal chat — hide that tab for them
+    const chatBtn=document.querySelector('nav.botnav button[data-tab="chat"]'); if(chatBtn) chatBtn.classList.toggle("hidden", isStandalone());
+    if(isStandalone() && curTab==="chat") curTab="board";
+    paintMasthead(); render(); initNotify();
+  }
+  else if(me){ $("lgErr").textContent = me.role==="pending" ? "Your account isn't approved yet." : ""; }
+}
+// Header shows the OFFICE of whoever is logged in: the chamber for chamber members,
+// the person's own name + designation for a self-registrant.
+function initials(s){ return (s||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
+function paintMasthead(){
+  const seal=document.querySelector(".top .seal"), main=document.querySelector(".top .ttl-main"), sub=$("hdrSub");
+  if(!seal||!main||!sub) return;
+  if(isStandalone()){
+    seal.textContent=initials(me.name); main.textContent=me.name||"My office";
+    sub.textContent=(me.designation? me.designation+" · " : "")+CHAMBER.court;
+  } else {
+    seal.textContent="SD"; main.textContent="Chamber Display Board";
+    sub.textContent=CHAMBER.seniorName ? CHAMBER.seniorName+" · "+CHAMBER.court : CHAMBER.court;
+  }
 }
 
 /* tabs (bottom nav) + header wiring */
@@ -1997,6 +2065,23 @@ $("lgReset").onclick=async()=>{
   try{ await auth.resetPassword(em); $("lgErr").textContent="Reset link sent to "+em; }
   catch(e){ $("lgErr").textContent=e.message||"Could not send reset."; }
 };
+// Create-account (self-registration) — makes a standalone user with their own office.
+$("lgToReg").onclick=()=>{ $("signinForm").classList.add("hidden"); $("regForm").classList.remove("hidden"); $("lgSub").textContent="Create your account"; };
+$("lgToSignin").onclick=()=>{ $("regForm").classList.add("hidden"); $("signinForm").classList.remove("hidden"); $("lgSub").textContent="Live Supreme Court board"; };
+$("rgGo").onclick=async()=>{
+  $("rgErr").textContent="";
+  const name=$("rgName").value.trim(), phone=$("rgPhone").value.replace(/\D/g,""), email=$("rgEmail").value.trim(),
+        designation=$("rgDesig").value, pass=$("rgPass").value;
+  if(name.length<2){ $("rgErr").textContent="Enter your full name."; return; }
+  if(phone.length<10){ $("rgErr").textContent="Enter a valid mobile number."; return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ $("rgErr").textContent="Enter a valid email."; return; }
+  if(pass.length<6){ $("rgErr").textContent="Password must be at least 6 characters."; return; }
+  $("rgGo").disabled=true; $("rgErr").textContent="Creating your account…";
+  try{ await auth.signUp(email, pass, {name, phone, designation}); }
+  catch(e){ $("rgGo").disabled=false;
+    $("rgErr").textContent = (e.code||"").includes("email-already-in-use") ? "That email already has an account — sign in instead."
+      : (e.code||"").includes("weak-password") ? "Choose a stronger password." : (e.message||"Could not create account."); }
+};
 function initNotify(){
   try{ notifyOn = localStorage.getItem("boardNotify")==="1" && ("Notification" in window) && Notification.permission==="granted"; }catch(e){ notifyOn=false; }
   updateNotifyBtn(); if(notifyOn){ acquireWake(); syncPushSub(); }
@@ -2004,8 +2089,7 @@ function initNotify(){
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && me && !DEMO) fetchBoard(); if(!document.hidden && notifyOn){ acquireWake(); syncPushSub(); } });
 
 auth.onChange(boot);
-$("lgName").textContent = "Chamber Display Board";
-$("hdrSub").textContent  = CHAMBER.seniorName ? CHAMBER.seniorName+" · "+CHAMBER.court : CHAMBER.court;
+// masthead (seal + title + sub) is now painted per-user by paintMasthead() in gateUI
 
 /* ============================================================
    DEMO SEED (only used when DEMO=true; injected by make-board-test.py)
@@ -2020,10 +2104,10 @@ function seedDemo(db){
     ["u_shaishir","Shaishir","junior","shaishir@chamber.in","Advocate"],
     ["u_anshula","Anshula L.","junior","anshula@chamber.in","Advocate"],
     ["u_rishit","Rishit V.","junior","rishit@chamber.in","Advocate"],
-    // an EXTERNAL AoR (briefing the senior) — for testing the Briefing feature
-    ["u_aor","Rohan Mehta","junior","rohan@ext.in","Advocate-on-Record"],
+    // a STANDALONE self-registrant (external AoR) — role "user", their own office
+    ["u_aor","Rohan Mehta","user","rohan@ext.in","Advocate-on-Record"],
   ];
-  people.forEach(([uid,name,role,email,designation])=>db.set("users/"+uid,{name,email,role,designation,active:true}));
+  people.forEach(([uid,name,role,email,designation])=>db.set("users/"+uid,{name,email,role,designation,office:name,phone:"9820011234",active:true}));
 
   const D=todayISO();
   // Items chosen to hit each tier against the saved board sample (2026-07-13):
