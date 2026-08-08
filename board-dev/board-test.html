@@ -457,7 +457,7 @@ nav.botnav .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(
     <button data-tab="board" class="on"><i class="ti ti-layout-grid"></i>Board</button>
     <button data-tab="list"><i class="ti ti-list-details"></i>Our list</button>
     <button data-tab="chat"><i class="ti ti-messages"></i>Chat<span class="badge hidden" id="chatBadge">0</span></button>
-    <button data-tab="brief" id="tabBrief" class="hidden"><i class="ti ti-broadcast"></i>Briefing<span class="badge hidden" id="briefBadge">0</span></button>
+    <button data-tab="brief" id="tabBrief" class="hidden"><i class="ti ti-users-group"></i>Collaborate<span class="badge hidden" id="briefBadge">0</span></button>
   </nav>
 </div>
 
@@ -1799,8 +1799,8 @@ function renderBrief(){
 }
 function renderBriefAoR(){
   const mine=myBriefLinks(), srName=(CHAMBER.seniorName||"Senior").split(" ")[0];
-  let h=`<div class="bwrap"><div class="bsec-h">Track a senior you're briefing</div>`;
-  h+=`<button class="sh-btn navy" id="bNew"><i class="ti ti-plus"></i> Request to track a senior</button>`;
+  let h=`<div class="bwrap"><div class="bsec-h">People you're tracking</div>`;
+  h+=`<button class="sh-btn navy" id="bNew"><i class="ti ti-plus"></i> Request to track someone</button>`;
   if(!mine.length) h+=`<div class="bempty">No requests yet — ask a senior's chamber for access to see his whole board while your matter reaches, and message his team.</div>`;
   else h+=mine.map(l=>{
     if(l.status==="approved") return `<div class="bcard bhi">
@@ -1827,7 +1827,7 @@ function renderBriefInbox(){
       <div class="bsub">wants to track the senior for <b>Ct ${esc(l.court)} · item ${esc(l.item)}</b>${l.title?` — ${esc(l.title)}`:''}${l.note?`<br>“${esc(l.note)}”`:''}</div>
       <div class="bmsgs"><button class="bmsg ok" data-bdec="${esc(l.id)}|approved">Approve</button><button class="bmsg no" data-bdec="${esc(l.id)}|declined">Decline</button></div>
     </div>`).join(""); }
-  h+=`<div class="bsec-h" style="margin-top:${pend.length?16:2}px">Briefing inbox${appr.length?` · ${appr.length}`:''}</div>`;
+  h+=`<div class="bsec-h" style="margin-top:${pend.length?16:2}px">Collaboration inbox${appr.length?` · ${appr.length}`:''}</div>`;
   if(!appr.length) h+=`<div class="bempty">No active briefing conversations.</div>`;
   else{
     const rows=appr.map(l=>({l,k:linkProx(l),unread:threadUnread(l.id),last:threadLast(l.id)}))
@@ -1851,7 +1851,7 @@ function renderBriefThread(id){
   const k=linkProx(l), band=proxBand(k), ss=seniorState();
   const senTxt = ss.court ? (ss.mode==="confirmed"?`confirmed in Court ${esc(ss.court)}`:`likely in Court ${esc(ss.court)}`) : "location not set yet";
   $("main").innerHTML=`<div class="bwrap">
-    <button class="bback" id="bBack"><i class="ti ti-chevron-left"></i> Briefing inbox</button>
+    <button class="bback" id="bBack"><i class="ti ti-chevron-left"></i> Collaboration inbox</button>
     <div class="bcard bhi">
       <div class="brow"><span class="bval">${esc(l.aorName)}</span><span class="bprox ${band}">${esc(k.short||"—")}</span></div>
       <div class="bsub">Their matter: <b>Ct ${esc(l.court)} · item ${esc(l.item)}</b>${l.title?` — ${esc(l.title)}`:''}</div>
