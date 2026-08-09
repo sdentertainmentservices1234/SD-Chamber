@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-08T18:20:26.177971Z",
+  "generated_at": "2026-08-09T05:33:52.985685Z",
   "parser_version": 8,
   "window": [
     "2026-08-10",
@@ -6039,6 +6039,97 @@
             },
             "main": 1,
             "supp": 0
+          },
+          "8": {
+            "coram": "HON'BLE MR. JUSTICE SANJAY KUMAR",
+            "total": "20",
+            "fresh": "",
+            "items": {
+              "1601": "Diary No. 27650-2026 SHRUTI VERSUS APURV WASAN",
+              "1602": "Diary No. 27994-2026 RITWIKA KOLEY NEE PAUL VERSUS PARTHA PRASANTA KOLEY",
+              "1603": "Diary No. 33046-2026 RITU PAREEK VERSUS HARSWARDHAN PAREEK",
+              "1604": "Diary No. 36299-2026 SNEHA SAMANTA VERSUS ARJIT SHAH",
+              "1605": "Diary No. 36945-2026 JIDUGU RAMANUJA SAPNA BAI VERSUS JIDUGU BHARAT KALYAN",
+              "1606": "T.P.(C) No. 2285/2026 ANNU THAKUR VERSUS ABINASH SHARMA",
+              "1607": "T.P.(C) No. 2222/2026 SONAM KAPOOR VERSUS PRATEEK KUMAR",
+              "1608": "T.P.(C) No. 2277/2026 MRS. RIDHI PATHANIA ALIAS RIDHI SABHARWAL VERSUS KRISH SABHARWAL",
+              "1609": "T.P.(C) No. 2221/2026 SAI MAGHALAKSHMI TRADERS AND ORS. VERSUS M/S SRI LAKSHMI SRINIVASA AGRO FOODS AND",
+              "1610": "T.P.(C) No. 2284/2026 NARGIS VERSUS MOHD FARMAN",
+              "1611": "T.P.(C) No. 2304/2026 CHARU GOYAL AND ANR. VERSUS AMIT BANSAL AND ORS.",
+              "1612": "T.P.(C) No. 2278/2026 PRIYA CHAUHAN VERSUS KAPIL CHAUHAN",
+              "1613": "T.P.(C) No. 2281/2026 SONI KUMARI VERSUS RAKESH SINGH ALIAS SHAILENDRA SINGH",
+              "1614": "T.P.(C) No. 2291/2026 SONAL SAINI AND ORS. VERSUS HITENDER SAINI",
+              "1615": "T.P.(C) No. 2288/2026 BEAUTY TIWARI VERSUS CHANDRA PRAKASH",
+              "1616": "T.P.(C) No. 2266/2026 NUPUR VERSUS PAWAN KUMAR",
+              "1617": "T.P.(C) No. 2282/2026 NIVEDITA PRAJAPATI VERSUS SANJEEV KUMAR PRAJAPATI",
+              "1618": "T.P.(C) No. 2269/2026 NEETHU MERIN JOY VERSUS NIDHIN VARGHESE",
+              "1619": "Diary No. 32328-2026 SHAILENDRA KUMAR SINGH VERSUS MAMTA SINGH",
+              "1620": "Diary No. 35129-2026 POONAM SETHI AND ORS. VERSUS GAURAV KHANDUJA"
+            },
+            "advocates": {
+              "1601": {
+                "pet": "ALABHYA DHAMIJA"
+              },
+              "1602": {
+                "pet": "VIKRAM HEGDE"
+              },
+              "1603": {
+                "pet": "ABHISHEK GAUTAM"
+              },
+              "1604": {
+                "pet": "AKSHAY BHANDARI"
+              },
+              "1605": {
+                "pet": "P. SOMA SUNDARAM"
+              },
+              "1606": {
+                "pet": "B. SHRAVANTH SHANKER"
+              },
+              "1607": {
+                "pet": "ABHINAV S. RAGHUVANSHI"
+              },
+              "1608": {
+                "pet": "DINKAR KALRA"
+              },
+              "1609": {
+                "pet": "M. P. SRIVIGNESH"
+              },
+              "1610": {
+                "pet": "SRIRAM P"
+              },
+              "1611": {
+                "pet": "PARMINDER SINGH"
+              },
+              "1612": {
+                "pet": "ANIRUDDHA"
+              },
+              "1613": {
+                "pet": "JAI KRISHNA SINGH"
+              },
+              "1614": {
+                "pet": "NISCHAL KUMAR NEERAJ"
+              },
+              "1615": {
+                "pet": "ANZU. K. VARKEY"
+              },
+              "1616": {
+                "pet": "KARUNAKAR MAHALIK"
+              },
+              "1617": {
+                "pet": "ABHINAV SHRIVASTAVA"
+              },
+              "1618": {
+                "pet": "ABID ALI BEERAN P"
+              },
+              "1619": {
+                "pet": "AKSHAY SAHAY"
+              },
+              "1620": {
+                "pet": "ABHISHEK GAUTAM"
+              }
+            },
+            "main": 0,
+            "supp": 20
           }
         },
         "Registrar": {
@@ -18925,7 +19016,7 @@
       "M_C_1": 545999,
       "M_C_2": 505289,
       "M_S_1": 524910,
-      "M_S_2": 509809,
+      "M_S_2": 516146,
       "M_R_1": 535099,
       "M_R_2": 506028
     },
