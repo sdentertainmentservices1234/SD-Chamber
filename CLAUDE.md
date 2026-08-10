@@ -177,6 +177,20 @@ gap=null for any item not literally in the sequence list, so classify hit the nu
 fallback and reported a "rest" item as over. jsc-verified on the owner's exact example
 (cur21→ours18/19/20 = 5/6/7 away; both-in-rest; already-passed).
 
+**Our-matter passed over, NO sequence declared (owner Aug 2026):** when OUR matter is
+passed over and the court has NOT published a sequence, don't show a bare "recall"
+badge — assume the court takes passovers at the **END of the board** and compute a real
+distance. In `classify`'s passover branch: gap = `(miscTotalFor(court) − currentItem)`
+(matters still to be called before the board finishes) `+ passoversBeforeOurs(court,ours)`
+(other passed-over matters with a lower item number, recalled before ours). Falls back to
+"passed over" (no number, still never the word "recall") only when no causelist total is
+fetched. An explicit "recall after item N" mark with no sequence is honoured in
+item-number space (`N − cur + 1`). The sequence case is unchanged in number (recall at
+the `passIdx` slot, else sequence end) but relabelled from "recall" → "passed over".
+New helper `passoversBeforeOurs`. jsc-verified against the real functions: no-seq
+25-total/cur-3 → 22 away; +2 passovers before → 24; past-end → NEXT; no-total → "passed
+over"; after-item-20 → 18 away.
+
 **Cancelling "over"/PO now actually clears it (owner fix Jul 2026):** `clearDone` /
 `clearPO` wrote the marks map back with `db.set(...,{merge:true})` after `delete`-ing
 the key — but prod Firestore DEEP-merges nested maps, so a removed key PERSISTS: the
