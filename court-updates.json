@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-12T18:44:27.324589Z",
+  "generated_at": "2026-08-13T11:35:53.605992Z",
   "parser_version": 8,
   "window": [
     "2026-08-13",
@@ -23,8 +23,7 @@
         "Regular (main)",
         "Chamber (main)",
         "Single Judge (supp)",
-        "Registrar (main)",
-        "Curative & Review (main)"
+        "Registrar (main)"
       ],
       "lists": {
         "Miscellaneous": {
@@ -17655,8 +17654,7 @@
       "F_J_1": 1040607,
       "M_C_1": 513937,
       "M_S_2": 507412,
-      "M_R_1": 532414,
-      "M_CC_1": 513821
+      "M_R_1": 532414
     },
     "2026-08-14": {
       "M_J_1": 854758,
