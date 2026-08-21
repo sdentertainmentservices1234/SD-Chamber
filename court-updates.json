@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T19:26:15.631910Z",
+  "generated_at": "2026-08-21T06:03:12.027036Z",
   "parser_version": 8,
   "window": [
     "2026-08-21",
@@ -20,8 +20,7 @@
       "lists_found": [
         "Miscellaneous (main)",
         "Miscellaneous (supp)",
-        "Registrar (main)",
-        "Registrar (supp)"
+        "Registrar (main)"
       ],
       "lists": {
         "Miscellaneous": {
@@ -4530,7 +4529,7 @@
         "Registrar": {
           "1": {
             "coram": "SH. APOORV SINGH, REGISTRAR",
-            "total": "34",
+            "total": "33",
             "fresh": "",
             "items": {
               "1": "SLP(Crl) No. SANTRAM AND ANR. VERSUS STATE OF CHHATTISGARH",
@@ -4570,8 +4569,7 @@
               "30": "SLP(C) No. 10954/2026 ASHOK S DHARIWAL VERSUS AJIT RANKA AND ORS.",
               "31": "SLP(C) No. 21471/2026 SHOBHA DEVELOPERS VERSUS STATE OF U.P. AND ORS.",
               "32": "SLP(Crl) No. ABHISHEK SHARMA AND ORS. VERSUS THE STATE OF UTTARAKHAND AND ANR.",
-              "33": "T.P.(C) No. 2033/2026 RAGINI @ ROSY VERSUS BALWINDER SINGH",
-              "34": "Diary No. 27477-2026 MAHADEO SAHKARI DOODH VYAVSAYIK SANTHA VERSUS THE STATE OF MAHARASHTRA AND ORS."
+              "33": "T.P.(C) No. 2033/2026 RAGINI @ ROSY VERSUS BALWINDER SINGH"
             },
             "advocates": {
               "1": {
@@ -4698,13 +4696,10 @@
               },
               "33": {
                 "pet": "SHAGUN MATTA"
-              },
-              "34": {
-                "pet": "PULKIT AGARWAL"
               }
             },
             "main": 33,
-            "supp": 1
+            "supp": 0
           },
           "2": {
             "coram": "MS. GRACY L. BAWITLUNG, REGISTRAR",
@@ -9492,8 +9487,7 @@
     "2026-08-21": {
       "M_J_1": 894630,
       "M_J_2": 616128,
-      "M_R_1": 524482,
-      "M_R_2": 504984
+      "M_R_1": 524482
     },
     "2026-08-24": {
       "M_J_1": 832318,
