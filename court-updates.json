@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-02T16:51:21.706398Z",
+  "generated_at": "2026-09-02T17:30:08.165883Z",
   "parser_version": 8,
   "window": [
     "2026-09-02",
@@ -9222,7 +9222,7 @@
           },
           "11": {
             "coram": "HON'BLE MR. JUSTICE ARAVIND KUMAR HON'BLE MR. JUSTICE VIPUL M. PANCHOLI",
-            "total": "65",
+            "total": "66",
             "fresh": "",
             "items": {
               "1": "Crl.A. No. 1106/2021 SURESH @ TANGU VERSUS THE STATE OF HARYANA",
@@ -9306,7 +9306,8 @@
               "62": "Diary No. 43115-2026 PREM KUMAR SACHDEVA VERSUS STATE OF HARYANA AND ORS.",
               "63": "SLP(C) No. THE KENDRIYA VIDYALAYA SANGATHAN VERSUS MALATHY PISHARASYAR N.S AND ORS.",
               "63.1": "Connected KENDRIYA VIDYALAYA SANGATHAN AND ANR. VERSUS ANJALI DAS AND ORS.",
-              "64": "SLP(C) No. 31262/2026 SRI SUNDAR VINAYAGAR SABHA AND ORS. VERSUS DR SHYAMRAJ AND ORS."
+              "64": "SLP(C) No. 31262/2026 SRI SUNDAR VINAYAGAR SABHA AND ORS. VERSUS DR SHYAMRAJ AND ORS.",
+              "65": "SLP(Crl) No. ASHEESH SAURABH KEDIA VERSUS THE STATE OF JHARKHAND"
             },
             "advocates": {
               "1": {
@@ -9587,10 +9588,14 @@
               },
               "64": {
                 "pet": "T. HARISH KUMAR"
+              },
+              "65": {
+                "pet": "KUMAR PIYUSH PUSHKAR",
+                "resp": "JAYANT MOHAN"
               }
             },
             "main": 53,
-            "supp": 12
+            "supp": 13
           },
           "12": {
             "coram": "HON'BLE MR. JUSTICE PRASHANT KUMAR MISHRA HON'BLE MR. JUSTICE SHREE CHANDRASHEKHAR",
@@ -18344,7 +18349,7 @@
     },
     "2026-09-03": {
       "M_J_1": 890254,
-      "M_J_2": 628361,
+      "M_J_2": 629994,
       "M_C_1": 543819,
       "M_C_2": 534581,
       "M_S_1": 528052,
